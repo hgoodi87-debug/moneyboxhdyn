@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoneyBox 자료실</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/mb-data.js"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+  .nav-link { display:inline-block; padding:.375rem .75rem; border-radius:.5rem; font-size:.875rem; color:#9CA3AF; text-decoration:none; transition:all .15s; white-space:nowrap; }
+  .nav-link:hover { background:#2D3D52; color:#fff; }
+  .nav-link.active { background:#2D3D52; color:#fff; font-weight:600; }
+  .card { background:#fff; border-radius:1rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.5rem .75rem; font-size:.875rem; outline:none; }
+  .input-base:focus { border-color:#F5A623; }
+  .btn-primary { background:#F5A623; color:#fff; padding:.5rem 1rem; border-radius:.5rem; font-size:.875rem; font-weight:600; }
+  .filter-btn { padding:.5rem .75rem; border-radius:.5rem; font-size:.875rem; text-align:left; cursor:pointer; transition:all .15s; }
+  .filter-btn:hover { background:#F5F7FA; }
+  .filter-btn.active { background:#1E2A3A; color:#fff; font-weight:600; }
+  .badge { font-size:.7rem; padding:.15rem .5rem; border-radius:.25rem; font-weight:600; }
+  .badge-거래기록 { background:#DBEAFE; color:#1E40AF; }
+  .badge-계정     { background:#FEE2E2; color:#991B1B; }
+  .badge-기타     { background:#F3F4F6; color:#374151; }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:52px">
+  <div class="flex items-center h-full px-5 gap-4">
+    <div class="shrink-0 pr-4 border-r border-[#2D3D52]">
+      <div class="text-white font-bold text-sm leading-none">MoneyBox</div>
+      <div class="text-[#4B5563] text-[10px] mt-0.5">운영 시스템</div>
+    </div>
+    <nav class="flex gap-0.5 flex-1">
+      <a href="index.html" class="nav-link">대시보드</a>
+      <a href="attendance.html" class="nav-link">근태관리</a>
+      <a href="trading.html" class="nav-link">거래관리</a>
+      <a href="tasks.html" class="nav-link">업무관리</a>
+      <a href="atm.html" class="nav-link">무인기관리</a>
+      <a href="storage.html" class="nav-link">보관함관리</a>
+      <a href="archive.html" class="nav-link">자료실</a>
+    </nav>
+    <div class="flex items-center gap-3 shrink-0 pl-4 border-l border-[#2D3D52]">
+      <div class="text-right leading-none">
+        <p class="text-[#F5A623] text-sm font-semibold" id="current-user">-</p>
+        <p class="text-[#6B7280] text-[11px] mt-0.5" id="current-role">-</p>
+      </div>
+      <div class="text-center">
+        <button id="clock-btn" onclick="handleClockInOut()" class="px-4 py-1.5 rounded-lg bg-[#10B981] text-white font-bold text-xs">출근</button>
+        <p class="text-[#4B5563] text-[10px] mt-0.5" id="clock-status">미출근</p>
+      </div>
+      <button onclick="showChangePwModal()" class="text-[#4B5563] hover:text-[#F5A623] text-sm" title="비밀번호 변경">🔑</button>
+      <button onclick="logoutUser()" class="text-[#4B5563] hover:text-white text-sm" title="로그아웃">⏻</button>
+    </div>
+  </div>
+</header>
+
+<main class="pt-[52px] min-h-screen p-6">
+  <div class="mb-6 flex justify-between items-end">
+    <div>
+      <h2 class="text-2xl font-bold text-[#1A1A2E]">자료실</h2>
+      <p class="text-[#6B7280] text-sm mt-1" id="today-date"></p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-[220px_1fr] gap-5">
+    <!-- 사이드 필터 -->
+    <div class="card h-fit">
+      <h4 class="font-bold mb-3">카테고리</h4>
+      <div class="space-y-1">
+        <div class="filter-btn active" data-cat="">전체 자료</div>
+        <div class="filter-btn" data-cat="거래기록">거래 기록</div>
+        <div class="filter-btn" data-cat="계정">SNS / 업무 계정</div>
+        <div class="filter-btn" data-cat="기타">기타</div>
+      </div>
+      <hr class="my-4">
+      <button onclick="openCredModal()" class="w-full text-left text-sm text-[#F5A623] font-medium hover:underline" id="add-cred-btn">+ 계정 추가</button>
+      <button onclick="archiveTradingMonth()" class="w-full text-left text-sm text-[#F5A623] font-medium hover:underline mt-2">+ 이번 달 거래 보관</button>
+    </div>
+
+    <!-- 메인 -->
+    <div>
+      <div class="card mb-4">
+        <input type="text" id="search-input" placeholder="제목 검색..." oninput="searchArchive()" class="input-base w-full">
+      </div>
+      <div id="archive-list"></div>
+      <div id="pagination" class="flex justify-center gap-1 mt-4"></div>
+    </div>
+  </div>
+</main>
+
+<!-- 비번 열람 모달 -->
+<div id="cred-view-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl p-6 w-[480px]">
+    <h3 class="text-lg font-bold mb-4">계정 정보 열람</h3>
+    <div id="cred-view-body" class="space-y-3 text-sm"></div>
+    <button onclick="document.getElementById('cred-view-modal').classList.add('hidden')" class="w-full mt-5 py-2 rounded-lg bg-gray-100">닫기</button>
+  </div>
+</div>
+
+<!-- 계정 추가 모달 -->
+<div id="cred-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl p-6 w-[520px]">
+    <h3 class="text-lg font-bold mb-4">계정 추가</h3>
+    <div class="grid grid-cols-2 gap-3 text-sm">
+      <div><label class="text-xs text-[#6B7280]">브랜드</label>
+        <select id="cd-brand" class="input-base w-full">
+          <option>머니박스</option><option>빌리버</option><option>딥인코리아</option>
+        </select>
+      </div>
+      <div><label class="text-xs text-[#6B7280]">용도</label><input type="text" id="cd-purpose" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">구글 ID</label><input type="text" id="cd-gid" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">구글 비번</label><input type="text" id="cd-gpw" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">SNS 이름</label><input type="text" id="cd-sname" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">SNS ID</label><input type="text" id="cd-sid" class="input-base w-full"></div>
+      <div class="col-span-2"><label class="text-xs text-[#6B7280]">SNS 비번</label><input type="text" id="cd-spw" class="input-base w-full"></div>
+      <div class="col-span-2"><label class="text-xs text-[#6B7280]">메모</label><input type="text" id="cd-note" class="input-base w-full"></div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="document.getElementById('cred-modal').classList.add('hidden')" class="flex-1 py-2 rounded bg-gray-100">취소</button>
+      <button onclick="saveCred()" class="flex-1 btn-primary">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+mbBoot('archive.html');
+
+const PAGE_SIZE = 10;
+let currentPage = 1;
+let categoryFilter = '';
+let searchQuery = '';
+
+document.querySelectorAll('.filter-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    categoryFilter = b.dataset.cat;
+    currentPage = 1;
+    render();
+  });
+});
+
+if (!isAdmin()) {
+  document.getElementById('add-cred-btn').style.display = 'none';
+}
+
+function searchArchive() {
+  searchQuery = document.getElementById('search-input').value.toLowerCase();
+  currentPage = 1;
+  render();
+}
+
+function render() {
+  const archives = mbGetOrDefault(MB.ARCHIVE_KEY, []);
+  const credentials = mbGetOrDefault(MB.CREDENTIALS_KEY, []).map(c => ({
+    id: c.id,
+    title: `${c.brand} - ${c.purpose}`,
+    category: '계정',
+    uploadedBy: '시스템',
+    uploadedAt: '-',
+    type: 'cred',
+    dataKey: c.id,
+    description: c.note || '',
+    _cred: c,
+  }));
+  let all = [...archives, ...credentials];
+
+  if (categoryFilter) all = all.filter(a => a.category === categoryFilter);
+  if (searchQuery) all = all.filter(a => a.title.toLowerCase().includes(searchQuery));
+
+  const totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const items = all.slice(start, start + PAGE_SIZE);
+
+  document.getElementById('archive-list').innerHTML = items.length === 0
+    ? '<div class="card text-center py-12 text-[#9CA3AF]">자료가 없습니다.</div>'
+    : items.map(a => {
+      const isCred = a.type === 'cred';
+      const canViewCred = isAdmin();
+      const action = isCred
+        ? (canViewCred
+            ? `<button onclick="viewCred('${a.dataKey}')" class="text-sm text-[#F5A623] font-medium">열람</button>
+               <button onclick="deleteCred('${a.dataKey}')" class="text-sm text-[#EF4444] ml-2">삭제</button>`
+            : `<span class="text-xs text-[#9CA3AF]">관리자만 열람</span>`)
+        : `<button onclick="downloadItem('${a.id}')" class="text-sm text-blue-600 font-medium">다운로드</button>
+           <button onclick="deleteArchive('${a.id}')" class="text-sm text-[#EF4444] ml-2">삭제</button>`;
+      return `<div class="card mb-2 flex justify-between items-center">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="badge badge-${a.category}">${a.category}</span>
+            <span class="font-bold text-[#1A1A2E]">${a.title}</span>
+          </div>
+          <p class="text-xs text-[#6B7280]">${a.uploadedAt} · ${a.uploadedBy}${a.description?' · '+a.description:''}</p>
+        </div>
+        <div class="flex gap-2 items-center">${action}</div>
+      </div>`;
+    }).join('');
+
+  let pg = '';
+  for (let i=1; i<=totalPages; i++) {
+    pg += `<button onclick="goPage(${i})" class="px-3 py-1 rounded ${i===currentPage?'bg-[#F5A623] text-white':'bg-white border'}">${i}</button>`;
+  }
+  document.getElementById('pagination').innerHTML = pg;
+}
+function goPage(n) { currentPage = n; render(); }
+
+// ─── 계정 열람/관리 ────────────────────────────────
+function viewCred(id) {
+  const c = mbGetOrDefault(MB.CREDENTIALS_KEY, []).find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('cred-view-body').innerHTML = `
+    <div><span class="text-[#6B7280]">브랜드:</span> <span class="font-medium">${c.brand}</span></div>
+    <div><span class="text-[#6B7280]">용도:</span> <span class="font-medium">${c.purpose||''}</span></div>
+    <hr>
+    <div><span class="text-[#6B7280]">구글 ID:</span> <code class="bg-gray-100 px-2 py-0.5 rounded">${c.googleId||'-'}</code></div>
+    <div><span class="text-[#6B7280]">구글 PW:</span> <code class="bg-red-50 text-red-700 px-2 py-0.5 rounded">${c.googlePw||'-'}</code></div>
+    ${c.snsName ? `<hr><div><span class="text-[#6B7280]">${c.snsName} ID:</span> <code class="bg-gray-100 px-2 py-0.5 rounded">${c.snsId||'-'}</code></div>
+    <div><span class="text-[#6B7280]">${c.snsName} PW:</span> <code class="bg-red-50 text-red-700 px-2 py-0.5 rounded">${c.snsPw||'-'}</code></div>` : ''}
+    ${c.note ? `<hr><div class="text-[#6B7280] text-xs">메모: ${c.note}</div>` : ''}
+  `;
+  document.getElementById('cred-view-modal').classList.remove('hidden');
+}
+function openCredModal() {
+  ['cd-purpose','cd-gid','cd-gpw','cd-sname','cd-sid','cd-spw','cd-note'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('cred-modal').classList.remove('hidden');
+}
+function saveCred() {
+  mbPush(MB.CREDENTIALS_KEY, {
+    id: uid(),
+    brand: document.getElementById('cd-brand').value,
+    purpose: document.getElementById('cd-purpose').value,
+    googleId: document.getElementById('cd-gid').value,
+    googlePw: document.getElementById('cd-gpw').value,
+    snsName: document.getElementById('cd-sname').value,
+    snsId: document.getElementById('cd-sid').value,
+    snsPw: document.getElementById('cd-spw').value,
+    note: document.getElementById('cd-note').value,
+  });
+  document.getElementById('cred-modal').classList.add('hidden');
+  render();
+}
+function deleteCred(id) {
+  if (!isAdmin()) { alert('관리자만 가능'); return; }
+  if (!confirm('삭제?')) return;
+  mbRemove(MB.CREDENTIALS_KEY, x => x.id === id);
+  render();
+}
+function deleteArchive(id) {
+  if (!confirm('삭제?')) return;
+  mbRemove(MB.ARCHIVE_KEY, x => x.id === id);
+  render();
+}
+
+// ─── 다운로드 ──────────────────────────────────────
+function downloadItem(id) {
+  const item = mbGetOrDefault(MB.ARCHIVE_KEY, []).find(a => a.id === id);
+  if (!item) return;
+
+  if (item.dataKey?.startsWith('storage_')) {
+    const ym = item.dataKey.replace('storage_','');
+    const data = mbGetOrDefault(MB.STORAGE_KEY, []).filter(s => s.yearMonth === ym);
+    if (!data.length) { alert('데이터 없음'); return; }
+    const ws = XLSX.utils.json_to_sheet(data.map(d => ({
+      날짜: d.date, 사이즈: d.size, 시작: d.startTime, 종료: d.endTime,
+      금액: d.price, 결제: d.paymentType, 비고: d.note||'',
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '보관함매출');
+    XLSX.writeFile(wb, `${item.title}.xlsx`);
+    return;
+  }
+
+  if (item.dataKey?.startsWith('trading_')) {
+    const ym = item.dataKey.replace('trading_','');
+    const data = mbGetOrDefault(MB.TRANSACTIONS_KEY, []).filter(t => t.date.startsWith(ym));
+    if (!data.length) { alert('데이터 없음'); return; }
+    const ws = XLSX.utils.json_to_sheet(data.map(t => ({
+      날짜: t.date, 카테고리: t.category, 거래처: t.counterparty,
+      거래종류: t.tradeType, 통화: t.currency, 금액: t.amount, 환율: t.rate,
+      한화금액계: calcKrw(t.tradeType,t.amount,t.rate),
+      외화금액계: calcFx(t.tradeType,t.amount),
+      상태: t.status, 메모: t.note||'',
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '거래기록');
+    XLSX.writeFile(wb, `${item.title}.xlsx`);
+    return;
+  }
+
+  if (item.type === 'link') { window.open(item.dataKey, '_blank'); return; }
+  alert('이 자료는 다운로드할 수 없습니다.');
+}
+
+function archiveTradingMonth() {
+  const ym = thisYearMonth();
+  if (!confirm(`${ym} 거래 기록을 자료실에 저장하시겠습니까?`)) return;
+  const archive = mbGetOrDefault(MB.ARCHIVE_KEY, []);
+  const dataKey = `trading_${ym}`;
+  archive.unshift({
+    id: uid(),
+    title: `거래기록_${ym}`,
+    category: '거래기록',
+    uploadedBy: getCurrentUser().name,
+    uploadedAt: today(),
+    type: 'excel',
+    dataKey,
+    description: `${ym} 전체 거래 기록`,
+  });
+  mbSet(MB.ARCHIVE_KEY, archive);
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

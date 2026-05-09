@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoneyBox 거래관리</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/mb-data.js"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+  .nav-link { display:inline-block; padding:.375rem .75rem; border-radius:.5rem; font-size:.875rem; color:#9CA3AF; text-decoration:none; transition:all .15s; white-space:nowrap; }
+  .nav-link:hover { background:#2D3D52; color:#fff; }
+  .nav-link.active { background:#2D3D52; color:#fff; font-weight:600; }
+  .card { background:#fff; border-radius:1rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.5rem .75rem; font-size:.875rem; outline:none; }
+  .input-base:focus { border-color:#F5A623; }
+  .btn-primary { background:#F5A623; color:#fff; padding:.5rem 1rem; border-radius:.5rem; font-size:.875rem; font-weight:600; }
+  .btn-primary:hover { background:#E0951F; }
+  .row-거래처   { background:#fff; }
+  .row-지점간   { background:#EFF6FF; }
+  .row-은행     { background:#ECFDF5; }
+  .row-인천공항 { background:#F5F3FF; }
+  .summary-card { background:#1E2A3A; color:#fff; padding:1rem 1.5rem; border-radius:.75rem; }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:52px">
+  <div class="flex items-center h-full px-5 gap-4">
+    <div class="shrink-0 pr-4 border-r border-[#2D3D52]">
+      <div class="text-white font-bold text-sm leading-none">MoneyBox</div>
+      <div class="text-[#4B5563] text-[10px] mt-0.5">운영 시스템</div>
+    </div>
+    <nav class="flex gap-0.5 flex-1">
+      <a href="index.html" class="nav-link">대시보드</a>
+      <a href="attendance.html" class="nav-link">근태관리</a>
+      <a href="trading.html" class="nav-link">거래관리</a>
+      <a href="tasks.html" class="nav-link">업무관리</a>
+      <a href="atm.html" class="nav-link">무인기관리</a>
+      <a href="storage.html" class="nav-link">보관함관리</a>
+      <a href="archive.html" class="nav-link">자료실</a>
+    </nav>
+    <div class="flex items-center gap-3 shrink-0 pl-4 border-l border-[#2D3D52]">
+      <div class="text-right leading-none">
+        <p class="text-[#F5A623] text-sm font-semibold" id="current-user">-</p>
+        <p class="text-[#6B7280] text-[11px] mt-0.5" id="current-role">-</p>
+      </div>
+      <div class="text-center">
+        <button id="clock-btn" onclick="handleClockInOut()" class="px-4 py-1.5 rounded-lg bg-[#10B981] text-white font-bold text-xs">출근</button>
+        <p class="text-[#4B5563] text-[10px] mt-0.5" id="clock-status">미출근</p>
+      </div>
+      <button onclick="showChangePwModal()" class="text-[#4B5563] hover:text-[#F5A623] text-sm" title="비밀번호 변경">🔑</button>
+      <button onclick="logoutUser()" class="text-[#4B5563] hover:text-white text-sm" title="로그아웃">⏻</button>
+    </div>
+  </div>
+</header>
+
+<main class="pt-[52px] min-h-screen p-6">
+  <div class="mb-6 flex justify-between items-end">
+    <div>
+      <h2 class="text-2xl font-bold text-[#1A1A2E]">거래관리</h2>
+      <p class="text-[#6B7280] text-sm mt-1" id="today-date"></p>
+    </div>
+    <div class="flex items-center gap-2">
+      <input type="date" id="trade-date" class="input-base">
+      <button onclick="openModal()" class="btn-primary">+ 거래 추가</button>
+      <button onclick="exportTrading()" class="px-3 py-2 rounded-lg bg-gray-100 text-sm font-medium">엑셀</button>
+    </div>
+  </div>
+
+  <!-- 요약 카드 -->
+  <div class="grid grid-cols-4 gap-3 mb-5">
+    <div class="summary-card">
+      <p class="text-xs text-[#9CA3AF]">매입 합계</p>
+      <p class="text-xl font-bold text-[#3B82F6] mt-1" id="sum-buy">0</p>
+    </div>
+    <div class="summary-card">
+      <p class="text-xs text-[#9CA3AF]">매각 합계</p>
+      <p class="text-xl font-bold text-[#EF4444] mt-1" id="sum-sell">0</p>
+    </div>
+    <div class="summary-card">
+      <p class="text-xs text-[#9CA3AF]">총계</p>
+      <p class="text-xl font-bold mt-1" id="sum-total">0</p>
+    </div>
+    <div class="summary-card">
+      <p class="text-xs text-[#9CA3AF]">다음날 이월 미수금</p>
+      <p class="text-xl font-bold mt-1 text-[#F5A623]" id="sum-carry">0</p>
+    </div>
+  </div>
+
+  <!-- 카테고리 필터 -->
+  <div class="card">
+    <div class="flex gap-2 mb-3 text-xs">
+      <button class="cat-filter btn-primary" data-cat="">전체</button>
+      <button class="cat-filter px-3 py-1.5 rounded bg-gray-100" data-cat="거래처">거래처</button>
+      <button class="cat-filter px-3 py-1.5 rounded bg-blue-100" data-cat="지점간">지점간</button>
+      <button class="cat-filter px-3 py-1.5 rounded bg-green-100" data-cat="은행">은행</button>
+      <button class="cat-filter px-3 py-1.5 rounded bg-purple-100" data-cat="인천공항">인천공항</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" style="min-width:1300px;">
+        <thead class="bg-[#F5F7FA] text-[#6B7280]">
+          <tr>
+            <th class="py-2.5 px-2 text-center">No.</th>
+            <th class="py-2.5 px-2 text-left">날짜</th>
+            <th class="py-2.5 px-2 text-left">카테고리</th>
+            <th class="py-2.5 px-2 text-left">거래처/비고</th>
+            <th class="py-2.5 px-2 text-center">거래종류</th>
+            <th class="py-2.5 px-2 text-center">통화</th>
+            <th class="py-2.5 px-2 text-right">금액</th>
+            <th class="py-2.5 px-2 text-right">환율</th>
+            <th class="py-2.5 px-2 text-right">한화금액계</th>
+            <th class="py-2.5 px-2 text-right">외화금액계</th>
+            <th class="py-2.5 px-2 text-center">상태</th>
+            <th class="py-2.5 px-2"></th>
+          </tr>
+        </thead>
+        <tbody id="trade-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- 거래 추가/수정 모달 -->
+<div id="trade-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl p-6 w-[560px] max-h-[90vh] overflow-y-auto">
+    <h3 class="text-lg font-bold mb-4" id="modal-title">거래 추가</h3>
+    <input type="hidden" id="tx-id">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="text-xs text-[#6B7280]">날짜</label>
+        <input type="date" id="tx-date" class="input-base w-full">
+      </div>
+      <div>
+        <label class="text-xs text-[#6B7280]">카테고리</label>
+        <select id="tx-cat" class="input-base w-full">
+          <option value="거래처">거래처</option>
+          <option value="지점간">지점간</option>
+          <option value="은행">은행</option>
+          <option value="인천공항">인천공항</option>
+        </select>
+      </div>
+      <div class="col-span-2">
+        <label class="text-xs text-[#6B7280]">거래처/비고</label>
+        <input type="text" id="tx-cp" class="input-base w-full">
+      </div>
+      <div>
+        <label class="text-xs text-[#6B7280]">거래종류</label>
+        <select id="tx-type" class="input-base w-full" onchange="recalcModal()">
+          <option>매각</option><option>매입</option>
+          <option>지급완료</option><option>외화미수금</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-[#6B7280]">상태</label>
+        <select id="tx-status" class="input-base w-full">
+          <option>완료</option><option>미수령</option><option>이월</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-[#6B7280]">통화</label>
+        <select id="tx-currency" class="input-base w-full"></select>
+      </div>
+      <div>
+        <label class="text-xs text-[#6B7280]">금액</label>
+        <input type="number" id="tx-amount" class="input-base w-full" oninput="recalcModal()">
+      </div>
+      <div>
+        <label class="text-xs text-[#6B7280]">환율</label>
+        <input type="number" id="tx-rate" step="0.01" class="input-base w-full" oninput="recalcModal()">
+      </div>
+      <div>
+        <label class="text-xs text-[#6B7280]">한화 자동계산</label>
+        <input type="text" id="tx-krw" class="input-base w-full bg-gray-50" readonly>
+      </div>
+      <div class="col-span-2">
+        <label class="text-xs text-[#6B7280]">메모</label>
+        <input type="text" id="tx-note" class="input-base w-full">
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="closeModal()" class="flex-1 py-2 rounded-lg bg-gray-100">취소</button>
+      <button onclick="saveTrade()" class="flex-1 btn-primary">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+mbBoot('trading.html');
+
+let currentDate = today();
+let categoryFilter = '';
+document.getElementById('trade-date').value = currentDate;
+document.getElementById('trade-date').addEventListener('change', e => {
+  currentDate = e.target.value; render();
+});
+document.getElementById('tx-currency').innerHTML = MB.CURRENCIES.map(c=>`<option>${c}</option>`).join('');
+
+document.querySelectorAll('.cat-filter').forEach(b => {
+  b.addEventListener('click', () => {
+    categoryFilter = b.dataset.cat;
+    document.querySelectorAll('.cat-filter').forEach(x => x.className = x.dataset.cat ? `cat-filter px-3 py-1.5 rounded ${x.dataset.cat==='지점간'?'bg-blue-100':x.dataset.cat==='은행'?'bg-green-100':x.dataset.cat==='인천공항'?'bg-purple-100':'bg-gray-100'}` : 'cat-filter px-3 py-1.5 rounded bg-gray-100');
+    b.className = 'cat-filter btn-primary';
+    render();
+  });
+});
+
+function openModal(tx) {
+  document.getElementById('trade-modal').classList.remove('hidden');
+  if (tx) {
+    document.getElementById('modal-title').textContent = '거래 수정';
+    document.getElementById('tx-id').value = tx.id;
+    document.getElementById('tx-date').value = tx.date;
+    document.getElementById('tx-cat').value = tx.category;
+    document.getElementById('tx-cp').value = tx.counterparty || '';
+    document.getElementById('tx-type').value = tx.tradeType;
+    document.getElementById('tx-status').value = tx.status;
+    document.getElementById('tx-currency').value = tx.currency;
+    document.getElementById('tx-amount').value = tx.amount;
+    document.getElementById('tx-rate').value = tx.rate;
+    document.getElementById('tx-note').value = tx.note || '';
+  } else {
+    document.getElementById('modal-title').textContent = '거래 추가';
+    document.getElementById('tx-id').value = '';
+    document.getElementById('tx-date').value = currentDate;
+    document.getElementById('tx-cat').value = '거래처';
+    document.getElementById('tx-cp').value = '';
+    document.getElementById('tx-type').value = '매각';
+    document.getElementById('tx-status').value = '완료';
+    document.getElementById('tx-currency').value = 'USD';
+    document.getElementById('tx-amount').value = '';
+    document.getElementById('tx-rate').value = '';
+    document.getElementById('tx-note').value = '';
+  }
+  recalcModal();
+}
+function closeModal() { document.getElementById('trade-modal').classList.add('hidden'); }
+function recalcModal() {
+  const t = document.getElementById('tx-type').value;
+  const a = Number(document.getElementById('tx-amount').value);
+  const r = Number(document.getElementById('tx-rate').value);
+  document.getElementById('tx-krw').value = fmtSigned(calcKrw(t, a, r));
+}
+function saveTrade() {
+  const id = document.getElementById('tx-id').value;
+  const tradeType = document.getElementById('tx-type').value;
+  const amount = Number(document.getElementById('tx-amount').value);
+  const rate = Number(document.getElementById('tx-rate').value);
+  if (!amount) { alert('금액 필요'); return; }
+  const tx = {
+    id: id || uid(),
+    date: document.getElementById('tx-date').value,
+    category: document.getElementById('tx-cat').value,
+    counterparty: document.getElementById('tx-cp').value,
+    tradeType, currency: document.getElementById('tx-currency').value,
+    amount, rate,
+    krwAmount: calcKrw(tradeType, amount, rate),
+    fxAmount: calcFx(tradeType, amount),
+    note: document.getElementById('tx-note').value,
+    status: document.getElementById('tx-status').value,
+  };
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  if (id) {
+    const idx = list.findIndex(x => x.id === id);
+    if (idx >= 0) list[idx] = { ...list[idx], ...tx };
+  } else {
+    list.push(tx);
+  }
+  mbSet(MB.TRANSACTIONS_KEY, list);
+  closeModal();
+  render();
+}
+function deleteTx(id) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  mbRemove(MB.TRANSACTIONS_KEY, x => x.id === id);
+  render();
+}
+function editTx(id) {
+  const tx = mbGetOrDefault(MB.TRANSACTIONS_KEY, []).find(x => x.id === id);
+  if (tx) openModal(tx);
+}
+function render() {
+  let list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []).filter(x => x.date === currentDate);
+  if (categoryFilter) list = list.filter(x => x.category === categoryFilter);
+  list.sort((a,b) => (a.id||'').localeCompare(b.id||''));
+
+  document.getElementById('trade-tbody').innerHTML = list.length === 0
+    ? '<tr><td colspan="12" class="py-8 text-center text-[#9CA3AF]">거래 없음</td></tr>'
+    : list.map((t, i) => {
+      const krw = calcKrw(t.tradeType, t.amount, t.rate);
+      const fx = calcFx(t.tradeType, t.amount);
+      const krwCls = krw > 0 ? 'text-[#EF4444]' : krw < 0 ? 'text-[#3B82F6]' : '';
+      return `<tr class="row-${t.category} border-b">
+        <td class="py-2 px-2 text-center text-[#9CA3AF]">${i+1}</td>
+        <td class="py-2 px-2">${t.date}</td>
+        <td class="py-2 px-2"><span class="text-xs px-2 py-0.5 rounded bg-white/60">${t.category}</span></td>
+        <td class="py-2 px-2">${t.counterparty || ''}${t.note?`<div class="text-xs text-[#6B7280]">${t.note}</div>`:''}</td>
+        <td class="py-2 px-2 text-center">${t.tradeType}</td>
+        <td class="py-2 px-2 text-center font-bold">${t.currency}</td>
+        <td class="py-2 px-2 text-right">${fmtNum(t.amount)}</td>
+        <td class="py-2 px-2 text-right">${t.rate||''}</td>
+        <td class="py-2 px-2 text-right font-bold ${krwCls}">${fmtSigned(krw)}</td>
+        <td class="py-2 px-2 text-right">${fmtSigned(fx)}</td>
+        <td class="py-2 px-2 text-center"><span class="text-xs">${t.status}</span></td>
+        <td class="py-2 px-2 text-right whitespace-nowrap">
+          <button onclick="editTx('${t.id}')" class="text-xs text-blue-600 mr-1">수정</button>
+          <button onclick="deleteTx('${t.id}')" class="text-xs text-[#EF4444]">삭제</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+  // 요약 (모든 카테고리)
+  const all = mbGetOrDefault(MB.TRANSACTIONS_KEY, []).filter(x => x.date === currentDate);
+  let buy = 0, sell = 0;
+  all.forEach(t => {
+    const krw = calcKrw(t.tradeType, t.amount, t.rate);
+    if (t.tradeType === '매각') sell += krw;
+    if (t.tradeType === '매입') buy += krw;
+  });
+  document.getElementById('sum-buy').textContent = fmtSigned(buy);
+  document.getElementById('sum-sell').textContent = fmtSigned(sell);
+  const total = buy + sell;
+  document.getElementById('sum-total').textContent = fmtSigned(total);
+  document.getElementById('sum-total').className = 'text-xl font-bold mt-1 ' + (total>0?'text-[#EF4444]':total<0?'text-[#3B82F6]':'');
+  document.getElementById('sum-carry').textContent = fmtSigned(total);
+}
+function exportTrading() {
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []).filter(x => x.date === currentDate);
+  const rows = [['날짜','카테고리','거래처','거래종류','통화','금액','환율','한화금액계','외화금액계','상태','메모']];
+  list.forEach(t => {
+    rows.push([t.date,t.category,t.counterparty||'',t.tradeType,t.currency,t.amount,t.rate,
+      calcKrw(t.tradeType,t.amount,t.rate), calcFx(t.tradeType,t.amount), t.status, t.note||'']);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '거래');
+  XLSX.writeFile(wb, `거래_${currentDate}.xlsx`);
+}
+render();
+</script>
+</body>
+</html>

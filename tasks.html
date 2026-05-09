@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoneyBox 업무관리</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="js/mb-data.js"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+  .nav-link { display:inline-block; padding:.375rem .75rem; border-radius:.5rem; font-size:.875rem; color:#9CA3AF; text-decoration:none; transition:all .15s; white-space:nowrap; }
+  .nav-link:hover { background:#2D3D52; color:#fff; }
+  .nav-link.active { background:#2D3D52; color:#fff; font-weight:600; }
+  .branch-col { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .bundle { background:#FAFBFC; border-radius:.75rem; padding:1rem; margin-bottom:.75rem; border:1px solid #F3F4F6; }
+  .bundle.complete { background:#F0FDF4; border-color:#86EFAC; }
+  .bundle.assignee-done { background:#FFF8EC; border-color:#FCD34D; }
+  .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.4rem .6rem; font-size:.85rem; outline:none; }
+  .btn-primary { background:#F5A623; color:#fff; padding:.4rem 1rem; border-radius:.5rem; font-size:.85rem; font-weight:600; }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:52px">
+  <div class="flex items-center h-full px-5 gap-4">
+    <div class="shrink-0 pr-4 border-r border-[#2D3D52]">
+      <div class="text-white font-bold text-sm leading-none">MoneyBox</div>
+      <div class="text-[#4B5563] text-[10px] mt-0.5">운영 시스템</div>
+    </div>
+    <nav class="flex gap-0.5 flex-1">
+      <a href="index.html" class="nav-link">대시보드</a>
+      <a href="attendance.html" class="nav-link">근태관리</a>
+      <a href="trading.html" class="nav-link">거래관리</a>
+      <a href="tasks.html" class="nav-link">업무관리</a>
+      <a href="atm.html" class="nav-link">무인기관리</a>
+      <a href="storage.html" class="nav-link">보관함관리</a>
+      <a href="archive.html" class="nav-link">자료실</a>
+    </nav>
+    <div class="flex items-center gap-3 shrink-0 pl-4 border-l border-[#2D3D52]">
+      <div class="text-right leading-none">
+        <p class="text-[#F5A623] text-sm font-semibold" id="current-user">-</p>
+        <p class="text-[#6B7280] text-[11px] mt-0.5" id="current-role">-</p>
+      </div>
+      <div class="text-center">
+        <button id="clock-btn" onclick="handleClockInOut()" class="px-4 py-1.5 rounded-lg bg-[#10B981] text-white font-bold text-xs">출근</button>
+        <p class="text-[#4B5563] text-[10px] mt-0.5" id="clock-status">미출근</p>
+      </div>
+      <button onclick="showChangePwModal()" class="text-[#4B5563] hover:text-[#F5A623] text-sm" title="비밀번호 변경">🔑</button>
+      <button onclick="logoutUser()" class="text-[#4B5563] hover:text-white text-sm" title="로그아웃">⏻</button>
+    </div>
+  </div>
+</header>
+
+<main class="pt-[52px] min-h-screen p-6">
+  <div class="mb-6 flex justify-between items-end">
+    <div>
+      <h2 class="text-2xl font-bold text-[#1A1A2E]">업무관리</h2>
+      <p class="text-[#6B7280] text-sm mt-1" id="today-date"></p>
+    </div>
+    <div class="text-sm text-[#6B7280]">
+      모든 업무 체크 → 담당자 체크 → 퇴근 가능
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-5">
+    <!-- 홍대 -->
+    <div class="branch-col">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-[#1A1A2E]">홍대점</h3>
+        <span id="hd-progress" class="text-xs text-[#6B7280]">0/0</span>
+      </div>
+      <div id="hongdae-bundles"></div>
+    </div>
+    <!-- 연남 -->
+    <div class="branch-col">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-[#1A1A2E]">연남점</h3>
+        <span id="yn-progress" class="text-xs text-[#6B7280]">0/0</span>
+      </div>
+      <div id="yeongnam-bundles"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+mbBoot('tasks.html');
+
+// 업무 골격 정의
+const TASK_TEMPLATE = {
+  '홍대': [
+    { id:'hd-open', label:'09:00 오픈', icon:'🌅', tasks:[
+      { id:'hd-o-1', text:'오픈 점검' },
+      { id:'hd-o-2', text:'환율 세팅' },
+      { id:'hd-o-3', text:'CEMS 점검' },
+    ]},
+    { id:'hd-mid', label:'12:00~15:00 미드', icon:'☀️', tasks:[
+      { id:'hd-m-1', text:'구글 리뷰 응대' },
+      { id:'hd-m-2', text:'샤오홍슈 포스팅' },
+    ]},
+    { id:'hd-close', label:'18:00 마감', icon:'🌙', tasks:[
+      { id:'hd-c-1', text:'마감 시재 정리' },
+      { id:'hd-c-2', text:'환율 퇴근전 세팅' },
+      { id:'hd-c-3', text:'SNS 게시' },
+    ]},
+  ],
+  '연남': [
+    { id:'yn-open', label:'09:00 오픈', icon:'🌅', tasks:[
+      { id:'yn-o-1', text:'오픈 점검' },
+      { id:'yn-o-2', text:'환율 세팅' },
+    ]},
+    { id:'yn-mid', label:'12:00~15:00 미드', icon:'☀️', tasks:[
+      { id:'yn-m-1', text:'구글 리뷰 응대' },
+      { id:'yn-m-2', text:'포스팅' },
+    ]},
+    { id:'yn-close', label:'18:00 마감', icon:'🌙', tasks:[
+      { id:'yn-c-1', text:'마감 시재 정리' },
+      { id:'yn-c-2', text:'환율 퇴근전 세팅' },
+      { id:'yn-c-3', text:'SNS 게시' },
+    ]},
+  ],
+};
+
+function getChecklist() {
+  const cl = mbGetOrDefault(MB.CHECKLIST_KEY, {});
+  if (!cl[today()]) cl[today()] = { tasks: {}, assignees: {} };
+  return cl;
+}
+function saveChecklist(cl) { mbSet(MB.CHECKLIST_KEY, cl); }
+
+function onTaskCheck(branch, bundleId, taskId, checkbox) {
+  const cl = getChecklist();
+  cl[today()].tasks[taskId] = checkbox.checked;
+  saveChecklist(cl);
+  renderBranch(branch);
+}
+
+function onAssigneeCheck(branch, bundleId, checkbox) {
+  const bundle = TASK_TEMPLATE[branch].find(b => b.id === bundleId);
+  const cl = getChecklist();
+  const allDone = bundle.tasks.every(t => cl[today()].tasks[t.id] === true);
+  if (!allDone && checkbox.checked) {
+    alert('모든 업무를 완료해야 담당자 체크가 가능합니다.');
+    checkbox.checked = false;
+    return;
+  }
+  cl[today()].assignees[bundleId] = {
+    employeeId: getCurrentUser().id,
+    name: getCurrentUser().name,
+    checked: checkbox.checked,
+    at: nowTs(),
+  };
+  saveChecklist(cl);
+  refreshTaskGate(branch);
+  renderBranch(branch);
+}
+
+function refreshTaskGate(branch) {
+  const user = getCurrentUser();
+  if (!user) return;
+  const cl = getChecklist();
+  const myBundles = TASK_TEMPLATE[user.branch] || [];
+  const ok = myBundles.some(b => {
+    const a = cl[today()].assignees[b.id];
+    if (!a || a.employeeId !== user.id || !a.checked) return false;
+    return b.tasks.every(t => cl[today()].tasks[t.id]);
+  });
+  const gate = mbGetOrDefault(MB.TASK_GATE_KEY, {});
+  if (!gate[today()]) gate[today()] = {};
+  gate[today()][user.id] = ok;
+  mbSet(MB.TASK_GATE_KEY, gate);
+  renderClockBtn();
+}
+
+function renderBranch(branch) {
+  const cl = getChecklist();
+  const todayCl = cl[today()];
+  const bundles = TASK_TEMPLATE[branch];
+  let totalDone = 0, totalTasks = 0;
+  const html = bundles.map(b => {
+    const allDone = b.tasks.every(t => todayCl.tasks[t.id]);
+    const a = todayCl.assignees[b.id];
+    const aDone = a?.checked;
+    let cls = 'bundle';
+    if (aDone) cls += ' assignee-done';
+    else if (allDone) cls += ' complete';
+    const taskHtml = b.tasks.map(t => {
+      totalTasks++;
+      const checked = todayCl.tasks[t.id] === true;
+      if (checked) totalDone++;
+      return `<li class="flex items-center gap-2">
+        <input type="checkbox" id="cb-${t.id}" ${checked?'checked':''}
+          onchange="onTaskCheck('${branch}','${b.id}','${t.id}',this)"
+          class="w-4 h-4 accent-[#F5A623]">
+        <label for="cb-${t.id}" class="text-sm ${checked?'line-through text-[#9CA3AF]':''}">${t.text}</label>
+      </li>`;
+    }).join('');
+    return `<div class="${cls}">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-xs font-bold text-[#F5A623]">${b.icon} ${b.label}</span>
+        <span class="text-xs text-[#6B7280]">${b.tasks.filter(t=>todayCl.tasks[t.id]).length}/${b.tasks.length}</span>
+      </div>
+      <ul class="space-y-1.5 mb-3">${taskHtml}</ul>
+      <div class="pt-2 border-t flex items-center gap-2">
+        <input type="checkbox" id="ac-${b.id}" ${aDone?'checked':''}
+          onchange="onAssigneeCheck('${branch}','${b.id}',this)"
+          class="w-4 h-4 accent-[#F59E0B]">
+        <label for="ac-${b.id}" class="text-sm font-medium ${aDone?'text-[#92400E]':''}">
+          담당자 확인 ${a?.name ? `· ${a.name}` : ''}
+        </label>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById(branch === '홍대' ? 'hongdae-bundles' : 'yeongnam-bundles').innerHTML = html;
+  document.getElementById(branch === '홍대' ? 'hd-progress' : 'yn-progress').textContent = `${totalDone}/${totalTasks}`;
+}
+
+renderBranch('홍대');
+renderBranch('연남');
+</script>
+</body>
+</html>

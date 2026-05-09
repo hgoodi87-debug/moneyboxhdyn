@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoneyBox 무인기관리</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="js/mb-data.js"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+  .nav-link { display:inline-block; padding:.375rem .75rem; border-radius:.5rem; font-size:.875rem; color:#9CA3AF; text-decoration:none; transition:all .15s; white-space:nowrap; }
+  .nav-link:hover { background:#2D3D52; color:#fff; }
+  .nav-link.active { background:#2D3D52; color:#fff; font-weight:600; }
+  .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.5rem .75rem; font-size:.875rem; outline:none; }
+  .input-base:focus { border-color:#F5A623; }
+  .btn-primary { background:#F5A623; color:#fff; padding:.5rem 1rem; border-radius:.5rem; font-size:.875rem; font-weight:600; }
+  .btn-success { background:#10B981; color:#fff; padding:.625rem 1.25rem; border-radius:.5rem; font-weight:600; }
+  .tab-btn { padding:.625rem 1.25rem; font-size:.875rem; font-weight:600; color:#6B7280; border-bottom:2px solid transparent; }
+  .tab-btn.active { color:#F5A623; border-bottom-color:#F5A623; }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:52px">
+  <div class="flex items-center h-full px-5 gap-4">
+    <div class="shrink-0 pr-4 border-r border-[#2D3D52]">
+      <div class="text-white font-bold text-sm leading-none">MoneyBox</div>
+      <div class="text-[#4B5563] text-[10px] mt-0.5">운영 시스템</div>
+    </div>
+    <nav class="flex gap-0.5 flex-1">
+      <a href="index.html" class="nav-link">대시보드</a>
+      <a href="attendance.html" class="nav-link">근태관리</a>
+      <a href="trading.html" class="nav-link">거래관리</a>
+      <a href="tasks.html" class="nav-link">업무관리</a>
+      <a href="atm.html" class="nav-link">무인기관리</a>
+      <a href="storage.html" class="nav-link">보관함관리</a>
+      <a href="archive.html" class="nav-link">자료실</a>
+    </nav>
+    <div class="flex items-center gap-3 shrink-0 pl-4 border-l border-[#2D3D52]">
+      <div class="text-right leading-none">
+        <p class="text-[#F5A623] text-sm font-semibold" id="current-user">-</p>
+        <p class="text-[#6B7280] text-[11px] mt-0.5" id="current-role">-</p>
+      </div>
+      <div class="text-center">
+        <button id="clock-btn" onclick="handleClockInOut()" class="px-4 py-1.5 rounded-lg bg-[#10B981] text-white font-bold text-xs">출근</button>
+        <p class="text-[#4B5563] text-[10px] mt-0.5" id="clock-status">미출근</p>
+      </div>
+      <button onclick="showChangePwModal()" class="text-[#4B5563] hover:text-[#F5A623] text-sm" title="비밀번호 변경">🔑</button>
+      <button onclick="logoutUser()" class="text-[#4B5563] hover:text-white text-sm" title="로그아웃">⏻</button>
+    </div>
+  </div>
+</header>
+
+<main class="pt-[52px] min-h-screen p-6">
+  <div class="mb-6 flex justify-between items-end">
+    <div>
+      <h2 class="text-2xl font-bold text-[#1A1A2E]">무인기관리 <span class="text-sm font-normal text-[#6B7280] ml-2">홍대점</span></h2>
+      <p class="text-[#6B7280] text-sm mt-1" id="today-date"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="flex border-b mb-5">
+      <button class="tab-btn active" data-tab="refill">시재 보충</button>
+      <button class="tab-btn" data-tab="settle">시재 정산</button>
+      <button class="tab-btn" data-tab="issues">특이사항</button>
+      <button class="tab-btn" data-tab="close">마감</button>
+    </div>
+
+    <!-- 탭 1: 시재 보충 -->
+    <div id="tab-refill">
+      <div class="bg-[#FAFBFC] rounded-xl p-4 mb-4">
+        <h4 class="font-bold mb-3">+ 보충 기록 추가</h4>
+        <div class="grid grid-cols-6 gap-2 mb-2 text-xs">
+          <div><label class="text-[#6B7280]">5만원 묶음</label><input type="number" id="rf-50k" value="0" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">1만원 묶음</label><input type="number" id="rf-10k" value="0" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">5천원 묶음</label><input type="number" id="rf-5k" value="0" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">1천원 묶음</label><input type="number" id="rf-1k" value="0" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">500원 묶음</label><input type="number" id="rf-500" value="0" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">100원 묶음</label><input type="number" id="rf-100" value="0" class="input-base w-full"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 items-end">
+          <div><label class="text-xs text-[#6B7280]">메모</label><input type="text" id="rf-note" class="input-base w-full"></div>
+          <div><label class="text-xs text-[#6B7280]">총 보충 금액 (자동)</label><div id="rf-total" class="text-xl font-bold text-[#F5A623]">0원</div></div>
+          <button onclick="saveRefill()" class="btn-primary">저장</button>
+        </div>
+      </div>
+
+      <table class="w-full text-sm">
+        <thead class="bg-[#F5F7FA] text-[#6B7280]">
+          <tr>
+            <th class="py-2 px-2 text-left">날짜/시간</th>
+            <th class="py-2 px-2 text-center">5만</th>
+            <th class="py-2 px-2 text-center">1만</th>
+            <th class="py-2 px-2 text-center">5천</th>
+            <th class="py-2 px-2 text-center">1천</th>
+            <th class="py-2 px-2 text-center">500</th>
+            <th class="py-2 px-2 text-center">100</th>
+            <th class="py-2 px-2 text-right">금액</th>
+            <th class="py-2 px-2 text-left">담당자</th>
+            <th class="py-2 px-2"></th>
+          </tr>
+        </thead>
+        <tbody id="refill-list"></tbody>
+      </table>
+    </div>
+
+    <!-- 탭 2: 시재 정산 -->
+    <div id="tab-settle" class="hidden">
+      <p class="text-sm text-[#6B7280] mb-3">요일별 권종 장수를 입력하면 금액이 자동 계산됩니다.</p>
+      <table class="w-full text-sm">
+        <thead class="bg-[#F5F7FA] text-[#6B7280]">
+          <tr>
+            <th class="py-2 px-2">요일</th>
+            <th class="py-2 px-2">5만원 장</th>
+            <th class="py-2 px-2 text-right">5만원 금액</th>
+            <th class="py-2 px-2">1만원 장</th>
+            <th class="py-2 px-2 text-right">1만원 금액</th>
+            <th class="py-2 px-2">5천원 장</th>
+            <th class="py-2 px-2">1천원 장</th>
+            <th class="py-2 px-2">500원 개</th>
+            <th class="py-2 px-2">100원 개</th>
+            <th class="py-2 px-2 text-right">합계</th>
+          </tr>
+        </thead>
+        <tbody id="settle-rows"></tbody>
+      </table>
+    </div>
+
+    <!-- 탭 3: 특이사항 -->
+    <div id="tab-issues" class="hidden">
+      <button onclick="openIssueModal()" class="btn-primary mb-4">+ 특이사항 추가</button>
+      <table class="w-full text-sm">
+        <thead class="bg-[#F5F7FA] text-[#6B7280]">
+          <tr>
+            <th class="py-2 px-2 text-left">날짜</th>
+            <th class="py-2 px-2 text-left">이름</th>
+            <th class="py-2 px-2 text-center">통화</th>
+            <th class="py-2 px-2 text-right">거래금액</th>
+            <th class="py-2 px-2 text-right">환율</th>
+            <th class="py-2 px-2 text-right">실수령액</th>
+            <th class="py-2 px-2 text-center">수령여부</th>
+            <th class="py-2 px-2 text-right">미수금액</th>
+            <th class="py-2 px-2"></th>
+          </tr>
+        </thead>
+        <tbody id="issues-list"></tbody>
+      </table>
+    </div>
+
+    <!-- 탭 4: 마감 (퇴근 게이트) -->
+    <div id="tab-close" class="hidden">
+      <div class="bg-gradient-to-br from-[#F5A623] to-[#E0951F] text-white rounded-xl p-5 mb-5">
+        <h4 class="text-lg font-bold mb-1">무인기 마감 점검</h4>
+        <p class="text-sm opacity-90">권종별 장수를 입력하고 [마감 완료]를 누르면 퇴근 버튼이 활성화됩니다.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-6">
+        <div>
+          <h4 class="font-bold mb-3">권종별 시재</h4>
+          <table class="w-full text-sm">
+            <thead class="bg-[#F5F7FA] text-[#6B7280]"><tr><th class="py-2 px-2">권종</th><th>장수</th><th class="text-right">금액</th></tr></thead>
+            <tbody>
+              <tr class="border-b"><td class="py-2 px-2">5만원권</td><td><input type="number" id="cl-50k" value="0" oninput="recalcClose()" class="input-base w-24"></td><td class="text-right" id="cl-50k-amt">0</td></tr>
+              <tr class="border-b"><td class="py-2 px-2">1만원권</td><td><input type="number" id="cl-10k" value="0" oninput="recalcClose()" class="input-base w-24"></td><td class="text-right" id="cl-10k-amt">0</td></tr>
+              <tr class="border-b"><td class="py-2 px-2">5천원권</td><td><input type="number" id="cl-5k" value="0" oninput="recalcClose()" class="input-base w-24"></td><td class="text-right" id="cl-5k-amt">0</td></tr>
+              <tr class="border-b"><td class="py-2 px-2">1천원권</td><td><input type="number" id="cl-1k" value="0" oninput="recalcClose()" class="input-base w-24"></td><td class="text-right" id="cl-1k-amt">0</td></tr>
+              <tr class="border-b"><td class="py-2 px-2">500원</td><td><input type="number" id="cl-500" value="0" oninput="recalcClose()" class="input-base w-24"></td><td class="text-right" id="cl-500-amt">0</td></tr>
+              <tr class="border-b"><td class="py-2 px-2">100원</td><td><input type="number" id="cl-100" value="0" oninput="recalcClose()" class="input-base w-24"></td><td class="text-right" id="cl-100-amt">0</td></tr>
+              <tr class="font-bold bg-[#FFF8EC]"><td class="py-2 px-2">합계</td><td></td><td class="text-right" id="cl-total">0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h4 class="font-bold mb-3">차이 분석</h4>
+          <div class="bg-[#FAFBFC] rounded-xl p-4 space-y-3">
+            <div class="flex justify-between"><span class="text-[#6B7280]">실제 시재 합계</span><span class="font-bold" id="cl-actual">0원</span></div>
+            <div class="flex justify-between"><span class="text-[#6B7280]">전산 시재 (오늘 보충)</span><span class="font-bold" id="cl-system">0원</span></div>
+            <div class="border-t pt-3 flex justify-between text-lg"><span class="font-bold">차이</span><span class="font-bold" id="cl-diff">0원</span></div>
+          </div>
+          <div class="mt-5 text-center">
+            <p class="text-sm text-[#6B7280] mb-2" id="atm-gate-status"></p>
+            <button onclick="completeDailyCheck()" class="btn-success w-full text-base">마감 완료 & 담당자 확인</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- 특이사항 모달 -->
+<div id="issue-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl p-6 w-[480px]">
+    <h3 class="text-lg font-bold mb-4">특이사항 추가</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="text-xs text-[#6B7280]">날짜</label><input type="date" id="is-date" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">이름</label><input type="text" id="is-name" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">통화</label><select id="is-cur" class="input-base w-full"></select></div>
+      <div><label class="text-xs text-[#6B7280]">거래금액</label><input type="number" id="is-amt" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">환율</label><input type="number" id="is-rate" step="0.01" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">실수령액</label><input type="number" id="is-paid" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">수령여부</label>
+        <select id="is-status" class="input-base w-full">
+          <option>수령완료</option><option>부분수령</option><option>미수령</option>
+        </select>
+      </div>
+      <div><label class="text-xs text-[#6B7280]">미수금액</label><input type="number" id="is-unpaid" value="0" class="input-base w-full"></div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="closeIssueModal()" class="flex-1 py-2 rounded bg-gray-100">취소</button>
+      <button onclick="saveIssue()" class="flex-1 btn-primary">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+mbBoot('atm.html');
+
+document.querySelectorAll('.tab-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    ['refill','settle','issues','close'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
+    document.getElementById('tab-'+b.dataset.tab).classList.remove('hidden');
+    if (b.dataset.tab === 'settle') renderSettle();
+    if (b.dataset.tab === 'issues') renderIssues();
+    if (b.dataset.tab === 'close') updateGateStatus();
+  });
+});
+
+document.getElementById('is-cur').innerHTML = MB.CURRENCIES.map(c=>`<option>${c}</option>`).join('');
+
+// ─── 시재 보충 ───────────────────────────────────────
+function calcRefill(b50,b10,b5,b1,c500,c100) {
+  return b50*5000000 + b10*1000000 + b5*500000 + b1*100000 + c500*25000 + c100*5000;
+}
+function readRefillForm() {
+  const v = id => Number(document.getElementById(id).value || 0);
+  return {
+    bills_50k: v('rf-50k'), bills_10k: v('rf-10k'), bills_5k: v('rf-5k'),
+    bills_1k: v('rf-1k'), coins_500: v('rf-500'), coins_100: v('rf-100'),
+  };
+}
+['rf-50k','rf-10k','rf-5k','rf-1k','rf-500','rf-100'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateRefillTotal);
+});
+function updateRefillTotal() {
+  const r = readRefillForm();
+  const total = calcRefill(r.bills_50k,r.bills_10k,r.bills_5k,r.bills_1k,r.coins_500,r.coins_100);
+  document.getElementById('rf-total').textContent = fmtNum(total) + '원';
+}
+function saveRefill() {
+  const r = readRefillForm();
+  const total = calcRefill(r.bills_50k,r.bills_10k,r.bills_5k,r.bills_1k,r.coins_500,r.coins_100);
+  if (!total) { alert('금액 0원입니다.'); return; }
+  const t = today();
+  mbPush(MB.ATM_REFILL_KEY, {
+    id: uid(), date: t, dayOfWeek: dayOfWeek(t), time: nowTime(),
+    ...r, totalAmount: total,
+    assignee: getCurrentUser().name,
+    note: document.getElementById('rf-note').value,
+  });
+  ['rf-50k','rf-10k','rf-5k','rf-1k','rf-500','rf-100'].forEach(id => document.getElementById(id).value = 0);
+  document.getElementById('rf-note').value = '';
+  updateRefillTotal();
+  renderRefills();
+}
+function deleteRefill(id) {
+  if (!confirm('삭제?')) return;
+  mbRemove(MB.ATM_REFILL_KEY, x => x.id === id);
+  renderRefills();
+}
+function renderRefills() {
+  const list = mbGetOrDefault(MB.ATM_REFILL_KEY, []).sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
+  document.getElementById('refill-list').innerHTML = list.length === 0
+    ? '<tr><td colspan="10" class="text-center py-6 text-[#9CA3AF]">기록 없음</td></tr>'
+    : list.map(r => `
+      <tr class="border-b">
+        <td class="py-2 px-2">${r.date} ${r.time}</td>
+        <td class="text-center">${r.bills_50k}</td>
+        <td class="text-center">${r.bills_10k}</td>
+        <td class="text-center">${r.bills_5k}</td>
+        <td class="text-center">${r.bills_1k}</td>
+        <td class="text-center">${r.coins_500}</td>
+        <td class="text-center">${r.coins_100}</td>
+        <td class="text-right font-bold text-[#F5A623]">${fmtNum(r.totalAmount)}</td>
+        <td class="px-2">${r.assignee}</td>
+        <td class="text-right"><button onclick="deleteRefill('${r.id}')" class="text-[#EF4444] text-xs">삭제</button></td>
+      </tr>`).join('');
+}
+
+// ─── 시재 정산 (요일별) ──────────────────────────────
+function renderSettle() {
+  const days = ['월','화','수','목','금','토','일'];
+  const settles = mbGetOrDefault(MB.ATM_SETTLE_KEY, []);
+  document.getElementById('settle-rows').innerHTML = days.map(dw => {
+    const s = settles.find(x => x.dayOfWeek === dw && x.yearMonth === thisYearMonth()) || {};
+    const v = k => s[k] || 0;
+    const total = v('cnt_50k')*50000 + v('cnt_10k')*10000 + v('cnt_5k')*5000 + v('cnt_1k')*1000 + v('cnt_500')*500 + v('cnt_100')*100;
+    return `<tr class="border-b" data-dw="${dw}">
+      <td class="py-2 px-2 font-bold">${dw}</td>
+      <td><input type="number" value="${v('cnt_50k')}" data-k="cnt_50k" oninput="onSettleInput(this,'${dw}')" class="input-base w-20"></td>
+      <td class="text-right" data-show="50k">${fmtNum(v('cnt_50k')*50000)}</td>
+      <td><input type="number" value="${v('cnt_10k')}" data-k="cnt_10k" oninput="onSettleInput(this,'${dw}')" class="input-base w-20"></td>
+      <td class="text-right" data-show="10k">${fmtNum(v('cnt_10k')*10000)}</td>
+      <td><input type="number" value="${v('cnt_5k')}" data-k="cnt_5k" oninput="onSettleInput(this,'${dw}')" class="input-base w-20"></td>
+      <td><input type="number" value="${v('cnt_1k')}" data-k="cnt_1k" oninput="onSettleInput(this,'${dw}')" class="input-base w-20"></td>
+      <td><input type="number" value="${v('cnt_500')}" data-k="cnt_500" oninput="onSettleInput(this,'${dw}')" class="input-base w-20"></td>
+      <td><input type="number" value="${v('cnt_100')}" data-k="cnt_100" oninput="onSettleInput(this,'${dw}')" class="input-base w-20"></td>
+      <td class="text-right font-bold text-[#F5A623]" data-total>${fmtNum(total)}</td>
+    </tr>`;
+  }).join('');
+}
+function onSettleInput(el, dw) {
+  const row = el.closest('tr');
+  const data = { yearMonth: thisYearMonth(), dayOfWeek: dw };
+  row.querySelectorAll('input').forEach(i => data[i.dataset.k] = Number(i.value || 0));
+  data.totalAmount = data.cnt_50k*50000 + data.cnt_10k*10000 + data.cnt_5k*5000 + data.cnt_1k*1000 + data.cnt_500*500 + data.cnt_100*100;
+  const list = mbGetOrDefault(MB.ATM_SETTLE_KEY, []);
+  const idx = list.findIndex(x => x.yearMonth === data.yearMonth && x.dayOfWeek === dw);
+  if (idx >= 0) list[idx] = { ...list[idx], ...data };
+  else list.push({ id: uid(), ...data });
+  mbSet(MB.ATM_SETTLE_KEY, list);
+  row.querySelector('[data-total]').textContent = fmtNum(data.totalAmount);
+  row.querySelector('[data-show="50k"]').textContent = fmtNum(data.cnt_50k*50000);
+  row.querySelector('[data-show="10k"]').textContent = fmtNum(data.cnt_10k*10000);
+}
+
+// ─── 특이사항 ──────────────────────────────────────
+function openIssueModal() {
+  document.getElementById('is-date').value = today();
+  ['is-name','is-amt','is-rate','is-paid'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('is-unpaid').value = 0;
+  document.getElementById('issue-modal').classList.remove('hidden');
+}
+function closeIssueModal() { document.getElementById('issue-modal').classList.add('hidden'); }
+function saveIssue() {
+  mbPush(MB.ATM_ISSUES_KEY, {
+    id: uid(),
+    date: document.getElementById('is-date').value,
+    customerName: document.getElementById('is-name').value,
+    currency: document.getElementById('is-cur').value,
+    tradeAmount: Number(document.getElementById('is-amt').value),
+    rate: Number(document.getElementById('is-rate').value),
+    actualPaid: Number(document.getElementById('is-paid').value),
+    receiptStatus: document.getElementById('is-status').value,
+    unpaidAmount: Number(document.getElementById('is-unpaid').value),
+  });
+  closeIssueModal();
+  renderIssues();
+}
+function deleteIssue(id) {
+  if (!confirm('삭제?')) return;
+  mbRemove(MB.ATM_ISSUES_KEY, x => x.id === id);
+  renderIssues();
+}
+function renderIssues() {
+  const list = mbGetOrDefault(MB.ATM_ISSUES_KEY, []).sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('issues-list').innerHTML = list.length === 0
+    ? '<tr><td colspan="9" class="text-center py-6 text-[#9CA3AF]">특이사항 없음</td></tr>'
+    : list.map(i => {
+      const cls = i.receiptStatus === '수령완료' ? '' :
+                  i.receiptStatus === '부분수령' ? 'bg-yellow-50' : 'bg-red-50';
+      return `<tr class="border-b ${cls}">
+        <td class="py-2 px-2">${i.date}</td>
+        <td class="px-2">${i.customerName}</td>
+        <td class="text-center">${i.currency}</td>
+        <td class="text-right">${fmtNum(i.tradeAmount)}</td>
+        <td class="text-right">${i.rate||''}</td>
+        <td class="text-right">${fmtNum(i.actualPaid)}</td>
+        <td class="text-center"><span class="text-xs font-bold">${i.receiptStatus}</span></td>
+        <td class="text-right text-[#EF4444] font-bold">${fmtNum(i.unpaidAmount)}</td>
+        <td class="text-right"><button onclick="deleteIssue('${i.id}')" class="text-[#EF4444] text-xs">삭제</button></td>
+      </tr>`;
+    }).join('');
+}
+
+// ─── 마감 (퇴근 게이트) ────────────────────────────
+function recalcClose() {
+  const v = id => Number(document.getElementById(id).value || 0);
+  const a50 = v('cl-50k')*50000, a10 = v('cl-10k')*10000, a5 = v('cl-5k')*5000;
+  const a1 = v('cl-1k')*1000, a500 = v('cl-500')*500, a100 = v('cl-100')*100;
+  document.getElementById('cl-50k-amt').textContent = fmtNum(a50);
+  document.getElementById('cl-10k-amt').textContent = fmtNum(a10);
+  document.getElementById('cl-5k-amt').textContent = fmtNum(a5);
+  document.getElementById('cl-1k-amt').textContent = fmtNum(a1);
+  document.getElementById('cl-500-amt').textContent = fmtNum(a500);
+  document.getElementById('cl-100-amt').textContent = fmtNum(a100);
+  const actual = a50+a10+a5+a1+a500+a100;
+  document.getElementById('cl-total').textContent = fmtNum(actual);
+  document.getElementById('cl-actual').textContent = fmtNum(actual) + '원';
+
+  const todayRefills = mbGetOrDefault(MB.ATM_REFILL_KEY, []).filter(r => r.date === today());
+  const sys = todayRefills.reduce((s,r) => s + (r.totalAmount||0), 0);
+  document.getElementById('cl-system').textContent = fmtNum(sys) + '원';
+  const diff = actual - sys;
+  const diffEl = document.getElementById('cl-diff');
+  diffEl.textContent = fmtSigned(diff) + '원';
+  diffEl.className = 'font-bold ' + (diff > 0 ? 'text-[#10B981]' : diff < 0 ? 'text-[#EF4444]' : '');
+}
+function updateGateStatus() {
+  recalcClose();
+  const gate = mbGetOrDefault(MB.ATM_GATE_KEY, {});
+  const done = gate[today()]?.[getCurrentUser()?.id];
+  document.getElementById('atm-gate-status').textContent = done
+    ? '오늘 무인기 마감 확인 완료'
+    : '마감 미확인';
+}
+function completeDailyCheck() {
+  const user = getCurrentUser();
+  if (!user) return;
+  const gate = mbGetOrDefault(MB.ATM_GATE_KEY, {});
+  if (!gate[today()]) gate[today()] = {};
+  gate[today()][user.id] = true;
+  mbSet(MB.ATM_GATE_KEY, gate);
+  updateGateStatus();
+  renderClockBtn();
+  alert('무인기 마감 확인 완료! 퇴근 버튼이 활성화됩니다.');
+}
+
+renderRefills();
+updateRefillTotal();
+</script>
+</body>
+</html>

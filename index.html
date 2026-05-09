@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoneyBox 대시보드</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/mb-data.js"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+  .nav-link { display:block; padding:.375rem .875rem; border-radius:.5rem; color:#9CA3AF; font-size:.8125rem; font-weight:500; white-space:nowrap; transition:all .15s; }
+  .nav-link:hover { background:#2D3D52; color:#fff; }
+  .nav-link.active { background:#2D3D52; color:#fff; }
+  .widget { background:#fff; border-radius:.875rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.06); display:flex; flex-direction:column; min-height:360px; }
+  .widget-title { font-weight:700; color:#1A1A2E; font-size:.875rem; margin-bottom:.75rem; padding-bottom:.625rem; border-bottom:1px solid #F3F4F6; letter-spacing:-.01em; }
+  .widget-body { flex:1; overflow-y:auto; }
+  .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.4rem .6rem; font-size:.8125rem; outline:none; }
+  .input-base:focus { border-color:#F5A623; }
+  .btn-add { background:#F5A623; color:#fff; padding:.35rem .8rem; border-radius:.5rem; font-size:.8125rem; font-weight:600; white-space:nowrap; }
+  .btn-add:hover { background:#E0951F; }
+  .faded { opacity:.4; }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<!-- 상단 네비바 -->
+<header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:52px">
+  <div class="flex items-center h-full px-5 gap-4">
+    <div class="shrink-0 pr-4 border-r border-[#2D3D52]">
+      <div class="text-white font-bold text-sm leading-none">MoneyBox</div>
+      <div class="text-[#4B5563] text-[10px] mt-0.5">운영 시스템</div>
+    </div>
+    <nav class="flex gap-0.5 flex-1">
+      <a href="index.html" class="nav-link">대시보드</a>
+      <a href="attendance.html" class="nav-link">근태관리</a>
+      <a href="trading.html" class="nav-link">거래관리</a>
+      <a href="tasks.html" class="nav-link">업무관리</a>
+      <a href="atm.html" class="nav-link">무인기관리</a>
+      <a href="storage.html" class="nav-link">보관함관리</a>
+      <a href="archive.html" class="nav-link">자료실</a>
+    </nav>
+    <div class="flex items-center gap-3 shrink-0 pl-4 border-l border-[#2D3D52]">
+      <div class="text-right leading-none">
+        <p class="text-[#F5A623] text-sm font-semibold" id="current-user">-</p>
+        <p class="text-[#6B7280] text-[11px] mt-0.5" id="current-role">-</p>
+      </div>
+      <div class="text-center">
+        <button id="clock-btn" onclick="handleClockInOut()" class="px-4 py-1.5 rounded-lg bg-[#10B981] text-white font-bold text-xs">출근</button>
+        <p class="text-[#4B5563] text-[10px] mt-0.5" id="clock-status">미출근</p>
+      </div>
+      <button onclick="showChangePwModal()" class="text-[#4B5563] hover:text-[#F5A623] text-sm" title="비밀번호 변경">🔑</button>
+      <button onclick="logoutUser()" class="text-[#4B5563] hover:text-white text-sm" title="로그아웃">⏻</button>
+    </div>
+  </div>
+</header>
+
+<!-- 메인 -->
+<main class="pt-[52px] min-h-screen p-5">
+  <div class="mb-5 flex justify-between items-end">
+    <div>
+      <h2 class="text-xl font-bold text-[#1A1A2E]">대시보드</h2>
+      <p class="text-[#6B7280] text-xs mt-0.5" id="today-date"></p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-3 gap-4">
+
+    <!-- 위젯 1: 금일 출근자 -->
+    <div class="widget">
+      <div class="widget-title">금일 출근자</div>
+      <div class="widget-body">
+        <div id="attendance-grid" class="grid grid-cols-2 gap-2"></div>
+      </div>
+    </div>
+
+    <!-- 위젯 2: 전달사항 -->
+    <div class="widget">
+      <div class="widget-title">전달사항</div>
+      <div class="space-y-2 mb-3">
+        <textarea id="ho-content" rows="2" class="input-base w-full" placeholder="전달 내용..."></textarea>
+        <div class="flex gap-2">
+          <input type="date" id="ho-date" class="input-base flex-1">
+          <button onclick="addHandover()" class="btn-add">등록</button>
+        </div>
+      </div>
+      <div class="widget-body" id="handovers-list"></div>
+    </div>
+
+    <!-- 위젯 3: 거래 전달사항 -->
+    <div class="widget">
+      <div class="widget-title flex items-center justify-between">
+        <span>거래 전달사항</span>
+        <span class="text-[10px] text-[#10B981] font-normal">● 실시간</span>
+      </div>
+      <div class="space-y-2 mb-3">
+        <textarea id="tn-content" rows="2" class="input-base w-full" placeholder="실시간 전달..."></textarea>
+        <div class="flex gap-2">
+          <select id="tn-branch" class="input-base flex-1">
+            <option value="전체">전체</option>
+            <option value="홍대">홍대</option>
+            <option value="연남">연남</option>
+          </select>
+          <button onclick="addTradeNotice()" class="btn-add">등록</button>
+        </div>
+      </div>
+      <div class="widget-body" id="trade-notices-list"></div>
+    </div>
+
+    <!-- 위젯 4: 주요 거래 -->
+    <div class="widget">
+      <div class="widget-title">주요 거래 (오늘)</div>
+      <div class="grid grid-cols-12 gap-1 mb-3 text-xs">
+        <input type="time" id="mt-time" class="input-base col-span-3">
+        <select id="mt-branch" class="input-base col-span-2">
+          <option>홍대</option><option>연남</option>
+        </select>
+        <select id="mt-currency" class="input-base col-span-2"></select>
+        <input type="number" id="mt-amount" placeholder="금액" class="input-base col-span-3">
+        <select id="mt-type" class="input-base col-span-2">
+          <option>매입</option><option>매각</option>
+        </select>
+        <input type="text" id="mt-note" placeholder="비고" class="input-base col-span-9">
+        <button onclick="addMainTrade()" class="btn-add col-span-3">등록</button>
+      </div>
+      <div class="widget-body">
+        <table class="w-full text-xs">
+          <thead class="text-[#6B7280] border-b">
+            <tr><th class="py-1 text-left">시간</th><th>지점</th><th>통화</th><th class="text-right">금액</th><th>구분</th><th>비고</th><th></th></tr>
+          </thead>
+          <tbody id="main-trades-list"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 위젯 5: 당일 업무 처리건 -->
+    <div class="widget">
+      <div class="widget-title">당일 업무 처리건</div>
+      <div class="space-y-2 mb-3">
+        <input type="text" id="dt-content" class="input-base w-full" placeholder="처리할 업무...">
+        <div class="flex gap-2">
+          <input type="date" id="dt-due" class="input-base flex-1">
+          <button onclick="addDailyTask()" class="btn-add">등록</button>
+        </div>
+      </div>
+      <div class="widget-body" id="daily-tasks-list"></div>
+    </div>
+
+    <!-- 위젯 6: 지점간 이동 -->
+    <div class="widget">
+      <div class="widget-title">지점간 이동</div>
+      <div class="grid grid-cols-12 gap-1 mb-3 text-xs">
+        <select id="tr-direction" class="input-base col-span-5">
+          <option value="연남→홍대">연남 → 홍대</option>
+          <option value="홍대→연남">홍대 → 연남</option>
+        </select>
+        <select id="tr-currency" class="input-base col-span-3" onchange="onTrCurrencyChange()"></select>
+        <input type="number" id="tr-amount" placeholder="금액" class="input-base col-span-4">
+        <input type="number" id="tr-rate" placeholder="환율" step="0.01" class="input-base col-span-4">
+        <input type="text" id="tr-note" placeholder="비고" class="input-base col-span-5">
+        <button onclick="addTransfer()" class="btn-add col-span-3">저장</button>
+      </div>
+      <div class="widget-body text-xs">
+        <table class="w-full mb-2">
+          <thead class="text-[#6B7280] border-b">
+            <tr><th class="text-left">통화</th><th class="text-right">연남→홍대</th><th class="text-right">홍대→연남</th><th class="text-right">누계</th></tr>
+          </thead>
+          <tbody id="transfer-summary"></tbody>
+        </table>
+        <table class="w-full border-t pt-2 mt-2">
+          <thead class="text-[#6B7280]">
+            <tr><th class="text-left">방향</th><th>통화</th><th class="text-right">금액</th><th class="text-right">환율</th><th class="text-right">한화계</th><th></th></tr>
+          </thead>
+          <tbody id="transfer-list"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+mbBoot('index.html');
+
+['mt-currency','tr-currency'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = MB.CURRENCIES.map(c => `<option value="${c}">${c}</option>`).join('');
+});
+document.getElementById('mt-time').value = nowTime();
+document.getElementById('ho-date').value = today();
+document.getElementById('dt-due').value = today();
+
+// ─── 위젯 1: 출근자 ───────────────────────────────
+function renderAttendance() {
+  const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []).filter(s => s.date === today());
+  const att   = mbGetOrDefault(MB.ATTENDANCE_KEY, []).filter(a => a.date === today());
+  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
+  const slots = [
+    { branch:'홍대', shift:'오픈', label:'홍대 오픈', color:'bg-[#FFF8EC]', border:'border-l-4 border-[#F5A623]' },
+    { branch:'연남', shift:'오픈', label:'연남 오픈', color:'bg-[#EAF7F0]', border:'border-l-4 border-[#10B981]' },
+    { branch:'홍대', shift:'마감', label:'홍대 마감', color:'bg-[#FEF2F2]', border:'border-l-4 border-[#EF4444]' },
+    { branch:'연남', shift:'마감', label:'연남 마감', color:'bg-[#EFF6FF]', border:'border-l-4 border-[#3B82F6]' },
+  ];
+  document.getElementById('attendance-grid').innerHTML = slots.map(s => {
+    const assigned = sched.filter(x => x.branch === s.branch && x.shiftType === s.shift)
+      .map(x => employees.find(e => e.id === x.employeeId)).filter(Boolean);
+    const items = assigned.length === 0
+      ? '<span class="text-[#9CA3AF] text-xs">배정 없음</span>'
+      : assigned.map(e => {
+          const rec = att.find(a => a.employeeId === e.id);
+          const clocked = !!rec;
+          return `<div class="text-sm ${clocked ? 'font-bold text-[#1A1A2E]' : 'text-[#9CA3AF]'}">
+            ${e.name}
+            ${rec ? `<span class="text-[10px] text-[#6B7280] ml-1">${rec.clockIn}${rec.clockOut ? '~' + rec.clockOut : ''}</span>` : ''}
+          </div>`;
+        }).join('');
+    return `<div class="${s.color} ${s.border} rounded-r-lg p-3">
+      <div class="text-[10px] font-bold text-[#6B7280] mb-1.5 uppercase tracking-wide">${s.label}</div>
+      <div class="space-y-1">${items}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── 위젯 2: 전달사항 ───────────────────────────────
+function addHandover() {
+  const content = document.getElementById('ho-content').value.trim();
+  const date    = document.getElementById('ho-date').value;
+  if (!content || !date) { alert('내용과 날짜를 입력하세요.'); return; }
+  mbPush(MB.HANDOVERS_KEY, { id: uid(), content, targetDate: date, createdBy: getCurrentUser().name, createdAt: nowTs(), done: false });
+  document.getElementById('ho-content').value = '';
+  renderHandovers();
+}
+function deleteHandover(id) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  mbRemove(MB.HANDOVERS_KEY, x => x.id === id);
+  renderHandovers();
+}
+function renderHandovers() {
+  const t    = today();
+  const list = mbGetOrDefault(MB.HANDOVERS_KEY, []).sort((a,b) => a.targetDate.localeCompare(b.targetDate));
+  document.getElementById('handovers-list').innerHTML = list.length === 0
+    ? '<p class="text-xs text-[#9CA3AF] text-center py-6">전달사항 없음</p>'
+    : list.map(h => `
+      <div class="border-b py-2 flex justify-between items-start gap-2 ${h.targetDate < t ? 'faded' : ''}">
+        <div class="flex-1">
+          <div class="text-xs text-[#F5A623] font-bold">${h.targetDate}</div>
+          <div class="text-sm text-[#1A1A2E] mt-0.5 whitespace-pre-wrap">${h.content}</div>
+          <div class="text-xs text-[#9CA3AF] mt-1">${h.createdBy}</div>
+        </div>
+        <button onclick="deleteHandover('${h.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button>
+      </div>`).join('');
+}
+
+// ─── 위젯 3: 거래 전달사항 ───────────────────────────────
+const tradeBC = ('BroadcastChannel' in window) ? new BroadcastChannel('mb_trade_notices') : null;
+if (tradeBC) tradeBC.onmessage = renderTradeNotices;
+
+function addTradeNotice() {
+  const content = document.getElementById('tn-content').value.trim();
+  if (!content) return;
+  mbPush(MB.TRADE_NOTICES_KEY, { id: uid(), content, branch: document.getElementById('tn-branch').value, createdBy: getCurrentUser().name, createdAt: nowTs() });
+  document.getElementById('tn-content').value = '';
+  renderTradeNotices();
+  if (tradeBC) tradeBC.postMessage('update');
+}
+function deleteTradeNotice(id) {
+  mbRemove(MB.TRADE_NOTICES_KEY, x => x.id === id);
+  renderTradeNotices();
+  if (tradeBC) tradeBC.postMessage('update');
+}
+function renderTradeNotices() {
+  const list = mbGetOrDefault(MB.TRADE_NOTICES_KEY, []).sort((a,b) => b.createdAt - a.createdAt).slice(0, 20);
+  const pill = { '홍대':'bg-red-50 text-red-700', '연남':'bg-green-50 text-green-700', '전체':'bg-amber-50 text-amber-700' };
+  document.getElementById('trade-notices-list').innerHTML = list.length === 0
+    ? '<p class="text-xs text-[#9CA3AF] text-center py-6">전달 없음</p>'
+    : list.map(n => {
+        const ts = new Date(n.createdAt);
+        const tf = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
+        return `<div class="border-b py-2 flex justify-between items-start gap-2">
+          <div class="flex-1">
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-medium ${pill[n.branch]||''}">${n.branch}</span>
+              <span class="text-[10px] text-[#9CA3AF]">${tf} · ${n.createdBy}</span>
+            </div>
+            <div class="text-sm text-[#1A1A2E] whitespace-pre-wrap">${n.content}</div>
+          </div>
+          <button onclick="deleteTradeNotice('${n.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button>
+        </div>`;
+      }).join('');
+}
+setInterval(renderTradeNotices, 5000);
+
+// ─── 위젯 4: 주요 거래 ───────────────────────────────
+function addMainTrade() {
+  const time   = document.getElementById('mt-time').value;
+  const amount = Number(document.getElementById('mt-amount').value);
+  if (!time || !amount) { alert('시간/금액 확인'); return; }
+  mbPush(MB.MAIN_TRADES_KEY, {
+    id: uid(), date: today(), time,
+    branch: document.getElementById('mt-branch').value,
+    currency: document.getElementById('mt-currency').value,
+    amount, type: document.getElementById('mt-type').value,
+    note: document.getElementById('mt-note').value,
+  });
+  document.getElementById('mt-amount').value = '';
+  document.getElementById('mt-note').value = '';
+  renderMainTrades();
+}
+function deleteMainTrade(id) { mbRemove(MB.MAIN_TRADES_KEY, x => x.id === id); renderMainTrades(); }
+function renderMainTrades() {
+  const list = mbGetOrDefault(MB.MAIN_TRADES_KEY, []).filter(x => x.date === today()).sort((a,b) => a.time.localeCompare(b.time));
+  document.getElementById('main-trades-list').innerHTML = list.length === 0
+    ? '<tr><td colspan="7" class="text-center text-[#9CA3AF] py-6 text-xs">오늘 거래 없음</td></tr>'
+    : list.map(t => `
+      <tr class="border-b hover:bg-gray-50">
+        <td class="py-1.5 text-xs">${t.time}</td>
+        <td class="text-center text-xs">${t.branch}</td>
+        <td class="text-center text-xs font-medium">${t.currency}</td>
+        <td class="text-right font-medium text-xs ${t.type==='매각'?'text-[#EF4444]':'text-[#3B82F6]'}">${fmtNum(t.amount)}</td>
+        <td class="text-center text-xs">${t.type}</td>
+        <td class="text-[#6B7280] text-xs">${t.note||''}</td>
+        <td class="text-right"><button onclick="deleteMainTrade('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button></td>
+      </tr>`).join('');
+}
+
+// ─── 위젯 5: 당일 업무 ───────────────────────────────
+function addDailyTask() {
+  const content = document.getElementById('dt-content').value.trim();
+  const due     = document.getElementById('dt-due').value;
+  if (!content || !due) return;
+  mbPush(MB.DAILY_TASKS_KEY, { id: uid(), content, dueDate: due, createdBy: getCurrentUser().name, done: false });
+  document.getElementById('dt-content').value = '';
+  renderDailyTasks();
+}
+function toggleDailyTask(id) { mbUpdate(MB.DAILY_TASKS_KEY, x => x.id === id, x => x.done = !x.done); renderDailyTasks(); }
+function deleteDailyTask(id)  { mbRemove(MB.DAILY_TASKS_KEY, x => x.id === id); renderDailyTasks(); }
+function renderDailyTasks() {
+  const list = mbGetOrDefault(MB.DAILY_TASKS_KEY, []).sort((a,b) => a.dueDate.localeCompare(b.dueDate));
+  document.getElementById('daily-tasks-list').innerHTML = list.length === 0
+    ? '<p class="text-xs text-[#9CA3AF] text-center py-6">업무 없음</p>'
+    : list.map(t => `
+      <div class="border-b py-2 flex items-center gap-2 ${t.done ? 'faded' : ''}">
+        <input type="checkbox" ${t.done?'checked':''} onchange="toggleDailyTask('${t.id}')" class="w-3.5 h-3.5 accent-[#F5A623]">
+        <div class="flex-1">
+          <div class="text-[10px] text-[#F5A623] font-bold">${t.dueDate}</div>
+          <div class="text-sm ${t.done?'line-through text-[#9CA3AF]':'text-[#1A1A2E]'}">${t.content}</div>
+        </div>
+        <button onclick="deleteDailyTask('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button>
+      </div>`).join('');
+}
+
+// ─── 위젯 6: 지점간 이동 ───────────────────────────────
+function onTrCurrencyChange() {
+  const cur  = document.getElementById('tr-currency').value;
+  const rate = document.getElementById('tr-rate');
+  if (cur === 'KRW') { rate.value = 1; rate.disabled = true; }
+  else { rate.disabled = false; if (rate.value === '1') rate.value = ''; }
+}
+function addTransfer() {
+  const direction = document.getElementById('tr-direction').value;
+  const currency  = document.getElementById('tr-currency').value;
+  const amount    = Number(document.getElementById('tr-amount').value);
+  const rate      = Number(document.getElementById('tr-rate').value || (currency==='KRW'?1:0));
+  const note      = document.getElementById('tr-note').value;
+  if (!amount || !rate) { alert('금액/환율 확인'); return; }
+  const krw = amount * rate;
+  const transfer = { id: uid(), date: today(), direction, currency, amount, rate, krwAmount: krw, note, createdBy: getCurrentUser().name, createdAt: nowTs() };
+  mbPush(MB.TRANSFERS_KEY, transfer);
+  mbPush(MB.TRANSACTIONS_KEY, { id: uid(), date: today(), category: '지점간', counterparty: direction, tradeType: '지점간', currency, amount, rate, krwAmount: krw, fxAmount: amount, note, status: '완료', _transferId: transfer.id });
+  ['tr-amount','tr-rate','tr-note'].forEach(i => document.getElementById(i).value = '');
+  onTrCurrencyChange();
+  renderTransfers();
+}
+function deleteTransfer(id) {
+  if (!confirm('거래관리에서도 함께 삭제됩니다.')) return;
+  mbRemove(MB.TRANSFERS_KEY, x => x.id === id);
+  mbRemove(MB.TRANSACTIONS_KEY, x => x._transferId === id);
+  renderTransfers();
+}
+function renderTransfers() {
+  const list = mbGetOrDefault(MB.TRANSFERS_KEY, []).filter(x => x.date === today()).sort((a,b) => b.createdAt - a.createdAt);
+  const sums = {};
+  list.forEach(t => {
+    if (!sums[t.currency]) sums[t.currency] = { '연남→홍대':0, '홍대→연남':0 };
+    sums[t.currency][t.direction] += Number(t.amount);
+  });
+  document.getElementById('transfer-summary').innerHTML = Object.keys(sums).length === 0
+    ? '<tr><td colspan="4" class="text-[#9CA3AF] py-2 text-center">오늘 이동 없음</td></tr>'
+    : Object.entries(sums).map(([cur, s]) => {
+        const net = s['연남→홍대'] - s['홍대→연남'];
+        return `<tr class="border-b">
+          <td class="py-1 font-bold">${cur}</td>
+          <td class="text-right text-[#EF4444]">${fmtNum(s['연남→홍대'])}</td>
+          <td class="text-right text-[#3B82F6]">${fmtNum(s['홍대→연남'])}</td>
+          <td class="text-right font-bold ${net>0?'text-[#EF4444]':net<0?'text-[#3B82F6]':''}">${fmtSigned(net)}</td>
+        </tr>`;
+      }).join('');
+  document.getElementById('transfer-list').innerHTML = list.map(t => `
+    <tr class="border-b">
+      <td class="py-1 ${t.direction==='연남→홍대'?'text-[#EF4444]':'text-[#3B82F6]'}">${t.direction}</td>
+      <td class="text-center">${t.currency}</td>
+      <td class="text-right">${fmtNum(t.amount)}</td>
+      <td class="text-right">${t.rate}</td>
+      <td class="text-right font-medium">${fmtNum(t.krwAmount)}</td>
+      <td class="text-right"><button onclick="deleteTransfer('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button></td>
+    </tr>`).join('');
+}
+
+renderAttendance();
+renderHandovers();
+renderTradeNotices();
+renderMainTrades();
+renderDailyTasks();
+renderTransfers();
+onTrCurrencyChange();
+
+window.addEventListener('storage', renderAttendance);
+</script>
+</body>
+</html>

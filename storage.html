@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoneyBox 보관함관리</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/mb-data.js"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+  .nav-link { display:inline-block; padding:.375rem .75rem; border-radius:.5rem; font-size:.875rem; color:#9CA3AF; text-decoration:none; transition:all .15s; white-space:nowrap; }
+  .nav-link:hover { background:#2D3D52; color:#fff; }
+  .nav-link.active { background:#2D3D52; color:#fff; font-weight:600; }
+  .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.5rem .75rem; font-size:.875rem; outline:none; }
+  .input-base:focus { border-color:#F5A623; }
+  .btn-primary { background:#F5A623; color:#fff; padding:.5rem 1rem; border-radius:.5rem; font-size:.875rem; font-weight:600; }
+  .tab-btn { padding:.625rem 1.25rem; font-size:.875rem; font-weight:600; color:#6B7280; border-bottom:2px solid transparent; }
+  .tab-btn.active { color:#F5A623; border-bottom-color:#F5A623; }
+  .size-XL { background:#FFE4E1; color:#B91C1C; }
+  .size-L  { background:#FED7AA; color:#92400E; }
+  .size-M  { background:#FEF3C7; color:#854D0E; }
+  .size-S  { background:#D1FAE5; color:#065F46; }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:52px">
+  <div class="flex items-center h-full px-5 gap-4">
+    <div class="shrink-0 pr-4 border-r border-[#2D3D52]">
+      <div class="text-white font-bold text-sm leading-none">MoneyBox</div>
+      <div class="text-[#4B5563] text-[10px] mt-0.5">운영 시스템</div>
+    </div>
+    <nav class="flex gap-0.5 flex-1">
+      <a href="index.html" class="nav-link">대시보드</a>
+      <a href="attendance.html" class="nav-link">근태관리</a>
+      <a href="trading.html" class="nav-link">거래관리</a>
+      <a href="tasks.html" class="nav-link">업무관리</a>
+      <a href="atm.html" class="nav-link">무인기관리</a>
+      <a href="storage.html" class="nav-link">보관함관리</a>
+      <a href="archive.html" class="nav-link">자료실</a>
+    </nav>
+    <div class="flex items-center gap-3 shrink-0 pl-4 border-l border-[#2D3D52]">
+      <div class="text-right leading-none">
+        <p class="text-[#F5A623] text-sm font-semibold" id="current-user">-</p>
+        <p class="text-[#6B7280] text-[11px] mt-0.5" id="current-role">-</p>
+      </div>
+      <div class="text-center">
+        <button id="clock-btn" onclick="handleClockInOut()" class="px-4 py-1.5 rounded-lg bg-[#10B981] text-white font-bold text-xs">출근</button>
+        <p class="text-[#4B5563] text-[10px] mt-0.5" id="clock-status">미출근</p>
+      </div>
+      <button onclick="showChangePwModal()" class="text-[#4B5563] hover:text-[#F5A623] text-sm" title="비밀번호 변경">🔑</button>
+      <button onclick="logoutUser()" class="text-[#4B5563] hover:text-white text-sm" title="로그아웃">⏻</button>
+    </div>
+  </div>
+</header>
+
+<main class="pt-[52px] min-h-screen p-6">
+  <div class="mb-6 flex justify-between items-end">
+    <div>
+      <h2 class="text-2xl font-bold text-[#1A1A2E]">보관함관리 <span class="text-sm font-normal text-[#6B7280] ml-2">연남점</span></h2>
+      <p class="text-[#6B7280] text-sm mt-1" id="today-date"></p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="moveMonth(-1)" class="px-3 py-2 rounded bg-gray-100">◀</button>
+      <input type="month" id="month-input" class="input-base">
+      <button onclick="moveMonth(1)" class="px-3 py-2 rounded bg-gray-100">▶</button>
+    </div>
+  </div>
+
+  <!-- 단가 설정 -->
+  <div class="card mb-5">
+    <div class="flex justify-between items-center mb-3">
+      <h4 class="font-bold">사이즈별 단가</h4>
+      <button id="price-edit-btn" onclick="togglePriceEdit()" class="text-xs px-3 py-1 rounded bg-gray-100">수정 (관리자)</button>
+    </div>
+    <div class="grid grid-cols-4 gap-3">
+      <div class="bg-[#FFE4E1] rounded-lg p-3"><p class="text-xs text-[#B91C1C] font-bold">XL</p><div class="flex items-baseline gap-1 mt-1"><input type="number" id="px-XL" class="input-base bg-transparent border-0 p-0 text-2xl font-bold w-full" disabled><span>원</span></div></div>
+      <div class="bg-[#FED7AA] rounded-lg p-3"><p class="text-xs text-[#92400E] font-bold">L</p><div class="flex items-baseline gap-1 mt-1"><input type="number" id="px-L" class="input-base bg-transparent border-0 p-0 text-2xl font-bold w-full" disabled><span>원</span></div></div>
+      <div class="bg-[#FEF3C7] rounded-lg p-3"><p class="text-xs text-[#854D0E] font-bold">M</p><div class="flex items-baseline gap-1 mt-1"><input type="number" id="px-M" class="input-base bg-transparent border-0 p-0 text-2xl font-bold w-full" disabled><span>원</span></div></div>
+      <div class="bg-[#D1FAE5] rounded-lg p-3"><p class="text-xs text-[#065F46] font-bold">S</p><div class="flex items-baseline gap-1 mt-1"><input type="number" id="px-S" class="input-base bg-transparent border-0 p-0 text-2xl font-bold w-full" disabled><span>원</span></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="flex border-b mb-5">
+      <button class="tab-btn active" data-tab="reg">보관 등록</button>
+      <button class="tab-btn" data-tab="check">시재 체크</button>
+      <button class="tab-btn" data-tab="summary">월별 요약</button>
+    </div>
+
+    <!-- 탭 1: 등록 -->
+    <div id="tab-reg">
+      <div class="bg-[#FAFBFC] rounded-xl p-4 mb-4">
+        <h4 class="font-bold mb-3">+ 보관 등록</h4>
+        <div class="grid grid-cols-7 gap-2 text-xs">
+          <div><label class="text-[#6B7280]">날짜</label><input type="date" id="sg-date" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">사이즈</label>
+            <select id="sg-size" onchange="onSizeChange()" class="input-base w-full">
+              <option>XL</option><option>L</option><option>M</option><option>S</option>
+            </select>
+          </div>
+          <div><label class="text-[#6B7280]">시작</label><input type="time" id="sg-start" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">종료</label><input type="time" id="sg-end" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">금액</label><input type="number" id="sg-price" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">결제</label>
+            <select id="sg-pay" class="input-base w-full"><option>현금</option><option>카드</option></select>
+          </div>
+          <div class="flex items-end"><button onclick="saveStorage()" class="btn-primary w-full">저장</button></div>
+        </div>
+        <input type="text" id="sg-note" placeholder="비고" class="input-base w-full mt-2 text-xs">
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-[#F5F7FA] text-[#6B7280]">
+          <tr>
+            <th class="py-2 px-2 text-left">날짜</th>
+            <th class="py-2 px-2 text-center">사이즈</th>
+            <th class="py-2 px-2 text-center">시작~종료</th>
+            <th class="py-2 px-2 text-right">금액</th>
+            <th class="py-2 px-2 text-center">결제</th>
+            <th class="py-2 px-2">비고</th>
+            <th class="py-2 px-2"></th>
+          </tr>
+        </thead>
+        <tbody id="storage-list"></tbody>
+      </table>
+    </div>
+
+    <!-- 탭 2: 시재 체크 -->
+    <div id="tab-check" class="hidden">
+      <div class="grid grid-cols-2 gap-6">
+        <div class="bg-[#FAFBFC] rounded-xl p-5">
+          <p class="text-sm text-[#6B7280]">등록 매출 합계 (이번 달)</p>
+          <p class="text-3xl font-bold text-[#F5A623] mt-1" id="sc-registered">0원</p>
+        </div>
+        <div class="bg-[#FAFBFC] rounded-xl p-5">
+          <p class="text-sm text-[#6B7280]">실제 시재 입력</p>
+          <input type="number" id="sc-actual" placeholder="실제 시재" oninput="updateDiff()" class="input-base w-full text-2xl font-bold mt-1">
+        </div>
+      </div>
+      <div class="mt-5 bg-[#1E2A3A] text-white rounded-xl p-5 text-center">
+        <p class="text-sm text-[#9CA3AF]">차이</p>
+        <p class="text-3xl font-bold mt-1" id="sc-diff">0원</p>
+      </div>
+    </div>
+
+    <!-- 탭 3: 월별 요약 -->
+    <div id="tab-summary" class="hidden">
+      <div class="grid grid-cols-5 gap-3 mb-5">
+        <div class="bg-[#FFE4E1] rounded-lg p-4"><p class="text-xs text-[#B91C1C]">XL</p><p class="text-xl font-bold mt-1" id="sm-XL">0건</p></div>
+        <div class="bg-[#FED7AA] rounded-lg p-4"><p class="text-xs text-[#92400E]">L</p><p class="text-xl font-bold mt-1" id="sm-L">0건</p></div>
+        <div class="bg-[#FEF3C7] rounded-lg p-4"><p class="text-xs text-[#854D0E]">M</p><p class="text-xl font-bold mt-1" id="sm-M">0건</p></div>
+        <div class="bg-[#D1FAE5] rounded-lg p-4"><p class="text-xs text-[#065F46]">S</p><p class="text-xl font-bold mt-1" id="sm-S">0건</p></div>
+        <div class="bg-[#1E2A3A] text-white rounded-lg p-4"><p class="text-xs text-[#9CA3AF]">총 매출</p><p class="text-xl font-bold mt-1" id="sm-total">0원</p></div>
+      </div>
+      <h4 class="font-bold mb-3">일별 매출</h4>
+      <div id="daily-bars" class="space-y-1"></div>
+      <div class="mt-6 text-center">
+        <button onclick="closeMonth()" class="btn-primary">월 마감 & 자료실 저장</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+mbBoot('storage.html');
+
+let currentMonth = thisYearMonth();
+document.getElementById('month-input').value = currentMonth;
+document.getElementById('month-input').addEventListener('change', e => {
+  currentMonth = e.target.value;
+  renderAll();
+});
+function moveMonth(d) {
+  const [y,m] = currentMonth.split('-').map(Number);
+  const nd = new Date(y, m-1+d, 1);
+  currentMonth = `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('month-input').value = currentMonth;
+  renderAll();
+}
+
+document.querySelectorAll('.tab-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    ['reg','check','summary'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
+    document.getElementById('tab-'+b.dataset.tab).classList.remove('hidden');
+    if (b.dataset.tab === 'check') updateDiff();
+    if (b.dataset.tab === 'summary') renderSummary();
+  });
+});
+
+document.getElementById('sg-date').value = today();
+
+// ─── 단가 ───────────────────────────────────────────
+function loadPrice() {
+  const p = mbGetOrDefault(MB.STORAGE_PRICE_KEY, {XL:15000,L:12000,M:9000,S:6000});
+  ['XL','L','M','S'].forEach(s => document.getElementById('px-'+s).value = p[s]);
+}
+function togglePriceEdit() {
+  if (!isAdmin()) { alert('관리자만 수정 가능'); return; }
+  const inputs = ['px-XL','px-L','px-M','px-S'].map(i => document.getElementById(i));
+  const editing = !inputs[0].disabled;
+  if (editing) {
+    const p = {};
+    inputs.forEach(i => p[i.id.split('-')[1]] = Number(i.value));
+    mbSet(MB.STORAGE_PRICE_KEY, p);
+    inputs.forEach(i => i.disabled = true);
+    document.getElementById('price-edit-btn').textContent = '수정 (관리자)';
+  } else {
+    inputs.forEach(i => i.disabled = false);
+    document.getElementById('price-edit-btn').textContent = '저장';
+  }
+}
+function onSizeChange() {
+  const p = mbGetOrDefault(MB.STORAGE_PRICE_KEY, {});
+  document.getElementById('sg-price').value = p[document.getElementById('sg-size').value] || '';
+}
+
+// ─── 등록 ───────────────────────────────────────────
+function saveStorage() {
+  const date = document.getElementById('sg-date').value;
+  const size = document.getElementById('sg-size').value;
+  const price = Number(document.getElementById('sg-price').value);
+  if (!date || !price) { alert('날짜/금액 확인'); return; }
+  mbPush(MB.STORAGE_KEY, {
+    id: uid(), yearMonth: date.slice(0,7), date, size,
+    startTime: document.getElementById('sg-start').value,
+    endTime: document.getElementById('sg-end').value,
+    price,
+    paymentType: document.getElementById('sg-pay').value,
+    note: document.getElementById('sg-note').value,
+  });
+  document.getElementById('sg-note').value = '';
+  document.getElementById('sg-price').value = '';
+  renderList();
+}
+function deleteStorage(id) {
+  if (!confirm('삭제?')) return;
+  mbRemove(MB.STORAGE_KEY, x => x.id === id);
+  renderAll();
+}
+function renderList() {
+  const list = mbGetOrDefault(MB.STORAGE_KEY, [])
+    .filter(s => s.yearMonth === currentMonth)
+    .sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('storage-list').innerHTML = list.length === 0
+    ? '<tr><td colspan="7" class="text-center py-6 text-[#9CA3AF]">기록 없음</td></tr>'
+    : list.map(s => `
+      <tr class="border-b">
+        <td class="py-2 px-2">${s.date}</td>
+        <td class="text-center"><span class="text-xs px-2 py-0.5 rounded size-${s.size}">${s.size}</span></td>
+        <td class="text-center text-[#6B7280] text-xs">${s.startTime||''}~${s.endTime||''}</td>
+        <td class="text-right font-bold">${fmtNum(s.price)}</td>
+        <td class="text-center text-xs">${s.paymentType}</td>
+        <td class="text-[#6B7280] text-xs">${s.note||''}</td>
+        <td class="text-right"><button onclick="deleteStorage('${s.id}')" class="text-[#EF4444] text-xs">삭제</button></td>
+      </tr>`).join('');
+}
+
+// ─── 시재 체크 ──────────────────────────────────────
+function updateDiff() {
+  const list = mbGetOrDefault(MB.STORAGE_KEY, []).filter(s => s.yearMonth === currentMonth);
+  const reg = list.reduce((a,b) => a + b.price, 0);
+  document.getElementById('sc-registered').textContent = fmtNum(reg) + '원';
+  const actual = Number(document.getElementById('sc-actual').value || 0);
+  const diff = actual - reg;
+  const diffEl = document.getElementById('sc-diff');
+  diffEl.textContent = fmtSigned(diff) + '원';
+  diffEl.className = 'text-3xl font-bold mt-1 ' + (diff>0?'text-[#10B981]':diff<0?'text-[#EF4444]':'');
+}
+
+// ─── 월별 요약 ──────────────────────────────────────
+function renderSummary() {
+  const list = mbGetOrDefault(MB.STORAGE_KEY, []).filter(s => s.yearMonth === currentMonth);
+  ['XL','L','M','S'].forEach(sz => {
+    document.getElementById('sm-'+sz).textContent = list.filter(x => x.size === sz).length + '건';
+  });
+  const total = list.reduce((a,b) => a + b.price, 0);
+  document.getElementById('sm-total').textContent = fmtNum(total) + '원';
+
+  const byDate = {};
+  list.forEach(s => byDate[s.date] = (byDate[s.date]||0) + s.price);
+  const max = Math.max(1, ...Object.values(byDate));
+  const dates = Object.keys(byDate).sort();
+  document.getElementById('daily-bars').innerHTML = dates.length === 0
+    ? '<p class="text-sm text-[#9CA3AF] text-center py-6">데이터 없음</p>'
+    : dates.map(d => `
+      <div class="flex items-center gap-3 text-sm">
+        <span class="w-24 text-[#6B7280]">${d}</span>
+        <div class="flex-1 bg-gray-100 rounded h-6 relative">
+          <div class="bg-[#F5A623] h-6 rounded" style="width:${byDate[d]/max*100}%"></div>
+        </div>
+        <span class="w-24 text-right font-bold">${fmtNum(byDate[d])}원</span>
+      </div>`).join('');
+}
+
+function closeMonth() {
+  if (!confirm(`${currentMonth} 월 마감하시고 자료실에 저장하시겠습니까?`)) return;
+  const archive = mbGetOrDefault(MB.ARCHIVE_KEY, []);
+  const dataKey = `storage_${currentMonth}`;
+  if (archive.find(a => a.dataKey === dataKey)) {
+    if (!confirm('이미 자료실에 저장된 월입니다. 덮어쓰기?')) return;
+    archive.splice(archive.findIndex(a => a.dataKey === dataKey), 1);
+  }
+  archive.unshift({
+    id: uid(),
+    title: `보관함매출_${currentMonth}`,
+    category: '기타',
+    uploadedBy: getCurrentUser().name,
+    uploadedAt: today(),
+    type: 'excel',
+    dataKey,
+    description: `${currentMonth} 연남 보관함 매출 기록`,
+  });
+  mbSet(MB.ARCHIVE_KEY, archive);
+  alert(`${currentMonth} 보관함 기록이 자료실에 저장되었습니다.`);
+}
+
+function renderAll() {
+  loadPrice();
+  onSizeChange();
+  renderList();
+}
+renderAll();
+</script>
+</body>
+</html>

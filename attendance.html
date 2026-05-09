@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoneyBox 근태관리</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/mb-data.js"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+  .nav-link { display:inline-block; padding:.375rem .75rem; border-radius:.5rem; font-size:.875rem; color:#9CA3AF; text-decoration:none; transition:all .15s; white-space:nowrap; }
+  .nav-link:hover { background:#2D3D52; color:#fff; }
+  .nav-link.active { background:#2D3D52; color:#fff; font-weight:600; }
+  .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.5rem .75rem; font-size:.875rem; outline:none; }
+  .input-base:focus { border-color:#F5A623; }
+  .btn-primary { background:#F5A623; color:#fff; padding:.5rem 1rem; border-radius:.5rem; font-size:.875rem; font-weight:600; }
+  .btn-primary:hover { background:#E0951F; }
+  .btn-ghost { padding:.5rem 1rem; border-radius:.5rem; font-size:.875rem; }
+  .tab-btn { padding:.625rem 1.25rem; font-size:.875rem; font-weight:600; color:#6B7280; border-bottom:2px solid transparent; }
+  .tab-btn.active { color:#F5A623; border-bottom-color:#F5A623; }
+  .schedule-cell { min-width:110px; max-width:130px; padding:.5rem; border-right:1px solid #F3F4F6; font-size:.7rem; vertical-align:top; }
+  .pill-open  { background:#FFF8EC; color:#92400E; }
+  .pill-close { background:#FFEFE9; color:#B91C1C; }
+  .pill-off   { background:#F3F4F6; color:#6B7280; }
+  .pill-leave { background:#EAF7F0; color:#047857; }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:52px">
+  <div class="flex items-center h-full px-5 gap-4">
+    <div class="shrink-0 pr-4 border-r border-[#2D3D52]">
+      <div class="text-white font-bold text-sm leading-none">MoneyBox</div>
+      <div class="text-[#4B5563] text-[10px] mt-0.5">운영 시스템</div>
+    </div>
+    <nav class="flex gap-0.5 flex-1">
+      <a href="index.html" class="nav-link">대시보드</a>
+      <a href="attendance.html" class="nav-link">근태관리</a>
+      <a href="trading.html" class="nav-link">거래관리</a>
+      <a href="tasks.html" class="nav-link">업무관리</a>
+      <a href="atm.html" class="nav-link">무인기관리</a>
+      <a href="storage.html" class="nav-link">보관함관리</a>
+      <a href="archive.html" class="nav-link">자료실</a>
+    </nav>
+    <div class="flex items-center gap-3 shrink-0 pl-4 border-l border-[#2D3D52]">
+      <div class="text-right leading-none">
+        <p class="text-[#F5A623] text-sm font-semibold" id="current-user">-</p>
+        <p class="text-[#6B7280] text-[11px] mt-0.5" id="current-role">-</p>
+      </div>
+      <div class="text-center">
+        <button id="clock-btn" onclick="handleClockInOut()" class="px-4 py-1.5 rounded-lg bg-[#10B981] text-white font-bold text-xs">출근</button>
+        <p class="text-[#4B5563] text-[10px] mt-0.5" id="clock-status">미출근</p>
+      </div>
+      <button onclick="showChangePwModal()" class="text-[#4B5563] hover:text-[#F5A623] text-sm" title="비밀번호 변경">🔑</button>
+      <button onclick="logoutUser()" class="text-[#4B5563] hover:text-white text-sm" title="로그아웃">⏻</button>
+    </div>
+  </div>
+</header>
+
+<main class="pt-[52px] min-h-screen p-6">
+  <div class="mb-6">
+    <h2 class="text-2xl font-bold text-[#1A1A2E]">근태관리</h2>
+    <p class="text-[#6B7280] text-sm mt-1" id="today-date"></p>
+  </div>
+
+  <div class="card">
+    <div class="flex border-b mb-5">
+      <button class="tab-btn active" data-tab="master">직원 마스터</button>
+      <button class="tab-btn" data-tab="schedule">월별 출근표</button>
+      <button class="tab-btn" data-tab="leave">연차 신청</button>
+    </div>
+
+    <!-- 탭 1: 직원 마스터 -->
+    <div id="tab-master">
+      <div class="flex justify-end mb-3">
+        <button id="add-emp-btn" onclick="openAddEmpModal()" class="btn-primary">+ 직원 추가</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-[#F5F7FA] text-[#6B7280]">
+          <tr>
+            <th class="py-2.5 px-3 text-left">이름</th>
+            <th class="py-2.5 px-3 text-left">직급</th>
+            <th class="py-2.5 px-3 text-left">지점</th>
+            <th class="py-2.5 px-3 text-left emp-detail">입사일</th>
+            <th class="py-2.5 px-3 text-center emp-detail">근속</th>
+            <th class="py-2.5 px-3 text-center">총연차</th>
+            <th class="py-2.5 px-3 text-center">사용</th>
+            <th class="py-2.5 px-3 text-center">잔여</th>
+            <th class="py-2.5 px-3 text-center emp-admin"></th>
+          </tr>
+        </thead>
+        <tbody id="emp-list"></tbody>
+      </table>
+    </div>
+
+    <!-- 탭 2: 월별 출근표 -->
+    <div id="tab-schedule" class="hidden">
+      <div class="flex justify-between items-center mb-4">
+        <div class="flex items-center gap-2">
+          <button onclick="moveMonth(-1)" class="btn-ghost bg-gray-100">◀</button>
+          <input type="month" id="sched-month" class="input-base">
+          <button onclick="moveMonth(1)" class="btn-ghost bg-gray-100">▶</button>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="seedScheduleSamples()" class="btn-ghost bg-gray-100 text-xs">샘플 채우기</button>
+          <button onclick="downloadExcel()" class="btn-primary">엑셀 다운로드</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto border rounded-lg">
+        <table class="text-sm" id="sched-table">
+          <thead class="bg-[#F5F7FA]"></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="mt-3 flex gap-3 text-xs text-[#6B7280]">
+        <span class="px-2 py-0.5 pill-open rounded">오픈</span>
+        <span class="px-2 py-0.5 pill-close rounded">마감</span>
+        <span class="px-2 py-0.5 pill-off rounded">휴무</span>
+        <span class="px-2 py-0.5 pill-leave rounded">연차</span>
+        <span>· 셀 클릭으로 배정 변경 (관리자)</span>
+      </div>
+    </div>
+
+    <!-- 탭 3: 연차 신청 -->
+    <div id="tab-leave" class="hidden">
+      <div class="grid grid-cols-2 gap-6">
+        <div>
+          <h4 class="font-bold mb-3">연차 신청</h4>
+          <div class="space-y-2">
+            <input type="date" id="lv-date" class="input-base w-full">
+            <input type="text" id="lv-reason" placeholder="사유" class="input-base w-full">
+            <button onclick="submitLeave()" class="btn-primary w-full">신청</button>
+          </div>
+        </div>
+        <div>
+          <h4 class="font-bold mb-3">내 신청 내역</h4>
+          <div id="my-leave-list" class="space-y-2"></div>
+        </div>
+      </div>
+      <div id="admin-leave-section" class="mt-8 hidden">
+        <h4 class="font-bold mb-3">관리자 - 전체 신청 목록</h4>
+        <table class="w-full text-sm">
+          <thead class="bg-[#F5F7FA] text-[#6B7280]">
+            <tr><th class="py-2 px-3 text-left">직원</th><th>날짜</th><th>사유</th><th>상태</th><th></th></tr>
+          </thead>
+          <tbody id="admin-leave-list"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- 직원 추가 모달 -->
+<div id="add-emp-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl p-6 w-[420px]">
+    <h3 class="text-lg font-bold mb-4">직원 추가</h3>
+    <div class="space-y-2">
+      <input type="text" id="ne-name" placeholder="이름" class="input-base w-full">
+      <select id="ne-role" class="input-base w-full">
+        <option value="staff">직원</option>
+        <option value="senior">시니어</option>
+        <option value="admin">관리자</option>
+      </select>
+      <select id="ne-branch" class="input-base w-full">
+        <option value="">지점 없음</option>
+        <option value="홍대">홍대</option>
+        <option value="연남">연남</option>
+      </select>
+      <input type="date" id="ne-join" class="input-base w-full">
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button onclick="closeAddEmpModal()" class="btn-ghost bg-gray-100 flex-1">취소</button>
+      <button onclick="saveEmp()" class="btn-primary flex-1">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+mbBoot('attendance.html');
+
+// ─── 탭 ───────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    ['master','schedule','leave'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
+    document.getElementById('tab-'+btn.dataset.tab).classList.remove('hidden');
+    if (btn.dataset.tab === 'schedule') renderSchedule();
+    if (btn.dataset.tab === 'leave') renderLeaves();
+  });
+});
+
+// ─── 직원 마스터 ───────────────────────────────────
+function renderEmpList() {
+  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
+  const leaves = mbGetOrDefault(MB.LEAVE_KEY, []);
+  const showDetail = isSeniorOrAbove();
+  const showAdmin = isAdmin();
+  document.getElementById('add-emp-btn').style.display = showAdmin ? '' : 'none';
+  document.querySelectorAll('.emp-detail').forEach(el => el.style.display = showDetail ? '' : 'none');
+  document.querySelectorAll('.emp-admin').forEach(el => el.style.display = showAdmin ? '' : 'none');
+
+  document.getElementById('emp-list').innerHTML = employees.map(e => {
+    const total = calcLeave(e.joinDate);
+    const used = leaves.filter(l => l.employeeId === e.id && l.status === '승인').length;
+    const remain = total - used;
+    const months = monthsBetween(e.joinDate, today());
+    const yrs = Math.floor(months/12);
+    const tenure = yrs > 0 ? `${yrs}년 ${months%12}개월` : `${months}개월`;
+    const roleLabel = e.role==='admin'?'관리자':e.role==='senior'?'시니어':'직원';
+    return `<tr class="border-b hover:bg-gray-50">
+      <td class="py-2.5 px-3 font-medium">${e.name}</td>
+      <td class="py-2.5 px-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-100">${roleLabel}</span></td>
+      <td class="py-2.5 px-3 text-[#6B7280]">${e.branch||'-'}</td>
+      <td class="py-2.5 px-3 emp-detail" style="${showDetail?'':'display:none'}">${e.joinDate}</td>
+      <td class="py-2.5 px-3 text-center emp-detail" style="${showDetail?'':'display:none'}">${tenure}</td>
+      <td class="py-2.5 px-3 text-center">${total}</td>
+      <td class="py-2.5 px-3 text-center text-[#EF4444]">${used}</td>
+      <td class="py-2.5 px-3 text-center font-bold text-[#10B981]">${remain}</td>
+      <td class="py-2.5 px-3 text-center emp-admin" style="${showAdmin?'':'display:none'}">
+        <button onclick="deleteEmp('${e.id}')" class="text-[#EF4444] text-xs">삭제</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function openAddEmpModal() {
+  document.getElementById('ne-join').value = today();
+  document.getElementById('add-emp-modal').classList.remove('hidden');
+}
+function closeAddEmpModal() {
+  document.getElementById('add-emp-modal').classList.add('hidden');
+}
+function saveEmp() {
+  const name = document.getElementById('ne-name').value.trim();
+  if (!name) return;
+  mbPush(MB.EMPLOYEES_KEY, {
+    id: uid(), name,
+    role: document.getElementById('ne-role').value,
+    branch: document.getElementById('ne-branch').value || null,
+    joinDate: document.getElementById('ne-join').value,
+  });
+  closeAddEmpModal();
+  renderEmpList();
+}
+function deleteEmp(id) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  mbRemove(MB.EMPLOYEES_KEY, x => x.id === id);
+  renderEmpList();
+}
+
+// ─── 월별 출근표 ───────────────────────────────────
+let currentMonth = thisYearMonth();
+document.getElementById('sched-month').value = currentMonth;
+document.getElementById('sched-month').addEventListener('change', e => {
+  currentMonth = e.target.value;
+  renderSchedule();
+});
+function moveMonth(delta) {
+  const [y, m] = currentMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  currentMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('sched-month').value = currentMonth;
+  renderSchedule();
+}
+function daysInMonth(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m, 0).getDate();
+}
+function pillFor(shift) {
+  if (shift === '오픈') return 'pill-open';
+  if (shift === '마감') return 'pill-close';
+  if (shift === '휴무') return 'pill-off';
+  if (shift === '연차') return 'pill-leave';
+  return '';
+}
+function renderSchedule() {
+  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.role !== 'admin' || e.branch);
+  const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []);
+  const att = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
+  const days = daysInMonth(currentMonth);
+  const [y, m] = currentMonth.split('-').map(Number);
+
+  let thead = '<tr><th class="py-2 px-3 text-left bg-[#F5F7FA] sticky left-0 z-10 border-r">직원</th>';
+  for (let d=1; d<=days; d++) {
+    const dt = new Date(y, m-1, d);
+    const dayName = ['일','월','화','수','목','금','토'][dt.getDay()];
+    const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+    thead += `<th class="py-2 px-1 text-center text-xs ${isWeekend?'text-[#EF4444]':''} bg-[#F5F7FA] border-r">${d}<br>(${dayName})</th>`;
+  }
+  thead += '<th class="py-2 px-2 bg-[#F5F7FA]">근무h</th><th class="py-2 px-2 bg-[#F5F7FA]">휴무</th></tr>';
+  document.querySelector('#sched-table thead').innerHTML = thead;
+
+  let tbody = '';
+  employees.forEach(e => {
+    let totalMin = 0, offDays = 0;
+    let row = `<tr class="border-b"><td class="py-2 px-3 font-medium sticky left-0 bg-white border-r z-10">${e.name}<div class="text-xs text-[#6B7280]">${e.branch||''}</div></td>`;
+    for (let d=1; d<=days; d++) {
+      const dateStr = `${currentMonth}-${String(d).padStart(2,'0')}`;
+      const s = sched.find(x => x.date === dateStr && x.employeeId === e.id);
+      const a = att.find(x => x.date === dateStr && x.employeeId === e.id);
+      let cell = '';
+      if (s) {
+        const branch = s.branch ? s.branch[0] : '';
+        cell = `<div class="px-1.5 py-0.5 rounded ${pillFor(s.shiftType)} text-center text-[10px] font-bold cursor-pointer" onclick="editCell('${dateStr}','${e.id}')">${branch}${s.shiftType}</div>`;
+        if (s.shiftType === '휴무' || s.shiftType === '연차') offDays++;
+      } else {
+        cell = `<div class="text-[#D1D5DB] text-center cursor-pointer" onclick="editCell('${dateStr}','${e.id}')">·</div>`;
+      }
+      if (a && a.clockIn) {
+        cell += `<div class="text-[10px] text-[#6B7280] text-center mt-0.5">${a.clockIn}${a.clockOut?'~'+a.clockOut:''}</div>`;
+        if (a.workMinutes) totalMin += a.workMinutes;
+      }
+      row += `<td class="schedule-cell">${cell}</td>`;
+    }
+    const totalH = (totalMin/60).toFixed(1);
+    row += `<td class="py-2 px-2 text-center font-bold text-[#F5A623]">${totalH}h</td><td class="py-2 px-2 text-center">${offDays}</td></tr>`;
+    tbody += row;
+  });
+  document.querySelector('#sched-table tbody').innerHTML = tbody;
+}
+function editCell(date, employeeId) {
+  if (!isAdmin()) { alert('관리자만 배정 변경 가능'); return; }
+  const opts = ['오픈','마감','휴무','연차','삭제'];
+  const choice = prompt(`${date} 배정\n1.오픈 2.마감 3.휴무 4.연차 5.삭제\n번호 입력:`);
+  const idx = Number(choice) - 1;
+  if (idx < 0 || idx > 4) return;
+  const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []);
+  const filtered = sched.filter(x => !(x.date === date && x.employeeId === employeeId));
+  if (idx < 4) {
+    const emp = mbGetOrDefault(MB.EMPLOYEES_KEY, []).find(e => e.id === employeeId);
+    filtered.push({ date, employeeId, branch: emp.branch || '홍대', shiftType: opts[idx] });
+  }
+  mbSet(MB.SCHEDULE_KEY, filtered);
+  renderSchedule();
+}
+function seedScheduleSamples() {
+  if (!isAdmin()) { alert('관리자만 가능'); return; }
+  if (!confirm(`${currentMonth} 샘플 근무표를 자동 생성합니다. 기존 데이터에 추가됩니다.`)) return;
+  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch);
+  const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []);
+  const days = daysInMonth(currentMonth);
+  for (let d=1; d<=days; d++) {
+    const dateStr = `${currentMonth}-${String(d).padStart(2,'0')}`;
+    employees.forEach((e, i) => {
+      if (sched.find(x => x.date === dateStr && x.employeeId === e.id)) return;
+      const shifts = ['오픈','마감','휴무'];
+      const shift = shifts[(d + i) % 3];
+      sched.push({ date: dateStr, employeeId: e.id, branch: e.branch, shiftType: shift });
+    });
+  }
+  mbSet(MB.SCHEDULE_KEY, sched);
+  renderSchedule();
+}
+function downloadExcel() {
+  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch);
+  const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []);
+  const att = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
+  const days = daysInMonth(currentMonth);
+  const header = ['직원','지점'];
+  for (let d=1; d<=days; d++) header.push(`${d}일`);
+  header.push('총근무h','휴무일');
+  const rows = [header];
+  employees.forEach(e => {
+    const row = [e.name, e.branch||''];
+    let totalMin = 0, off = 0;
+    for (let d=1; d<=days; d++) {
+      const dateStr = `${currentMonth}-${String(d).padStart(2,'0')}`;
+      const s = sched.find(x => x.date === dateStr && x.employeeId === e.id);
+      const a = att.find(x => x.date === dateStr && x.employeeId === e.id);
+      let cell = s ? `${s.branch}${s.shiftType}` : '';
+      if (a && a.clockIn) cell += ` ${a.clockIn}~${a.clockOut||''}`;
+      if (s && (s.shiftType==='휴무'||s.shiftType==='연차')) off++;
+      if (a && a.workMinutes) totalMin += a.workMinutes;
+      row.push(cell);
+    }
+    row.push((totalMin/60).toFixed(1)+'h', off+'일');
+    rows.push(row);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '출근표');
+  XLSX.writeFile(wb, `출근표_${currentMonth}.xlsx`);
+}
+
+// ─── 연차 신청 ───────────────────────────────────────
+function submitLeave() {
+  const date = document.getElementById('lv-date').value;
+  const reason = document.getElementById('lv-reason').value.trim();
+  if (!date || !reason) return;
+  mbPush(MB.LEAVE_KEY, {
+    id: uid(), employeeId: getCurrentUser().id,
+    date, reason, status: '대기',
+  });
+  document.getElementById('lv-reason').value = '';
+  renderLeaves();
+}
+function setLeaveStatus(id, status) {
+  mbUpdate(MB.LEAVE_KEY, x => x.id === id, x => x.status = status);
+  renderLeaves();
+  renderEmpList();
+}
+function renderLeaves() {
+  const list = mbGetOrDefault(MB.LEAVE_KEY, []);
+  const me = getCurrentUser();
+  const mine = list.filter(l => l.employeeId === me.id).sort((a,b) => b.date.localeCompare(a.date));
+  const statusBadge = s => s==='승인'?'<span class="text-[#10B981]">승인</span>'
+    : s==='반려'?'<span class="text-[#EF4444]">반려</span>'
+    : '<span class="text-[#F59E0B]">대기</span>';
+  document.getElementById('my-leave-list').innerHTML = mine.length === 0
+    ? '<p class="text-sm text-[#9CA3AF]">신청 내역 없음</p>'
+    : mine.map(l => `
+      <div class="border rounded-lg p-3 flex justify-between items-center">
+        <div>
+          <div class="font-medium text-sm">${l.date}</div>
+          <div class="text-xs text-[#6B7280] mt-0.5">${l.reason}</div>
+        </div>
+        <div class="text-sm">${statusBadge(l.status)}</div>
+      </div>`).join('');
+
+  if (isAdmin()) {
+    document.getElementById('admin-leave-section').classList.remove('hidden');
+    const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
+    document.getElementById('admin-leave-list').innerHTML = list.length === 0
+      ? '<tr><td colspan="5" class="py-4 text-center text-[#9CA3AF]">신청 없음</td></tr>'
+      : list.sort((a,b)=>b.date.localeCompare(a.date)).map(l => {
+        const emp = employees.find(e => e.id === l.employeeId);
+        return `<tr class="border-b">
+          <td class="py-2 px-3">${emp?.name||'?'}</td>
+          <td class="py-2 px-3">${l.date}</td>
+          <td class="py-2 px-3 text-[#6B7280]">${l.reason}</td>
+          <td class="py-2 px-3">${statusBadge(l.status)}</td>
+          <td class="py-2 px-3 text-right">
+            ${l.status === '대기' ? `
+              <button onclick="setLeaveStatus('${l.id}','승인')" class="text-xs text-[#10B981] mr-2">승인</button>
+              <button onclick="setLeaveStatus('${l.id}','반려')" class="text-xs text-[#EF4444]">반려</button>
+            ` : ''}
+          </td>
+        </tr>`;
+      }).join('');
+  }
+}
+
+renderEmpList();
+</script>
+</body>
+</html>
