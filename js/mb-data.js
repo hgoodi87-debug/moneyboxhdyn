@@ -6,10 +6,11 @@
 const MB = {
   EMPLOYEES_KEY: 'mb_employees',
   DEFAULT_EMPLOYEES: [
-    { id: 'e1', name: '김동교', role: 'admin',  joinDate: '2024-11-01', branch: null,   password: '0000' },
+    { id: 'e1', name: '김동교', role: 'admin',  joinDate: '2024-11-01', branch: '홍대', password: '0000' },
     { id: 'e2', name: '임재원', role: 'senior', joinDate: '2024-03-06', branch: '홍대', password: '0000' },
     { id: 'e3', name: '박진호', role: 'senior', joinDate: '2024-08-08', branch: '연남', password: '0000' },
     { id: 'e4', name: '류천명', role: 'senior', joinDate: '2025-05-19', branch: '홍대', password: '0000' },
+    { id: 'e5', name: '정수민', role: 'senior', joinDate: '2025-01-15', branch: '연남', password: '0000' },
   ],
 
   SESSION_KEY: 'mb_session',
@@ -229,24 +230,24 @@ function renderClockBtn() {
     .find(r => r.employeeId === user.id && r.date === todayStr);
 
   if (!rec) {
-    btn.className = 'px-4 py-1.5 rounded-lg bg-[#10B981] hover:bg-[#0EA371] text-white font-bold text-xs transition';
+    btn.className = 'px-5 py-2 rounded-lg bg-[#10B981] hover:bg-[#0EA371] text-white font-bold text-sm transition';
     btn.textContent = '출근';
     btn.disabled = false;
     if (status) status.textContent = '미출근';
   } else if (!rec.clockOut) {
     const gate = checkClockOutGate(user, todayStr);
     if (gate.ok) {
-      btn.className = 'px-4 py-1.5 rounded-lg bg-[#EF4444] hover:bg-[#DC2626] text-white font-bold text-xs transition';
+      btn.className = 'px-5 py-2 rounded-lg bg-[#EF4444] hover:bg-[#DC2626] text-white font-bold text-sm transition';
       btn.textContent = '퇴근';
       btn.disabled = false;
     } else {
-      btn.className = 'px-4 py-1.5 rounded-lg bg-[#374151] text-gray-400 font-bold text-xs cursor-not-allowed';
+      btn.className = 'px-5 py-2 rounded-lg bg-[#374151] text-gray-400 font-bold text-sm cursor-not-allowed';
       btn.textContent = '퇴근 대기';
       btn.disabled = false;
     }
     if (status) status.textContent = `출근 ${rec.clockIn}`;
   } else {
-    btn.className = 'px-4 py-1.5 rounded-lg bg-[#374151] text-gray-400 font-bold text-xs cursor-not-allowed';
+    btn.className = 'px-5 py-2 rounded-lg bg-[#374151] text-gray-400 font-bold text-sm cursor-not-allowed';
     btn.textContent = '퇴근완료';
     btn.disabled = true;
     if (status) status.textContent = `${rec.clockIn}~${rec.clockOut}`;
@@ -262,6 +263,7 @@ function renderSidebar(activePage) {
   if (cr && user) {
     const roleLabel = user.role === 'admin' ? '관리자' : user.role === 'senior' ? '시니어' : '직원';
     cr.textContent = roleLabel + (user.branch ? ' · ' + user.branch : '');
+    cr.style.color = user.role === 'admin' ? '#F5A623' : user.role === 'senior' ? '#10B981' : 'rgba(255,255,255,.65)';
   }
   document.querySelectorAll('.nav-link').forEach(a => {
     const href = a.getAttribute('href');
@@ -281,6 +283,14 @@ function mbInit() {
     const employees = mbGet(MB.EMPLOYEES_KEY);
     let updated = false;
     employees.forEach(e => { if (!e.password) { e.password = '0000'; updated = true; } });
+    // 김동교(e1) 지점 배정 마이그레이션
+    const dk = employees.find(e => e.id === 'e1');
+    if (dk && !dk.branch) { dk.branch = '홍대'; updated = true; }
+    // 연남 직원 추가 마이그레이션
+    if (!employees.find(e => e.id === 'e5')) {
+      employees.push({ id:'e5', name:'정수민', role:'senior', joinDate:'2025-01-15', branch:'연남', password:'0000' });
+      updated = true;
+    }
     if (updated) mbSet(MB.EMPLOYEES_KEY, employees);
   }
   if (!mbGet(MB.STORAGE_PRICE_KEY)) {

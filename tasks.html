@@ -8,7 +8,7 @@
 <script src="js/mb-data.js"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
-  .nav-link { display:inline-block; padding:.375rem .75rem; border-radius:.5rem; font-size:.875rem; color:#9CA3AF; text-decoration:none; transition:all .15s; white-space:nowrap; }
+  .nav-link { display:inline-block; padding:.5rem 1.125rem; border-radius:.5rem; font-size:.9375rem; color:#fff; text-decoration:none; transition:all .15s; white-space:nowrap; font-weight:500; }
   .nav-link:hover { background:#2D3D52; color:#fff; }
   .nav-link.active { background:#2D3D52; color:#fff; font-weight:600; }
   .branch-col { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -21,13 +21,9 @@
 </head>
 <body class="bg-[#F5F7FA]">
 
-<header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:52px">
-  <div class="flex items-center h-full px-5 gap-4">
-    <div class="shrink-0 pr-4 border-r border-[#2D3D52]">
-      <div class="text-white font-bold text-sm leading-none">MoneyBox</div>
-      <div class="text-[#4B5563] text-[10px] mt-0.5">운영 시스템</div>
-    </div>
-    <nav class="flex gap-0.5 flex-1">
+<header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:60px">
+  <div class="flex items-center h-full px-10">
+    <nav class="flex-1 flex justify-center items-center gap-1">
       <a href="index.html" class="nav-link">대시보드</a>
       <a href="attendance.html" class="nav-link">근태관리</a>
       <a href="trading.html" class="nav-link">거래관리</a>
@@ -36,31 +32,20 @@
       <a href="storage.html" class="nav-link">보관함관리</a>
       <a href="archive.html" class="nav-link">자료실</a>
     </nav>
-    <div class="flex items-center gap-3 shrink-0 pl-4 border-l border-[#2D3D52]">
-      <div class="text-right leading-none">
-        <p class="text-[#F5A623] text-sm font-semibold" id="current-user">-</p>
-        <p class="text-[#6B7280] text-[11px] mt-0.5" id="current-role">-</p>
+    <div class="flex items-center gap-5 shrink-0 border-l border-[#2D3D52] pl-8">
+      <span style="color:#fff;font-size:.75rem;white-space:nowrap;flex-shrink:0" id="today-date"></span>
+      <div style="display:flex;align-items:center;gap:8px;white-space:nowrap">
+        <span style="color:#fff;font-size:.875rem;font-weight:600" id="current-user">-</span>
+        <span style="color:rgba(255,255,255,.65);font-size:.75rem" id="current-role">-</span>
+        <button onclick="logoutUser()" style="color:#6B7280;background:none;border:none;cursor:pointer;font-size:.75rem;padding:0;line-height:1" title="로그아웃">⏻</button>
       </div>
-      <div class="text-center">
-        <button id="clock-btn" onclick="handleClockInOut()" class="px-4 py-1.5 rounded-lg bg-[#10B981] text-white font-bold text-xs">출근</button>
-        <p class="text-[#4B5563] text-[10px] mt-0.5" id="clock-status">미출근</p>
-      </div>
-      <button onclick="showChangePwModal()" class="text-[#4B5563] hover:text-[#F5A623] text-sm" title="비밀번호 변경">🔑</button>
-      <button onclick="logoutUser()" class="text-[#4B5563] hover:text-white text-sm" title="로그아웃">⏻</button>
+      <button id="clock-btn" onclick="handleClockInOut()" class="px-5 py-2 rounded-lg bg-[#10B981] text-white font-bold text-sm">출근</button>
+      <p id="clock-status" class="hidden"></p>
     </div>
   </div>
 </header>
 
-<main class="pt-[52px] min-h-screen p-6">
-  <div class="mb-6 flex justify-between items-end">
-    <div>
-      <h2 class="text-2xl font-bold text-[#1A1A2E]">업무관리</h2>
-      <p class="text-[#6B7280] text-sm mt-1" id="today-date"></p>
-    </div>
-    <div class="text-sm text-[#6B7280]">
-      모든 업무 체크 → 담당자 체크 → 퇴근 가능
-    </div>
-  </div>
+<main class="pt-[60px] min-h-screen pb-6 px-44">
 
   <div class="grid grid-cols-2 gap-5">
     <!-- 홍대 -->
