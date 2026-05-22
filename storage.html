@@ -6,7 +6,7 @@
 <title>MoneyBox 보관함관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="js/mb-data.js"></script>
+<script src="js/mb-data.js?v=9"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .nav-link { display:inline-block; padding:.5rem 1.125rem; border-radius:.5rem; font-size:.9375rem; color:#fff; text-decoration:none; transition:all .15s; white-space:nowrap; font-weight:500; }
@@ -28,6 +28,7 @@
 
 <header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:60px">
   <div class="flex items-center h-full px-10">
+    <span id="today-date" style="color:#fff;font-size:.75rem;white-space:nowrap;flex-shrink:0;margin-right:1.25rem"></span>
     <nav class="flex-1 flex justify-center items-center gap-1">
       <a href="index.html" class="nav-link">대시보드</a>
       <a href="attendance.html" class="nav-link">근태관리</a>
@@ -36,9 +37,9 @@
       <a href="atm.html" class="nav-link">무인기관리</a>
       <a href="storage.html" class="nav-link">보관함관리</a>
       <a href="archive.html" class="nav-link">자료실</a>
+      <a href="calc.html" class="nav-link" title="계산기" style="font-size:1.15rem;padding:.3rem .55rem;margin-left:.25rem">🧮</a>
     </nav>
     <div class="flex items-center gap-5 shrink-0 border-l border-[#2D3D52] pl-8">
-      <span style="color:#fff;font-size:.75rem;white-space:nowrap;flex-shrink:0" id="today-date"></span>
       <div style="display:flex;align-items:center;gap:8px;white-space:nowrap">
         <span style="color:#fff;font-size:.875rem;font-weight:600" id="current-user">-</span>
         <span style="color:rgba(255,255,255,.65);font-size:.75rem" id="current-role">-</span>

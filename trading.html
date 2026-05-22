@@ -6,28 +6,56 @@
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="js/mb-data.js"></script>
+<script src="js/mb-data.js?v=9"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .nav-link { display:inline-block; padding:.5rem 1.125rem; border-radius:.5rem; font-size:.9375rem; color:#fff; text-decoration:none; transition:all .15s; white-space:nowrap; font-weight:500; }
-  .nav-link:hover { background:#2D3D52; color:#fff; }
-  .nav-link.active { background:#2D3D52; color:#fff; font-weight:600; }
-  .card { background:#fff; border-radius:1rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .nav-link:hover { background:#2D3D52; }
+  .nav-link.active { background:#2D3D52; font-weight:600; }
+  .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
   .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.5rem .75rem; font-size:.875rem; outline:none; }
   .input-base:focus { border-color:#F5A623; }
-  .btn-primary { background:#F5A623; color:#fff; padding:.5rem 1rem; border-radius:.5rem; font-size:.875rem; font-weight:600; }
+  .btn-primary { background:#F5A623; color:#fff; padding:.5rem 1rem; border-radius:.5rem; font-size:.875rem; font-weight:600; cursor:pointer; }
   .btn-primary:hover { background:#E0951F; }
-  .row-거래처   { background:#fff; }
-  .row-지점간   { background:#EFF6FF; }
-  .row-은행     { background:#ECFDF5; }
-  .row-인천공항 { background:#F5F3FF; }
-  .summary-card { background:#1E2A3A; color:#fff; padding:1rem 1.5rem; border-radius:.75rem; }
+
+  /* 탭 */
+  .sheet-tab { padding:.45rem 1.25rem; border-radius:.5rem .5rem 0 0; font-size:.82rem; font-weight:600; cursor:pointer; border:1px solid #E5E7EB; border-bottom:none; background:#F5F7FA; color:#6B7280; margin-right:2px; white-space:nowrap; }
+  .sheet-tab.active { background:#fff; color:#1E2A3A; border-bottom:2px solid #fff; position:relative; z-index:1; }
+
+  /* 스프레드시트 표 */
+  .ss-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+  .ss-table th { background:#F5F7FA; color:#6B7280; font-weight:600; padding:.35rem .2rem; border:1px solid #E5E7EB; font-size:.72rem; white-space:nowrap; }
+  .ss-table td { border:1px solid #E5E7EB; padding:0; height:28px; vertical-align:middle; background:#fff; user-select:none; }
+  .ss-table td.sel { background:rgba(59,130,246,.13) !important; }
+  .ss-table td.sel input, .ss-table td.sel select { background:transparent; }
+  .ss-table tr.empty td { background:#FAFAFA; }
+  .ss-table tr.t-매입 td { background:#FEF2F2; }
+  .ss-table tr.t-매각 td { background:#EFF6FF; }
+  .ss-table tr.t-외화미수금 td { background:#ECFDF5; }
+  .ss-table input, .ss-table select {
+    width:100%; height:28px; border:none; background:transparent;
+    padding:0 .2rem; font-size:.78rem; outline:none; box-sizing:border-box; font-family:inherit;
+  }
+  .ss-table input:focus, .ss-table select:focus { background:#FFF8EC; box-shadow:inset 0 0 0 2px #F5A623; border-radius:2px; }
+  .ss-table input.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .ss-table .calc { text-align:right; padding:0 .25rem; font-weight:700; font-variant-numeric:tabular-nums; }
+  .ss-table select.type-매입 { color:#DC2626; font-weight:700; }
+  .ss-table select.type-매각 { color:#2563EB; font-weight:700; }
+  .ss-table select.type-외화미수금 { color:#059669; font-weight:700; }
+  .ss-table select.type-지급완료 { color:#7C3AED; font-weight:700; }
+  .ss-table tr.t-지급완료 td { background:#F5F3FF; }
+  .ss-table tfoot td { padding:.45rem .4rem; font-size:.8rem; font-weight:700; border:1px solid #E5E7EB; }
+  .ss-table tfoot tr.foot-buy td  { background:#FEF2F2; color:#991B1B; }
+  .ss-table tfoot tr.foot-sell td { background:#EFF6FF; color:#1E40AF; }
+  .ss-table tfoot tr.foot-total td { background:#1E2A3A; color:#fff; }
+  .ss-table tfoot tr.foot-total td.total-val { color:#F5A623; font-size:.95rem; }
 </style>
 </head>
 <body class="bg-[#F5F7FA]">
 
 <header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:60px">
   <div class="flex items-center h-full px-10">
+    <span id="today-date" style="color:#fff;font-size:.75rem;white-space:nowrap;flex-shrink:0;margin-right:1.25rem"></span>
     <nav class="flex-1 flex justify-center items-center gap-1">
       <a href="index.html" class="nav-link">대시보드</a>
       <a href="attendance.html" class="nav-link">근태관리</a>
@@ -36,9 +64,9 @@
       <a href="atm.html" class="nav-link">무인기관리</a>
       <a href="storage.html" class="nav-link">보관함관리</a>
       <a href="archive.html" class="nav-link">자료실</a>
+      <a href="calc.html" class="nav-link" title="계산기" style="font-size:1.15rem;padding:.3rem .55rem;margin-left:.25rem">🧮</a>
     </nav>
     <div class="flex items-center gap-5 shrink-0 border-l border-[#2D3D52] pl-8">
-      <span style="color:#fff;font-size:.75rem;white-space:nowrap;flex-shrink:0" id="today-date"></span>
       <div style="display:flex;align-items:center;gap:8px;white-space:nowrap">
         <span style="color:#fff;font-size:.875rem;font-weight:600" id="current-user">-</span>
         <span style="color:rgba(255,255,255,.65);font-size:.75rem" id="current-role">-</span>
@@ -50,128 +78,56 @@
   </div>
 </header>
 
-<main class="pt-[60px] min-h-screen pb-6 px-44">
-  <div class="mb-6 flex justify-end items-center">
+<main class="pt-[76px] min-h-screen pb-6" style="padding-left:clamp(16px,10vw,240px);padding-right:clamp(16px,10vw,240px)">
+  <div style="display:flex;flex-direction:column;align-items:center">
+  <!-- 상단 컨트롤 -->
+  <div class="mb-4 flex justify-between items-center gap-3" style="max-width:640px;width:100%">
     <div class="flex items-center gap-2">
+      <button onclick="moveDate(-1)" class="px-2 py-1.5 rounded bg-gray-100 text-sm">◀</button>
       <input type="date" id="trade-date" class="input-base">
-      <button onclick="openModal()" class="btn-primary">+ 거래 추가</button>
-      <button onclick="exportTrading()" class="px-3 py-2 rounded-lg bg-gray-100 text-sm font-medium">엑셀</button>
+      <button onclick="moveDate(1)" class="px-2 py-1.5 rounded bg-gray-100 text-sm">▶</button>
+      <button onclick="setToday()" class="px-3 py-1.5 rounded bg-gray-100 text-sm">오늘</button>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="exportTrading()" class="px-3 py-2 rounded-lg bg-gray-100 text-sm font-medium">엑셀 다운로드</button>
+      <button onclick="openResetModal()" class="px-3 py-2 rounded-lg text-sm font-medium" style="background:#FEE2E2;color:#DC2626">초기화</button>
     </div>
   </div>
 
-  <!-- 요약 카드 -->
-  <div class="grid grid-cols-4 gap-3 mb-5">
-    <div class="summary-card">
-      <p class="text-xs text-[#9CA3AF]">매입 합계</p>
-      <p class="text-xl font-bold text-[#3B82F6] mt-1" id="sum-buy">0</p>
-    </div>
-    <div class="summary-card">
-      <p class="text-xs text-[#9CA3AF]">매각 합계</p>
-      <p class="text-xl font-bold text-[#EF4444] mt-1" id="sum-sell">0</p>
-    </div>
-    <div class="summary-card">
-      <p class="text-xs text-[#9CA3AF]">총계</p>
-      <p class="text-xl font-bold mt-1" id="sum-total">0</p>
-    </div>
-    <div class="summary-card">
-      <p class="text-xs text-[#9CA3AF]">다음날 이월 미수금</p>
-      <p class="text-xl font-bold mt-1 text-[#F5A623]" id="sum-carry">0</p>
-    </div>
+  <!-- 4개 시트 탭 + 표 중앙 정렬 wrapper -->
+  <div class="flex items-end mb-0" style="border-bottom:1px solid #E5E7EB;max-width:640px;width:100%">
+    <button class="sheet-tab active" onclick="switchSheet(1)" id="tab-1">홍대 연남 지점간 거래</button>
+    <button class="sheet-tab" onclick="switchSheet(2)" id="tab-2">외부거래1</button>
+    <button class="sheet-tab" onclick="switchSheet(3)" id="tab-3">외부거래2</button>
+    <button class="sheet-tab" onclick="switchSheet(4)" id="tab-4">연남 마감</button>
   </div>
 
-  <!-- 카테고리 필터 -->
-  <div class="card">
-    <div class="flex gap-2 mb-3 text-xs">
-      <button class="cat-filter btn-primary" data-cat="">전체</button>
-      <button class="cat-filter px-3 py-1.5 rounded bg-gray-100" data-cat="거래처">거래처</button>
-      <button class="cat-filter px-3 py-1.5 rounded bg-blue-100" data-cat="지점간">지점간</button>
-      <button class="cat-filter px-3 py-1.5 rounded bg-green-100" data-cat="은행">은행</button>
-      <button class="cat-filter px-3 py-1.5 rounded bg-purple-100" data-cat="인천공항">인천공항</button>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm" style="min-width:1300px;">
-        <thead class="bg-[#F5F7FA] text-[#6B7280]">
-          <tr>
-            <th class="py-2.5 px-2 text-center">No.</th>
-            <th class="py-2.5 px-2 text-left">날짜</th>
-            <th class="py-2.5 px-2 text-left">카테고리</th>
-            <th class="py-2.5 px-2 text-left">거래처/비고</th>
-            <th class="py-2.5 px-2 text-center">거래종류</th>
-            <th class="py-2.5 px-2 text-center">통화</th>
-            <th class="py-2.5 px-2 text-right">금액</th>
-            <th class="py-2.5 px-2 text-right">환율</th>
-            <th class="py-2.5 px-2 text-right">한화금액계</th>
-            <th class="py-2.5 px-2 text-right">외화금액계</th>
-            <th class="py-2.5 px-2 text-center">상태</th>
-            <th class="py-2.5 px-2"></th>
-          </tr>
-        </thead>
-        <tbody id="trade-tbody"></tbody>
-      </table>
-    </div>
+  <!-- 4개 표 (탭 전환) -->
+  <div style="max-width:640px;width:100%">
+    <div id="sheet-1" class="card" style="border-radius:0 .75rem .75rem .75rem"></div>
+    <div id="sheet-2" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
+    <div id="sheet-3" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
+    <div id="sheet-4" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
+  </div>
   </div>
 </main>
 
-<!-- 거래 추가/수정 모달 -->
-<div id="trade-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
-  <div class="bg-white rounded-2xl p-6 w-[560px] max-h-[90vh] overflow-y-auto">
-    <h3 class="text-lg font-bold mb-4" id="modal-title">거래 추가</h3>
-    <input type="hidden" id="tx-id">
-    <div class="grid grid-cols-2 gap-3">
-      <div>
-        <label class="text-xs text-[#6B7280]">날짜</label>
-        <input type="date" id="tx-date" class="input-base w-full">
-      </div>
-      <div>
-        <label class="text-xs text-[#6B7280]">카테고리</label>
-        <select id="tx-cat" class="input-base w-full">
-          <option value="거래처">거래처</option>
-          <option value="지점간">지점간</option>
-          <option value="은행">은행</option>
-          <option value="인천공항">인천공항</option>
-        </select>
-      </div>
-      <div class="col-span-2">
-        <label class="text-xs text-[#6B7280]">거래처/비고</label>
-        <input type="text" id="tx-cp" class="input-base w-full">
-      </div>
-      <div>
-        <label class="text-xs text-[#6B7280]">거래종류</label>
-        <select id="tx-type" class="input-base w-full" onchange="recalcModal()">
-          <option>매각</option><option>매입</option>
-          <option>지급완료</option><option>외화미수금</option>
-        </select>
-      </div>
-      <div>
-        <label class="text-xs text-[#6B7280]">상태</label>
-        <select id="tx-status" class="input-base w-full">
-          <option>완료</option><option>미수령</option><option>이월</option>
-        </select>
-      </div>
-      <div>
-        <label class="text-xs text-[#6B7280]">통화</label>
-        <select id="tx-currency" class="input-base w-full"></select>
-      </div>
-      <div>
-        <label class="text-xs text-[#6B7280]">금액</label>
-        <input type="number" id="tx-amount" class="input-base w-full" oninput="recalcModal()">
-      </div>
-      <div>
-        <label class="text-xs text-[#6B7280]">환율</label>
-        <input type="number" id="tx-rate" step="0.01" class="input-base w-full" oninput="recalcModal()">
-      </div>
-      <div>
-        <label class="text-xs text-[#6B7280]">한화 자동계산</label>
-        <input type="text" id="tx-krw" class="input-base w-full bg-gray-50" readonly>
-      </div>
-      <div class="col-span-2">
-        <label class="text-xs text-[#6B7280]">메모</label>
-        <input type="text" id="tx-note" class="input-base w-full">
-      </div>
+<!-- 초기화 확인 모달 -->
+<div id="reset-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl p-6 w-[380px] shadow-2xl">
+    <div class="text-center mb-4">
+      <div style="font-size:2rem;margin-bottom:.5rem">📋</div>
+      <h3 class="text-lg font-bold">거래 기록 초기화</h3>
+      <p class="text-sm text-[#6B7280] mt-1" id="reset-modal-date"></p>
     </div>
-    <div class="flex gap-2 mt-5">
-      <button onclick="closeModal()" class="flex-1 py-2 rounded-lg bg-gray-100">취소</button>
-      <button onclick="saveTrade()" class="flex-1 btn-primary">저장</button>
+    <div style="background:#FFF8EC;border:1px solid #F5A623;border-radius:.75rem;padding:1rem;margin-bottom:1.25rem">
+      <p class="text-sm font-medium text-[#92400E]">자료실에 저장하시겠습니까?</p>
+      <p class="text-xs text-[#6B7280] mt-1">저장하면 오늘 거래 기록이 자료실에 엑셀로 보관되고<br>거래 목록이 초기화됩니다.</p>
+    </div>
+    <div class="flex flex-col gap-2">
+      <button onclick="resetWithSave()" class="btn-primary w-full py-2.5">자료실에 저장 후 초기화</button>
+      <button onclick="resetWithoutSave()" class="w-full py-2.5 rounded-lg text-sm font-medium" style="background:#FEE2E2;color:#DC2626">저장 없이 그냥 초기화</button>
+      <button onclick="document.getElementById('reset-modal').classList.add('hidden')" class="w-full py-2 rounded-lg text-sm bg-gray-100">취소</button>
     </div>
   </div>
 </div>
@@ -180,154 +136,643 @@
 mbBoot('trading.html');
 
 let currentDate = today();
-let categoryFilter = '';
+let currentSheet = 1;
+const TOTAL_ROWS = 20;
+const TYPES = ['','매각','매입','외화미수금'];
+const TYPES_EXT = ['','매각','매입','외화미수금','지급완료']; // 외부거래1,2 + 연남마감용
+const SHEET_NAMES = { 1:'홍대 연남 지점간 거래', 2:'외부거래1', 3:'외부거래2', 4:'연남 마감' };
+const SHEET_EXT = [1, 2, 3, 4]; // 지급완료 옵션 있는 시트
+const SHEETS = [1,2,3,4];
+
 document.getElementById('trade-date').value = currentDate;
-document.getElementById('trade-date').addEventListener('change', e => {
-  currentDate = e.target.value; render();
-});
-document.getElementById('tx-currency').innerHTML = MB.CURRENCIES.map(c=>`<option>${c}</option>`).join('');
+document.getElementById('trade-date').addEventListener('change', e => { currentDate = e.target.value; renderAll(); });
 
-document.querySelectorAll('.cat-filter').forEach(b => {
-  b.addEventListener('click', () => {
-    categoryFilter = b.dataset.cat;
-    document.querySelectorAll('.cat-filter').forEach(x => x.className = x.dataset.cat ? `cat-filter px-3 py-1.5 rounded ${x.dataset.cat==='지점간'?'bg-blue-100':x.dataset.cat==='은행'?'bg-green-100':x.dataset.cat==='인천공항'?'bg-purple-100':'bg-gray-100'}` : 'cat-filter px-3 py-1.5 rounded bg-gray-100');
-    b.className = 'cat-filter btn-primary';
-    render();
-  });
-});
+function moveDate(d) {
+  const dt = new Date(currentDate);
+  dt.setDate(dt.getDate() + d);
+  currentDate = dt.toISOString().slice(0,10);
+  document.getElementById('trade-date').value = currentDate;
+  // ─── 셀 선택 / 복사 / 붙여넣기 / 실행취소 ───
+const sel = { sheet:null, r1:-1, c1:-1, r2:-1, c2:-1, dragging:false };
+const FIELD_ORDER = ['counterparty','tradeType','currency','amount','rate'];
+let _copyBuffer = ''; // 내부 버퍼 - 시트 간 붙여넣기에 사용
+const _undoStack = []; // undo 스택: {sheet, snapshot}[]
+const UNDO_LIMIT = 30;
 
-function openModal(tx) {
-  document.getElementById('trade-modal').classList.remove('hidden');
-  if (tx) {
-    document.getElementById('modal-title').textContent = '거래 수정';
-    document.getElementById('tx-id').value = tx.id;
-    document.getElementById('tx-date').value = tx.date;
-    document.getElementById('tx-cat').value = tx.category;
-    document.getElementById('tx-cp').value = tx.counterparty || '';
-    document.getElementById('tx-type').value = tx.tradeType;
-    document.getElementById('tx-status').value = tx.status;
-    document.getElementById('tx-currency').value = tx.currency;
-    document.getElementById('tx-amount').value = tx.amount;
-    document.getElementById('tx-rate').value = tx.rate;
-    document.getElementById('tx-note').value = tx.note || '';
-  } else {
-    document.getElementById('modal-title').textContent = '거래 추가';
-    document.getElementById('tx-id').value = '';
-    document.getElementById('tx-date').value = currentDate;
-    document.getElementById('tx-cat').value = '거래처';
-    document.getElementById('tx-cp').value = '';
-    document.getElementById('tx-type').value = '매각';
-    document.getElementById('tx-status').value = '완료';
-    document.getElementById('tx-currency').value = 'USD';
-    document.getElementById('tx-amount').value = '';
-    document.getElementById('tx-rate').value = '';
-    document.getElementById('tx-note').value = '';
-  }
-  recalcModal();
+function pushUndo() {
+  const snapshot = JSON.parse(JSON.stringify(mbGetOrDefault(MB.TRANSACTIONS_KEY, []).filter(x => x.date === currentDate)));
+  _undoStack.push(snapshot);
+  if (_undoStack.length > UNDO_LIMIT) _undoStack.shift();
 }
-function closeModal() { document.getElementById('trade-modal').classList.add('hidden'); }
-function recalcModal() {
-  const t = document.getElementById('tx-type').value;
-  const a = Number(document.getElementById('tx-amount').value);
-  const r = Number(document.getElementById('tx-rate').value);
-  document.getElementById('tx-krw').value = fmtSigned(calcKrw(t, a, r));
-}
-function saveTrade() {
-  const id = document.getElementById('tx-id').value;
-  const tradeType = document.getElementById('tx-type').value;
-  const amount = Number(document.getElementById('tx-amount').value);
-  const rate = Number(document.getElementById('tx-rate').value);
-  if (!amount) { alert('금액 필요'); return; }
-  const tx = {
-    id: id || uid(),
-    date: document.getElementById('tx-date').value,
-    category: document.getElementById('tx-cat').value,
-    counterparty: document.getElementById('tx-cp').value,
-    tradeType, currency: document.getElementById('tx-currency').value,
-    amount, rate,
-    krwAmount: calcKrw(tradeType, amount, rate),
-    fxAmount: calcFx(tradeType, amount),
-    note: document.getElementById('tx-note').value,
-    status: document.getElementById('tx-status').value,
-  };
+function doUndo() {
+  if (_undoStack.length === 0) return;
+  const snapshot = _undoStack.pop();
   const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
-  if (id) {
-    const idx = list.findIndex(x => x.id === id);
-    if (idx >= 0) list[idx] = { ...list[idx], ...tx };
-  } else {
-    list.push(tx);
+  const other = list.filter(x => x.date !== currentDate);
+  mbSet(MB.TRANSACTIONS_KEY, [...other, ...snapshot]);
+  renderAll();
+} // col 0~4, col 5(krw) = readonly
+
+function clearSel() {
+  document.querySelectorAll('.ss-table td.sel').forEach(td => td.classList.remove('sel'));
+}
+function applySel() {
+  clearSel();
+  if (sel.r1 < 0 || !sel.sheet) return;
+  const tbody = document.getElementById(`tbody-${sel.sheet}`);
+  if (!tbody) return;
+  const minR = Math.min(sel.r1, sel.r2), maxR = Math.max(sel.r1, sel.r2);
+  const minC = Math.min(sel.c1, sel.c2), maxC = Math.max(sel.c1, sel.c2);
+  Array.from(tbody.rows).forEach((tr, r) => {
+    if (r < minR || r > maxR) return;
+    Array.from(tr.cells).forEach((td, c) => { if (c >= minC && c <= maxC) td.classList.add('sel'); });
+  });
+}
+function cellPos(td) {
+  const tr = td.closest('tr');
+  const tbody = tr.closest('tbody');
+  return { r: Array.from(tbody.rows).indexOf(tr), c: Array.from(tr.cells).indexOf(td) };
+}
+
+function bindSelEvents(sheet) {
+  const tbody = document.getElementById(`tbody-${sheet}`);
+  tbody.addEventListener('mousedown', e => {
+    const td = e.target.closest('td');
+    if (!td || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    const {r, c} = cellPos(td);
+    sel.sheet = sheet; sel.r1 = r; sel.c1 = c; sel.r2 = r; sel.c2 = c; sel.dragging = true;
+    applySel();
+    e.preventDefault();
+  });
+  tbody.addEventListener('mouseover', e => {
+    if (!sel.dragging || sel.sheet !== sheet) return;
+    const td = e.target.closest('td');
+    if (!td) return;
+    const {r, c} = cellPos(td);
+    sel.r2 = r; sel.c2 = c;
+    applySel();
+  });
+  // input 클릭 시 해당 셀을 단일 선택으로
+  tbody.addEventListener('focusin', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const {r, c} = cellPos(td);
+    sel.sheet = sheet; sel.r1 = r; sel.c1 = c; sel.r2 = r; sel.c2 = c;
+    applySel();
+  });
+}
+document.addEventListener('mouseup', () => { sel.dragging = false; });
+
+// Ctrl+C 복사
+document.addEventListener('keydown', async e => {
+  const active = document.activeElement;
+  const inInput = active.tagName === 'INPUT' || active.tagName === 'SELECT';
+
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+    if (sel.r1 < 0 || !sel.sheet) return;
+    // input에서 텍스트 선택 중이면 브라우저 기본 복사
+    if (inInput && active.selectionStart !== active.selectionEnd) return;
+    e.preventDefault();
+    const tbody = document.getElementById(`tbody-${sel.sheet}`);
+    const minR = Math.min(sel.r1, sel.r2), maxR = Math.max(sel.r1, sel.r2);
+    const minC = Math.min(sel.c1, sel.c2), maxC = Math.max(sel.c1, sel.c2);
+    const tsv = Array.from({length: maxR - minR + 1}, (_, ri) => {
+      const tr = tbody.rows[minR + ri];
+      return Array.from({length: maxC - minC + 1}, (_, ci) => {
+        const td = tr?.cells[minC + ci];
+        if (!td) return '';
+        const inp = td.querySelector('input,select');
+        return inp ? inp.value : td.textContent.trim();
+      }).join('\t');
+    }).join('\n');
+    try { await navigator.clipboard.writeText(tsv); } catch {}
   }
+
+  // Ctrl+V 붙여넣기
+  if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+    if (sel.r1 < 0 || !sel.sheet) return;
+    if (inInput) return; // input 안에서는 일반 붙여넣기
+    e.preventDefault();
+    try {
+      const text = await navigator.clipboard.readText();
+      pasteData(text);
+    } catch {}
+  }
+});
+
+function pasteData(text) {
+  if (!sel.sheet || sel.r1 < 0) return;
+  const rows = text.trim().split('\n').map(r => r.split('\t'));
+  const tbody = document.getElementById(`tbody-${sel.sheet}`);
+  const startR = Math.min(sel.r1, sel.r2);
+  const startC = Math.min(sel.c1, sel.c2);
+  const sheet = sel.sheet;
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+
+  rows.forEach((vals, ri) => {
+    const tr = tbody.rows[startR + ri];
+    if (!tr) return;
+    const txId = tr.dataset.id;
+    let tx = list.find(x => x.id === txId);
+
+    vals.forEach((val, ci) => {
+      const colIdx = startC + ci;
+      if (colIdx >= FIELD_ORDER.length) return; // skip krw(5)
+      const field = FIELD_ORDER[colIdx];
+      const td = tr.cells[colIdx];
+      if (!td) return;
+      const inp = td.querySelector('input,select');
+      if (!inp) return;
+
+      val = val.trim();
+      inp.value = val;
+
+      if (!tx && val) {
+        tx = emptyTpl(sheet); tx.id = txId; list.push(tx);
+      }
+      if (tx) {
+        tx[field] = (field === 'amount' || field === 'rate') ? Number(val) : val;
+        if (field === 'tradeType') {
+          inp.className = val ? `type-${val}` : '';
+          tr.classList.remove('empty','t-매입','t-매각','t-외화미수금','t-지급완료','t-');
+          if (val) tr.classList.add('t-' + val);
+        }
+      }
+    });
+
+    // 원화 재계산
+    if (tx) {
+      const krw = calcKrw(tx.tradeType, tx.amount, tx.rate);
+      const c = tr.querySelector('.cell-krw');
+      if (c) { c.textContent = fmtSigned(krw); c.style.color = krw > 0 ? '#EF4444' : krw < 0 ? '#3B82F6' : ''; }
+      if (tx.counterparty || tx.amount) tr.classList.remove('empty');
+    }
+  });
+
   mbSet(MB.TRANSACTIONS_KEY, list);
-  closeModal();
-  render();
+  SHEETS.forEach(s => updateSummary(s));
 }
-function deleteTx(id) {
-  if (!confirm('삭제하시겠습니까?')) return;
-  mbRemove(MB.TRANSACTIONS_KEY, x => x.id === id);
-  render();
+
+renderAll();
 }
-function editTx(id) {
-  const tx = mbGetOrDefault(MB.TRANSACTIONS_KEY, []).find(x => x.id === id);
-  if (tx) openModal(tx);
+function setToday() {
+  currentDate = today();
+  document.getElementById('trade-date').value = currentDate;
+  renderAll();
 }
-function render() {
-  let list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []).filter(x => x.date === currentDate);
-  if (categoryFilter) list = list.filter(x => x.category === categoryFilter);
+function switchSheet(n) {
+  currentSheet = n;
+  SHEETS.forEach(i => {
+    document.getElementById(`tab-${i}`).classList.toggle('active', i === n);
+    document.getElementById(`sheet-${i}`).classList.toggle('hidden', i !== n);
+  });
+  // 새 시트로 sel 업데이트 (붙여넣기가 새 시트에 적용되도록)
+  // r1/c1은 유지해서 같은 위치에 붙여넣기 가능
+  sel.sheet = n;
+}
+
+function rowsForSheet(sheet) {
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, [])
+    .filter(x => x.date === currentDate && (x.sheet||1) === sheet);
   list.sort((a,b) => (a.id||'').localeCompare(b.id||''));
-
-  document.getElementById('trade-tbody').innerHTML = list.length === 0
-    ? '<tr><td colspan="12" class="py-8 text-center text-[#9CA3AF]">거래 없음</td></tr>'
-    : list.map((t, i) => {
-      const krw = calcKrw(t.tradeType, t.amount, t.rate);
-      const fx = calcFx(t.tradeType, t.amount);
-      const krwCls = krw > 0 ? 'text-[#EF4444]' : krw < 0 ? 'text-[#3B82F6]' : '';
-      return `<tr class="row-${t.category} border-b">
-        <td class="py-2 px-2 text-center text-[#9CA3AF]">${i+1}</td>
-        <td class="py-2 px-2">${t.date}</td>
-        <td class="py-2 px-2"><span class="text-xs px-2 py-0.5 rounded bg-white/60">${t.category}</span></td>
-        <td class="py-2 px-2">${t.counterparty || ''}${t.note?`<div class="text-xs text-[#6B7280]">${t.note}</div>`:''}</td>
-        <td class="py-2 px-2 text-center">${t.tradeType}</td>
-        <td class="py-2 px-2 text-center font-bold">${t.currency}</td>
-        <td class="py-2 px-2 text-right">${fmtNum(t.amount)}</td>
-        <td class="py-2 px-2 text-right">${t.rate||''}</td>
-        <td class="py-2 px-2 text-right font-bold ${krwCls}">${fmtSigned(krw)}</td>
-        <td class="py-2 px-2 text-right">${fmtSigned(fx)}</td>
-        <td class="py-2 px-2 text-center"><span class="text-xs">${t.status}</span></td>
-        <td class="py-2 px-2 text-right whitespace-nowrap">
-          <button onclick="editTx('${t.id}')" class="text-xs text-blue-600 mr-1">수정</button>
-          <button onclick="deleteTx('${t.id}')" class="text-xs text-[#EF4444]">삭제</button>
-        </td>
-      </tr>`;
-    }).join('');
-
-  // 요약 (모든 카테고리)
-  const all = mbGetOrDefault(MB.TRANSACTIONS_KEY, []).filter(x => x.date === currentDate);
-  let buy = 0, sell = 0;
-  all.forEach(t => {
-    const krw = calcKrw(t.tradeType, t.amount, t.rate);
-    if (t.tradeType === '매각') sell += krw;
-    if (t.tradeType === '매입') buy += krw;
-  });
-  document.getElementById('sum-buy').textContent = fmtSigned(buy);
-  document.getElementById('sum-sell').textContent = fmtSigned(sell);
-  const total = buy + sell;
-  document.getElementById('sum-total').textContent = fmtSigned(total);
-  document.getElementById('sum-total').className = 'text-xl font-bold mt-1 ' + (total>0?'text-[#EF4444]':total<0?'text-[#3B82F6]':'');
-  document.getElementById('sum-carry').textContent = fmtSigned(total);
+  return list;
 }
-function exportTrading() {
-  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []).filter(x => x.date === currentDate);
-  const rows = [['날짜','카테고리','거래처','거래종류','통화','금액','환율','한화금액계','외화금액계','상태','메모']];
-  list.forEach(t => {
-    rows.push([t.date,t.category,t.counterparty||'',t.tradeType,t.currency,t.amount,t.rate,
-      calcKrw(t.tradeType,t.amount,t.rate), calcFx(t.tradeType,t.amount), t.status, t.note||'']);
+function emptyTpl(sheet) {
+  return { id: uid(), date: currentDate, sheet, category: '거래처', counterparty: '', tradeType: '', currency: 'KRW', amount: '', rate: '', status: '완료', note: '' };
+}
+
+function buildTable(sheet) {
+  const sumBuyId = `sum-buy-${sheet}`, sumSellId = `sum-sell-${sheet}`, sumTotalId = `sum-total-${sheet}`;
+  return `<table class="ss-table" id="ss-table-${sheet}">
+    <colgroup>
+      <col style="width:120px">
+      <col style="width:80px">
+      <col style="width:50px">
+      <col style="width:110px">
+      <col style="width:90px">
+      <col style="width:110px">
+    </colgroup>
+    <thead><tr>
+      <th class="text-left">거래처 / 비고</th>
+      <th>거래종류</th>
+      <th>통화</th>
+      <th class="text-right">금액</th>
+      <th class="text-right">환율</th>
+      <th class="text-right">원화</th>
+    </tr></thead>
+    <tbody id="tbody-${sheet}"></tbody>
+    <tfoot>
+      <tr class="foot-buy"><td colspan="5" style="text-align:right">매입 합계</td><td class="calc" id="${sumBuyId}">0</td></tr>
+      <tr class="foot-sell"><td colspan="5" style="text-align:right">매각 합계</td><td class="calc" id="${sumSellId}">0</td></tr>
+      <tr class="foot-total"><td colspan="5" style="text-align:right">총계</td><td class="calc total-val" id="${sumTotalId}">0</td></tr>
+    </tfoot>
+  </table>`;
+}
+
+function krwColor(tradeType) {
+  if (tradeType === '매각') return '#2563EB';
+  if (tradeType === '매입') return '#DC2626';
+  return '';
+}
+function krwDisplay(tradeType, amount, rate) {
+  if (!tradeType || tradeType === '지급완료' || tradeType === '외화미수금') return '';
+  const v = Math.abs(calcKrw(tradeType, amount, rate));
+  return v ? fmtNum(v) : '';
+}
+
+function buildRow(tx, isEmpty, sheet) {
+  const cls = isEmpty ? 'empty' : `t-${tx.tradeType}`;
+  const typeList = SHEET_EXT.includes(sheet) ? TYPES_EXT : TYPES;
+  const optType = typeList.map(c => `<option value="${c}" ${tx.tradeType===c?'selected':''}>${c||'선택'}</option>`).join('');
+  const typeClass = tx.tradeType ? `type-${tx.tradeType}` : '';
+  const optCurr = MB.CURRENCIES.map(c => `<option value="${c}" ${tx.currency===c?'selected':''}>${c}</option>`).join('');
+  const krwTxt   = isEmpty ? '' : krwDisplay(tx.tradeType, tx.amount, tx.rate);
+  const krwCol   = isEmpty ? '' : krwColor(tx.tradeType);
+  const rowStyle = (!isEmpty && !tx.tradeType) ? 'color:#9CA3AF' : '';
+  return `<tr data-id="${tx.id}" data-sheet="${sheet}" class="${cls}" style="${rowStyle}">
+    <td><input type="text" value="${tx.counterparty||''}" data-field="counterparty" placeholder="거래처/비고"></td>
+    <td><select data-field="tradeType" class="${typeClass}" onchange="this.className='type-'+this.value; const tr=this.closest('tr'); tr.className=this.value?'t-'+this.value:'empty'; tr.style.color=''; updateKrwCell(tr);">${optType}</select></td>
+    <td><select data-field="currency">${optCurr}</select></td>
+    <td><input type="text" inputmode="numeric" class="num" value="${tx.amount||''}" data-field="amount" placeholder="0"></td>
+    <td><input type="text" inputmode="decimal" class="num" value="${tx.rate||''}" data-field="rate" placeholder="0"></td>
+    <td class="calc cell-krw" style="color:${krwCol}">${krwTxt}</td>
+  </tr>`;
+}
+
+function updateKrwCell(tr) {
+  const t    = tr.querySelector('select[data-field="tradeType"]')?.value || '';
+  const amt  = tr.querySelector('input[data-field="amount"]')?.value || 0;
+  const rate = tr.querySelector('input[data-field="rate"]')?.value || 0;
+  const c    = tr.querySelector('.cell-krw');
+  if (!c) return;
+  c.textContent  = krwDisplay(t, amt, rate);
+  c.style.color  = krwColor(t);
+  const sheet = Number(tr.dataset.sheet) || currentSheet;
+  updateSummary(sheet);
+}
+
+function renderSheet(sheet) {
+  const list = rowsForSheet(sheet);
+  let html = list.map(tx => buildRow(tx, false, sheet)).join('');
+  const empties = Math.max(0, TOTAL_ROWS - list.length);
+  for (let i = 0; i < empties; i++) html += buildRow(emptyTpl(sheet), true, sheet);
+  document.getElementById(`tbody-${sheet}`).innerHTML = html;
+  updateSummary(sheet);
+}
+
+function renderAll() {
+  SHEETS.forEach(s => {
+    document.getElementById(`sheet-${s}`).innerHTML = buildTable(s);
+    renderSheet(s);
+    bindEvents(s);
+    bindSelEvents(s);
   });
+}
+
+function updateSummary(sheet) {
+  // DOM에서 직접 읽어 계산 (localStorage 저장 타이밍 문제 방지)
+  const tbody = document.getElementById(`tbody-${sheet}`);
+  let buy = 0, sell = 0;
+  if (tbody) {
+    Array.from(tbody.rows).forEach(tr => {
+      const typeEl   = tr.querySelector('select[data-field="tradeType"]');
+      const amtEl    = tr.querySelector('input[data-field="amount"]');
+      const rateEl   = tr.querySelector('input[data-field="rate"]');
+      if (!typeEl) return;
+      const t = typeEl.value;
+      if (!t || t === '외화미수금' || t === '지급완료') return;
+      const krw = calcKrw(t, amtEl?.value||0, rateEl?.value||0);
+      if (t === '매각') sell += krw;
+      if (t === '매입') buy += krw;
+    });
+  }
+  document.getElementById(`sum-buy-${sheet}`).textContent = fmtSigned(buy);
+  document.getElementById(`sum-sell-${sheet}`).textContent = fmtSigned(sell);
+  document.getElementById(`sum-total-${sheet}`).textContent = fmtSigned(sell + buy);
+}
+
+function hasMeaningful(tx) {
+  return (Number(tx.amount) > 0) || (tx.counterparty && tx.counterparty.trim());
+}
+
+function bindEvents(sheet) {
+  const tbody = document.getElementById(`tbody-${sheet}`);
+
+  tbody.addEventListener('change', (e) => {
+    const target = e.target;
+    if (!target.matches('input, select')) return;
+    const tr = target.closest('tr');
+    const id = tr.dataset.id;
+    const field = target.dataset.field;
+    const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+    let tx = list.find(x => x.id === id);
+    const isNew = !tx;
+    if (isNew) {
+      tx = emptyTpl(sheet);
+      tx.id = id;
+      // 새 행: 변경된 필드 하나만 쓰지 않고 DOM의 현재 모든 필드 값을 읽어 저장
+      tr.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
+        const f = el.dataset.field;
+        tx[f] = (f==='amount'||f==='rate') ? Number(el.value) : el.value;
+      });
+      if (!hasMeaningful(tx)) return;
+      list.push(tx);
+    } else {
+      tx[field] = (field==='amount'||field==='rate') ? Number(target.value) : target.value;
+    }
+    pushUndo();
+    mbSet(MB.TRANSACTIONS_KEY, list);
+    if (field === 'tradeType' || isNew) {
+      tr.classList.remove('empty','t-매입','t-매각','t-외화미수금','t-지급완료','t-');
+      if (tx.tradeType) tr.classList.add('t-' + tx.tradeType);
+    }
+    if (['tradeType','amount','rate'].includes(field) || isNew) {
+      updateKrwCell(tr);
+    }
+    updateSummary(sheet);
+  });
+
+  tbody.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const el = e.target;
+    if (!el.matches('input, select')) return;
+    e.preventDefault();
+    el.blur();
+    setTimeout(() => {
+      const tr = el.closest('tr');
+      const td = el.closest('td');
+      const colIdx = Array.from(tr.children).indexOf(td);
+      const nextTr = tr.nextElementSibling;
+      if (nextTr) nextTr.children[colIdx]?.querySelector('input, select')?.focus();
+    }, 50);
+  });
+}
+
+// ─── 초기화 ───
+function openResetModal() {
+  const list = rowsForSheet(currentSheet);
+  if (list.length === 0) { alert(`시트 ${currentSheet}에 초기화할 거래 기록이 없습니다.`); return; }
+  document.getElementById('reset-modal-date').textContent = `${currentDate} · 시트 ${currentSheet} · ${list.length}건`;
+  document.getElementById('reset-modal').classList.remove('hidden');
+}
+function resetWithSave() {
+  const sheet = currentSheet;
+  const list = rowsForSheet(sheet);
+  if (list.length === 0) return;
+  const user = getCurrentUser();
+  const rows = [['날짜','시트','거래처/비고','거래종류','통화','금액','환율','원화']];
+  list.forEach(t => rows.push([t.date, t.sheet||1, t.counterparty||'', t.tradeType, t.currency, t.amount, t.rate, calcKrw(t.tradeType, t.amount, t.rate)]));
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, `시트${sheet}`);
+  XLSX.writeFile(wb, `거래기록_${currentDate}_시트${sheet}.xlsx`);
+  mbPush(MB.ARCHIVE_KEY, { id: uid(), title: `거래기록 ${currentDate} 시트${sheet}`, category: '거래기록', uploadedBy: user?.name||'-', uploadedAt: currentDate, description: `시트${sheet} ${list.length}건`, type: 'trading-daily', dataKey: `trading_daily_${currentDate}_${sheet}`, rows: list });
+  const txList = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  mbSet(MB.TRANSACTIONS_KEY, txList.filter(x => !(x.date === currentDate && (x.sheet||1) === sheet)));
+  document.getElementById('reset-modal').classList.add('hidden');
+  renderAll();
+}
+function resetWithoutSave() {
+  const sheet = currentSheet;
+  if (!confirm(`${currentDate} 시트 ${sheet} 거래 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+  const txList = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  mbSet(MB.TRANSACTIONS_KEY, txList.filter(x => !(x.date === currentDate && (x.sheet||1) === sheet)));
+  document.getElementById('reset-modal').classList.add('hidden');
+  renderAll();
+}
+
+function exportTrading() {
+  const all = SHEETS.flatMap(s => rowsForSheet(s));
+  const rows = [['날짜','시트','거래처/비고','거래종류','통화','금액','환율','원화']];
+  all.forEach(t => rows.push([t.date, t.sheet||1, t.counterparty||'', t.tradeType, t.currency, t.amount, t.rate, calcKrw(t.tradeType, t.amount, t.rate)]));
   const ws = XLSX.utils.aoa_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '거래');
   XLSX.writeFile(wb, `거래_${currentDate}.xlsx`);
 }
-render();
+
+// ─── 셀 선택 / 복사 / 붙여넣기 ───
+const sel = { sheet:null, r1:-1, c1:-1, r2:-1, c2:-1, dragging:false };
+const FIELD_ORDER = ['counterparty','tradeType','currency','amount','rate'];
+
+function clearSel() { document.querySelectorAll('.ss-table td.sel').forEach(td => td.classList.remove('sel')); }
+function applySel() {
+  clearSel();
+  if (sel.r1 < 0 || !sel.sheet) return;
+  const tbody = document.getElementById(`tbody-${sel.sheet}`);
+  if (!tbody) return;
+  const minR = Math.min(sel.r1,sel.r2), maxR = Math.max(sel.r1,sel.r2);
+  const minC = Math.min(sel.c1,sel.c2), maxC = Math.max(sel.c1,sel.c2);
+  Array.from(tbody.rows).forEach((tr,r) => {
+    if (r<minR||r>maxR) return;
+    Array.from(tr.cells).forEach((td,c) => { if (c>=minC&&c<=maxC) td.classList.add('sel'); });
+  });
+}
+function cellPos(td) {
+  const tr = td.closest('tr'), tbody = tr.closest('tbody');
+  return { r: Array.from(tbody.rows).indexOf(tr), c: Array.from(tr.cells).indexOf(td) };
+}
+function bindSelEvents(sheet) {
+  const tbody = document.getElementById(`tbody-${sheet}`);
+  tbody.addEventListener('mousedown', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const {r,c} = cellPos(td);
+    // 시작 셀 기록 — 입력 요소 위라도 일단 기록만, 포커스는 막지 않음
+    sel._pendingStart = {sheet, r, c};
+    sel.dragging = true;
+    // input/select가 아닌 영역은 셀 선택으로 즉시 처리
+    if (e.target.tagName!=='INPUT' && e.target.tagName!=='SELECT') {
+      Object.assign(sel, {sheet, r1:r, c1:c, r2:r, c2:c});
+      applySel(); e.preventDefault();
+    }
+  });
+  tbody.addEventListener('mouseover', e => {
+    if (!sel.dragging || !sel._pendingStart) return;
+    const td = e.target.closest('td');
+    if (!td) return;
+    const {r,c} = cellPos(td);
+    const start = sel._pendingStart;
+    if (start.sheet !== sheet) return;
+    // 다른 셀로 이동했을 때만 드래그 선택 시작
+    if (r !== start.r || c !== start.c) {
+      // 입력 중이던 요소는 blur 처리해서 텍스트 선택과 충돌 방지
+      if (document.activeElement && (document.activeElement.tagName==='INPUT' || document.activeElement.tagName==='SELECT')) {
+        document.activeElement.blur();
+      }
+      Object.assign(sel, {sheet, r1:start.r, c1:start.c, r2:r, c2:c});
+      applySel();
+    }
+  });
+  tbody.addEventListener('focusin', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const {r,c} = cellPos(td);
+    Object.assign(sel, {sheet, r1:r, c1:c, r2:r, c2:c}); applySel();
+  });
+}
+document.addEventListener('mouseup', () => { sel.dragging = false; sel._pendingStart = null; });
+
+function focusCell(sheet, r, c) {
+  const tbody = document.getElementById(`tbody-${sheet}`);
+  if (!tbody) return;
+  const tr = tbody.rows[r];
+  if (!tr) return;
+  const td = tr.cells[c];
+  if (!td) return;
+  const inp = td.querySelector('input,select');
+  Object.assign(sel, {sheet, r1:r, c1:c, r2:r, c2:c});
+  applySel();
+  if (inp) inp.focus();
+}
+
+document.addEventListener('keydown', async e => {
+  const active = document.activeElement;
+  const inInput = active.tagName==='INPUT' || active.tagName==='SELECT';
+
+  // ─── Ctrl+Z 실행취소 ───
+  if ((e.ctrlKey||e.metaKey) && e.key==='z') {
+    if (inInput) return; // 텍스트 편집 중엔 브라우저 기본 동작
+    e.preventDefault();
+    doUndo();
+    return;
+  }
+
+  // ─── 방향키 / Tab 네비게이션 ───
+  const COLS = FIELD_ORDER.length; // 5 (원화 calc 제외)
+  if (sel.r1 >= 0 && sel.sheet) {
+    const tbody = document.getElementById(`tbody-${sel.sheet}`);
+    const ROWS = tbody ? tbody.rows.length : 0;
+
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      if (inInput) active.blur();
+      const nextC = e.shiftKey ? sel.c1 - 1 : sel.c1 + 1;
+      if (nextC < 0) { focusCell(sel.sheet, Math.max(0, sel.r1-1), COLS-1); }
+      else if (nextC >= COLS) { focusCell(sel.sheet, Math.min(ROWS-1, sel.r1+1), 0); }
+      else { focusCell(sel.sheet, sel.r1, nextC); }
+      return;
+    }
+
+    if (!inInput) {
+      if (e.key === 'ArrowRight') { e.preventDefault(); focusCell(sel.sheet, sel.r1, Math.min(COLS-1, sel.c1+1)); return; }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); focusCell(sel.sheet, sel.r1, Math.max(0, sel.c1-1)); return; }
+      if (e.key === 'ArrowDown')  { e.preventDefault(); focusCell(sel.sheet, Math.min(ROWS-1, sel.r1+1), sel.c1); return; }
+      if (e.key === 'ArrowUp')    { e.preventDefault(); focusCell(sel.sheet, Math.max(0, sel.r1-1), sel.c1); return; }
+      // 셀 선택 상태에서 Enter → 해당 셀 편집
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const td = tbody.rows[sel.r1]?.cells[sel.c1];
+        td?.querySelector('input,select')?.focus();
+        return;
+      }
+    } else if (active.tagName === 'SELECT') {
+      // SELECT 포커스 중: 방향키 모두 셀 이동, Enter로 드롭다운 열기
+      if (e.key === 'ArrowDown') { e.preventDefault(); active.blur(); focusCell(sel.sheet, Math.min(ROWS-1, sel.r1+1), sel.c1); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); active.blur(); focusCell(sel.sheet, Math.max(0, sel.r1-1), sel.c1); return; }
+      if (e.key === 'ArrowRight'){ e.preventDefault(); active.blur(); focusCell(sel.sheet, sel.r1, Math.min(COLS-1, sel.c1+1)); return; }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); active.blur(); focusCell(sel.sheet, sel.r1, Math.max(0, sel.c1-1)); return; }
+      if (e.key === 'Escape') { e.preventDefault(); active.blur(); applySel(); return; }
+    } else {
+      // INPUT 포커스 중
+      // 입력 중 Enter → 아래 셀로 이동
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        active.blur();
+        focusCell(sel.sheet, Math.min(ROWS-1, sel.r1+1), sel.c1);
+        return;
+      }
+      // 입력 중 ArrowUp/Down → 위아래 이동
+      if (e.key === 'ArrowDown') { e.preventDefault(); active.blur(); focusCell(sel.sheet, Math.min(ROWS-1, sel.r1+1), sel.c1); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); active.blur(); focusCell(sel.sheet, Math.max(0, sel.r1-1), sel.c1); return; }
+      // 입력 중 ArrowLeft/Right → 커서가 맨 끝/처음일 때 셀 이동
+      if (e.key === 'ArrowLeft' && active.selectionStart===0) {
+        e.preventDefault(); active.blur(); focusCell(sel.sheet, sel.r1, Math.max(0, sel.c1-1)); return;
+      }
+      if (e.key === 'ArrowRight' && active.selectionStart===active.value.length) {
+        e.preventDefault(); active.blur(); focusCell(sel.sheet, sel.r1, Math.min(COLS-1, sel.c1+1)); return;
+      }
+      // Escape → 편집 취소 및 셀 선택 유지
+      if (e.key === 'Escape') { e.preventDefault(); active.blur(); applySel(); return; }
+    }
+  }
+
+  if ((e.ctrlKey||e.metaKey) && e.key==='c') {
+    if (sel.r1<0 || !sel.sheet) return;
+    if (inInput && active.selectionStart!==active.selectionEnd) return;
+    e.preventDefault();
+    const tbody = document.getElementById(`tbody-${sel.sheet}`);
+    const minR=Math.min(sel.r1,sel.r2), maxR=Math.max(sel.r1,sel.r2);
+    const minC=Math.min(sel.c1,sel.c2), maxC=Math.max(sel.c1,sel.c2);
+    const tsv = Array.from({length:maxR-minR+1},(_,ri) => {
+      const tr = tbody.rows[minR+ri];
+      return Array.from({length:maxC-minC+1},(_,ci) => {
+        const td = tr?.cells[minC+ci];
+        if (!td) return '';
+        const inp = td.querySelector('input,select');
+        return inp ? inp.value : td.textContent.trim();
+      }).join('\t');
+    }).join('\n');
+    _copyBuffer = tsv;
+    try { await navigator.clipboard.writeText(tsv); } catch {}
+  }
+  if ((e.ctrlKey||e.metaKey) && e.key==='v') {
+    if (sel.r1<0 || !sel.sheet) return;
+    e.preventDefault();
+    // input 포커스 상태면 blur 처리 후 셀 붙여넣기 진행
+    if (inInput) active.blur();
+    // 내부 버퍼 우선 (시트 간 붙여넣기 보장), 없으면 클립보드
+    if (_copyBuffer) {
+      pasteData(_copyBuffer);
+    } else {
+      try { const text = await navigator.clipboard.readText(); pasteData(text); } catch {}
+    }
+  }
+});
+
+function pasteData(text) {
+  if (!sel.sheet || sel.r1<0) return;
+  pushUndo();
+  const rows = text.trim().split('\n').map(r => r.split('\t'));
+  const tbody = document.getElementById(`tbody-${sel.sheet}`);
+  const startR=Math.min(sel.r1,sel.r2), startC=Math.min(sel.c1,sel.c2);
+  const sheet = sel.sheet;
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  rows.forEach((vals,ri) => {
+    const tr = tbody.rows[startR+ri];
+    if (!tr) return;
+    const txId = tr.dataset.id;
+    let tx = list.find(x => x.id===txId);
+    vals.forEach((val,ci) => {
+      const colIdx = startC+ci;
+      if (colIdx>=FIELD_ORDER.length) return;
+      const field = FIELD_ORDER[colIdx];
+      const td = tr.cells[colIdx];
+      if (!td) return;
+      const inp = td.querySelector('input,select');
+      if (!inp) return;
+      val = val.trim(); inp.value = val;
+      if (!tx && val) { tx = emptyTpl(sheet); tx.id = txId; list.push(tx); }
+      if (tx) {
+        tx[field] = (field==='amount'||field==='rate') ? Number(val) : val;
+        if (field==='tradeType') {
+          inp.className = val ? `type-${val}` : '';
+          tr.classList.remove('empty','t-매입','t-매각','t-외화미수금','t-지급완료','t-');
+          if (val) tr.classList.add('t-'+val);
+        }
+      }
+    });
+    if (tx) {
+      updateKrwCell(tr);
+      if (tx.counterparty||tx.amount) tr.classList.remove('empty');
+    }
+  });
+  mbSet(MB.TRANSACTIONS_KEY, list);
+  SHEETS.forEach(s => updateSummary(s));
+}
+
+renderAll();
 </script>
 </body>
 </html>
+

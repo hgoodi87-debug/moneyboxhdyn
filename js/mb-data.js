@@ -348,3 +348,260 @@ function mbBoot(activePage) {
   renderSidebar(activePage);
   return true;
 }
+
+// ─── 홍콩 환전 수익률 계산기 ─────────────────────────────
+const CALC_PASSWORD = '1234';
+const HK_CURRENCIES = [
+  { id:'KRW', label:'KRW', name:'원화',     mabang:'',      h1:'192',     h2:'',        threshold:1.4, type:'krw', main:true  },
+  { id:'USD', label:'USD', name:'달러',     mabang:'1485',  h1:'7.81',    h2:'7.744',   threshold:1.4, type:'div', main:true  },
+  { id:'JPY', label:'JPY', name:'엔',       mabang:'9.3',   h1:'0.0491',  h2:'0.0496',  threshold:1.4, type:'div', main:true  },
+  { id:'HKD', label:'HKD', name:'홍콩달러', mabang:'189.3', h1:'1',       h2:'',        threshold:1.4, type:'div', main:true  },
+  { id:'EUR', label:'EUR', name:'유로',     mabang:'1725',  h1:'9.11',    h2:'8.92',    threshold:1.6, type:'div', main:false },
+  { id:'CNY', label:'CNY', name:'위안',     mabang:'217',   h1:'1.14745', h2:'1.08814', threshold:1.4, type:'div', main:false },
+  { id:'TWD', label:'TWD', name:'대만달러', mabang:'45.4',  h1:'0.2405',  h2:'0.2475',  threshold:1.4, type:'div', main:false },
+  { id:'AUD', label:'AUD', name:'호주달러', mabang:'1049',  h1:'5.6202',  h2:'5.94',    threshold:1.6, type:'div', main:false },
+  { id:'SGD', label:'SGD', name:'싱가포르', mabang:'1152',  h1:'6.11',    h2:'6.01',    threshold:1.4, type:'div', main:false },
+  { id:'CAD', label:'CAD', name:'캐나다',   mabang:'1067',  h1:'5.717',   h2:'5.69',    threshold:1.6, type:'div', main:false },
+  { id:'GBP', label:'GBP', name:'파운드',   mabang:'1940',  h1:'10.43',   h2:'10.33',   threshold:1.6, type:'div', main:false },
+  { id:'MYR', label:'MYR', name:'링깃',     mabang:'365',   h1:'1.98',    h2:'1.847',   threshold:1.4, type:'div', main:false },
+];
+const MEDALS = ['🥇','🥈','🥉'];
+const HK_STATE_KEY = 'mb_hkcalc_state';
+
+let _hkState = null;
+function hkLoadState() {
+  const saved = mbGet(HK_STATE_KEY);
+  if (saved) return saved;
+  const init = { usdt:'1493', hkdusd:'7.78', vals:{} };
+  HK_CURRENCIES.forEach(c => {
+    init.vals[c.id+'_m']  = c.mabang;
+    init.vals[c.id+'_h1'] = c.h1;
+    init.vals[c.id+'_h2'] = c.h2;
+  });
+  return init;
+}
+function hkSaveState() { mbSet(HK_STATE_KEY, _hkState); }
+function hkCalcRate(c) {
+  const m   = parseFloat(_hkState.vals[c.id+'_m']);
+  const hku = parseFloat(_hkState.hkdusd);
+  if (c.type === 'krw') {
+    const h = parseFloat(_hkState.vals[c.id+'_h1']);
+    return { r1: isNaN(h) ? null : h * hku, r2: null };
+  }
+  const h1 = c.id === 'HKD' ? 1 : parseFloat(_hkState.vals[c.id+'_h1']);
+  const h2 = c.id !== 'HKD' && _hkState.vals[c.id+'_h2'] ? parseFloat(_hkState.vals[c.id+'_h2']) : null;
+  return {
+    r1: isNaN(m)||isNaN(h1) ? null : (m/h1)*hku,
+    r2: h2 === null || isNaN(m) || isNaN(h2) ? null : (m/h2)*hku,
+  };
+}
+function hkGetRanked(list) {
+  const u = parseFloat(_hkState.usdt);
+  return list.map(c => {
+    const { r1, r2 } = hkCalcRate(c);
+    const p1 = r1 === null || isNaN(u) ? null : ((u-r1)/r1)*100;
+    const p2 = r2 === null || isNaN(u) ? null : ((u-r2)/r2)*100;
+    const best = p1 !== null && p2 !== null ? Math.max(p1,p2) : (p1 ?? p2);
+    const go = best !== null && best >= c.threshold;
+    return { c, p1, p2, best, go };
+  }).sort((a,b) => {
+    if (a.best === null && b.best === null) return 0;
+    if (a.best === null) return 1;
+    if (b.best === null) return -1;
+    if (a.go !== b.go) return a.go ? -1 : 1;
+    return b.best - a.best;
+  });
+}
+
+function openCalc() {
+  if (!document.getElementById('calc-modal')) {
+    const modal = document.createElement('div');
+    modal.id = 'calc-modal';
+    modal.innerHTML = `
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:1rem" onclick="if(event.target===this)closeCalc()">
+        <!-- 비밀번호 단계 -->
+        <div id="calc-pw-wrap" style="background:#fff;border-radius:1rem;padding:2rem 2.5rem;min-width:280px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center">
+          <div style="font-size:1.5rem;margin-bottom:1.25rem">🔒</div>
+          <input id="calc-pw-input" type="password" maxlength="10" placeholder="비밀번호 입력"
+            style="border:1.5px solid #E5E7EB;border-radius:.5rem;padding:.6rem 1rem;width:100%;font-size:1rem;outline:none;text-align:center;box-sizing:border-box;margin-bottom:.75rem"
+            onkeydown="if(event.key==='Enter')checkCalcPw()">
+          <div id="calc-pw-err" style="color:#EF4444;font-size:.8rem;height:1rem;margin-bottom:.5rem"></div>
+          <button onclick="checkCalcPw()" style="background:#1E2A3A;color:#fff;border:none;border-radius:.5rem;padding:.65rem 2rem;font-size:.9rem;font-weight:600;cursor:pointer;width:100%">확인</button>
+        </div>
+        <!-- 계산기 본체 -->
+        <div id="calc-body-wrap" style="display:none;background:#fff;border-radius:1rem;padding:1rem 1.25rem;width:720px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4);font-family:sans-serif;font-size:13px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+            <div style="font-weight:700;font-size:.95rem;color:#1E2A3A">홍콩 환전 수익률 계산기</div>
+            <button onclick="closeCalc()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:1.1rem;line-height:1">✕</button>
+          </div>
+          <div id="hk-content"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('calc-pw-input')?.focus(), 50);
+  } else {
+    document.getElementById('calc-modal').style.display = '';
+    document.getElementById('calc-pw-wrap').style.display = '';
+    document.getElementById('calc-body-wrap').style.display = 'none';
+    document.getElementById('calc-pw-input').value = '';
+    document.getElementById('calc-pw-err').textContent = '';
+    setTimeout(() => document.getElementById('calc-pw-input')?.focus(), 50);
+  }
+}
+function closeCalc() { const m=document.getElementById('calc-modal'); if(m) m.style.display='none'; }
+function checkCalcPw() {
+  const pw = document.getElementById('calc-pw-input').value;
+  if (pw === CALC_PASSWORD) {
+    document.getElementById('calc-pw-wrap').style.display = 'none';
+    document.getElementById('calc-body-wrap').style.display = '';
+    _hkState = hkLoadState();
+    hkRender();
+  } else {
+    const err = document.getElementById('calc-pw-err');
+    err.textContent = '비밀번호가 틀렸습니다.';
+    document.getElementById('calc-pw-input').value = '';
+    setTimeout(() => { err.textContent = ''; }, 2000);
+  }
+}
+
+function hkUpdate(key, value) {
+  if (key === '_usdt') _hkState.usdt = value;
+  else if (key === '_hkdusd') _hkState.hkdusd = value;
+  else _hkState.vals[key] = value;
+  hkSaveState();
+  hkRenderResults();
+}
+
+function hkCurrencyRowHtml(c) {
+  const td = 'padding:1px 6px;border:1px solid #d4d4d8;text-align:center;vertical-align:middle;height:24px';
+  const inp = 'width:100%;font-size:13px;text-align:center;border:none;background:transparent;outline:none;padding:0';
+  return `<tr>
+    <td style="${td};padding-left:10px;text-align:left">
+      <span style="font-size:12px;font-weight:600">${c.label}</span>
+    </td>
+    <td style="${td};background:#eff6ff">
+      <input type="number" value="${_hkState.vals[c.id+'_m']||''}" oninput="hkUpdate('${c.id}_m',this.value)" style="${inp}" step="any">
+    </td>
+    <td style="${td}">
+      ${c.id === 'HKD'
+        ? '<span style="font-size:11px;color:#bbb">1 고정</span>'
+        : `<input type="number" value="${_hkState.vals[c.id+'_h1']||''}" oninput="hkUpdate('${c.id}_h1',this.value)" style="${inp}" step="any">`}
+    </td>
+    <td style="${td}">
+      ${c.h2 !== ''
+        ? `<input type="number" value="${_hkState.vals[c.id+'_h2']||''}" oninput="hkUpdate('${c.id}_h2',this.value)" style="${inp}" step="any">`
+        : '<span style="font-size:11px;color:#bbb">—</span>'}
+    </td>
+  </tr>`;
+}
+
+function hkRankCardHtml(item, rank) {
+  const { c, p1, p2, best, go } = item;
+  const isTop = go && rank < 3;
+  const rcBase = 'display:flex;align-items:center;gap:8px;border-radius:6px;padding:6px 10px;border:1px solid #e5e5e5;background:#fff';
+  if (best === null) {
+    return `<div style="${rcBase}">
+      <span style="font-size:12px;color:#aaa;min-width:18px;text-align:center">${rank+1}</span>
+      <span style="font-size:13px;font-weight:600;color:#222;min-width:36px">${c.label}</span>
+      <span style="font-size:12px;color:#aaa">—</span>
+    </div>`;
+  }
+  const hasBoth = p1 !== null && p2 !== null;
+  return `<div style="${rcBase};border-color:${go?'#86efac':'#fca5a5'};opacity:${go?1:0.55}">
+    <span style="font-size:12px;color:#aaa;min-width:18px;text-align:center">${isTop?MEDALS[rank]:rank+1}</span>
+    <span style="font-size:13px;font-weight:600;color:#222;min-width:36px">${c.label}</span>
+    <span style="font-size:15px;font-weight:600;flex:1;color:${go?'#16a34a':'#dc2626'}">${best.toFixed(2)}%</span>
+    <span style="font-size:10px;color:#aaa">${hasBoth?`${p1.toFixed(1)}·${p2.toFixed(1)}%`:`기준 ${c.threshold}%`}</span>
+    <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;white-space:nowrap;background:${go?'#dcfce7':'#fee2e2'};color:${go?'#16a34a':'#dc2626'}">${go?'GO':'NO'}</span>
+  </div>`;
+}
+
+function hkRender() {
+  const sl = 'font-size:10px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.08em;margin:0 0 5px';
+  const guides = [
+    { t:'① 마뱅 (파란 칸)', d:'마이뱅크 앱에서 각 통화의 오늘 KRW 매입가 입력' },
+    { t:'② h1 / h2 (흰 칸)', d:'ttrate에서 홍콩 환전소 2곳 HKD 환율 골라 입력. HKD는 1 고정.' },
+    { t:'③ USDT 빗썸가', d:'빗썸 앱 USDT/KRW 현재가 입력. 모든 수익률 계산 기준점.' },
+  ];
+  const html = `
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start">
+      <!-- 좌: 입력 영역 -->
+      <div>
+        <p style="${sl}">입력 가이드</p>
+        <div style="background:#f5f5f5;border-radius:8px;padding:10px 12px;margin-bottom:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          ${guides.map(g => `<div>
+            <div style="font-size:13px;font-weight:600;color:#222;margin-bottom:3px">${g.t}</div>
+            <div style="font-size:12px;color:#666;line-height:1.5">${g.d}</div>
+          </div>`).join('')}
+        </div>
+
+        <p style="${sl}">기준값</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div style="background:#f5f5f5;border-radius:8px;padding:8px 10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+              <label style="font-size:12px;color:#555;font-weight:500">USDT 김프가 (KRW)</label>
+              <a href="https://kimpga.com" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#3b82f6;text-decoration:none">↗ 김프가</a>
+            </div>
+            <input type="number" value="${_hkState.usdt}" oninput="hkUpdate('_usdt',this.value)" style="width:100%;font-size:16px;font-weight:600;border:none;background:transparent;outline:none">
+            <div style="font-size:11px;color:#888;margin-top:1px">김프가 → USDT/KRW 현재가 숫자만 입력</div>
+          </div>
+          <div style="background:#f5f5f5;border-radius:8px;padding:8px 10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+              <label style="font-size:12px;color:#555;font-weight:500">HKD / USD 시세</label>
+              <a href="https://hk.ttrate.com/en_us/index.php" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#3b82f6;text-decoration:none">↗ ttrate</a>
+            </div>
+            <input type="number" value="${_hkState.hkdusd}" oninput="hkUpdate('_hkdusd',this.value)" style="width:100%;font-size:16px;font-weight:600;border:none;background:transparent;outline:none">
+            <div style="font-size:11px;color:#888;margin-top:1px">ttrate 상단 USD → HKD 환율 확인 후 입력</div>
+          </div>
+        </div>
+
+        <p style="${sl}">환율 입력</p>
+        <div style="border:1px solid #e5e5e5;border-radius:8px;overflow:hidden">
+          <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+            <thead>
+              <tr>
+                <th style="font-size:9px;font-weight:500;color:#888;text-align:left;padding:5px 3px 5px 8px;background:#f5f5f5;border:1px solid #d4d4d8;width:60px">통화</th>
+                <th style="font-size:9px;font-weight:500;color:#888;text-align:center;padding:4px 6px;background:#eff6ff;border:1px solid #d4d4d8">
+                  마뱅<br><span style="font-size:8px;color:#aaa">KRW · 마이뱅크</span>
+                </th>
+                <th style="font-size:9px;font-weight:500;color:#888;text-align:center;padding:4px 6px;background:#f5f5f5;border:1px solid #d4d4d8">
+                  h1 <a href="https://hk.ttrate.com/en_us/index.php" target="_blank" rel="noopener noreferrer" style="font-size:9px;color:#3b82f6;text-decoration:none">↗ttrate</a>
+                  <br><span style="font-size:8px;color:#aaa">HKD 환율</span>
+                </th>
+                <th style="font-size:9px;font-weight:500;color:#888;text-align:center;padding:4px 6px;background:#f5f5f5;border:1px solid #d4d4d8">h2<br><span style="font-size:8px;color:#aaa">HKD 환율</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="4" style="background:#f5f5f5;font-size:9px;font-weight:500;color:#888;padding:3px 8px;letter-spacing:.05em;text-transform:uppercase;border:1px solid #d4d4d8">⭐ 주요</td></tr>
+              ${HK_CURRENCIES.filter(c => c.main).map(c => hkCurrencyRowHtml(c)).join('')}
+              <tr><td colspan="4" style="background:#f5f5f5;font-size:9px;font-weight:500;color:#888;padding:3px 8px;letter-spacing:.05em;text-transform:uppercase;border:1px solid #d4d4d8">기타</td></tr>
+              ${HK_CURRENCIES.filter(c => !c.main).map(c => hkCurrencyRowHtml(c)).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 우: 수익률 순위 -->
+      <div style="position:sticky;top:68px">
+        <p style="${sl}">수익률 순위</p>
+        <div id="hk-results" style="display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+    </div>
+  `;
+  document.getElementById('hk-content').innerHTML = html;
+  hkRenderResults();
+}
+
+function hkRenderResults() {
+  const mainRanked  = hkGetRanked(HK_CURRENCIES.filter(c => c.main));
+  const otherRanked = hkGetRanked(HK_CURRENCIES.filter(c => !c.main));
+  const block = (title, list) => `
+    <div>
+      <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:5px">${title}</div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        ${list.map((item,i) => hkRankCardHtml(item,i)).join('')}
+      </div>
+    </div>`;
+  const el = document.getElementById('hk-results');
+  if (el) el.innerHTML = block('⭐ 주요 통화 · 수량 많음', mainRanked) + '<div style="height:10px"></div>' + block('기타 통화 · 수량 제한', otherRanked);
+}
