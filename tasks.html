@@ -5,18 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MoneyBox 업무관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="js/mb-data.js?v=9"></script>
+<script src="js/mb-data.js?v=12"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .nav-link { display:inline-block; padding:.5rem 1.125rem; border-radius:.5rem; font-size:.9375rem; color:#fff; text-decoration:none; transition:all .15s; white-space:nowrap; font-weight:500; }
   .nav-link:hover { background:#2D3D52; color:#fff; }
   .nav-link.active { background:#2D3D52; color:#fff; font-weight:600; }
-  .branch-col { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
-  .bundle { background:#FAFBFC; border-radius:.75rem; padding:1rem; margin-bottom:.75rem; border:1px solid #F3F4F6; }
-  .bundle.complete { background:#F0FDF4; border-color:#86EFAC; }
-  .bundle.assignee-done { background:#FFF8EC; border-color:#FCD34D; }
   .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.4rem .6rem; font-size:.85rem; outline:none; }
   .btn-primary { background:#F5A623; color:#fff; padding:.4rem 1rem; border-radius:.5rem; font-size:.85rem; font-weight:600; }
+
+  /* 체크리스트 카드 */
+  .chk-card { background:#fff; border-radius:.9rem; box-shadow:0 1px 4px rgba(0,0,0,0.06); overflow:hidden; }
+  .chk-title { background:#1E2A3A; color:#fff; padding:.8rem 1.1rem; font-weight:700; font-size:.98rem; }
+  .chk-sub { background:#2D3D52; color:#cbd5e1; padding:.4rem 1.1rem; font-size:.72rem; }
+  .chk-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+  .chk-table th { background:#5B7BB4; color:#fff; padding:.5rem; font-weight:600; font-size:.76rem; border:1px solid #fff; }
+  .chk-table td { border:1px solid #E5E7EB; padding:.45rem .65rem; vertical-align:middle; }
+  .blk-row td { background:#4169B5; color:#fff; text-align:center; font-weight:700; font-size:.8rem; letter-spacing:.02em; }
+  .task-row td.t-time { color:#374151; white-space:nowrap; text-align:center; font-weight:600; font-size:.76rem; }
+  .task-row td.t-chk { text-align:center; }
+  .task-row.done { background:#F0FDF4; }
+  .task-row.done td.t-text { color:#9CA3AF; text-decoration:line-through; }
+  .sign-row td { background:#F3F6FB; font-size:.78rem; color:#6B7280; }
+  .sign-row.signed td { background:#FFF8EC; color:#92400E; }
 </style>
 </head>
 <body class="bg-[#F5F7FA]">
@@ -32,9 +43,16 @@
       <a href="atm.html" class="nav-link">무인기관리</a>
       <a href="storage.html" class="nav-link">보관함관리</a>
       <a href="archive.html" class="nav-link">자료실</a>
-      <a href="calc.html" class="nav-link" title="계산기" style="font-size:1.15rem;padding:.3rem .55rem;margin-left:.25rem">🧮</a>
     </nav>
     <div class="flex items-center gap-5 shrink-0 border-l border-[#2D3D52] pl-8">
+      <div id="admin-menu-wrap" style="position:relative;display:none">
+        <button onclick="toggleAdminMenu(event)" style="background:#2D3D52;color:#fff;border:none;border-radius:.5rem;padding:.45rem .85rem;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap">⚙️ 관리자 ▾</button>
+        <div id="admin-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border-radius:.6rem;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden;min-width:150px;z-index:50">
+          <a href="calc.html" style="display:block;padding:.65rem 1rem;font-size:.88rem;color:#1E2A3A;text-decoration:none;white-space:nowrap">🧮 계산기</a>
+          <a href="log.html" style="display:block;padding:.65rem 1rem;font-size:.88rem;color:#1E2A3A;text-decoration:none;white-space:nowrap;border-top:1px solid #F1F1F3">🗂 기록 로그</a>
+        </div>
+      </div>
+
       <div style="display:flex;align-items:center;gap:8px;white-space:nowrap">
         <span style="color:#fff;font-size:.875rem;font-weight:600" id="current-user">-</span>
         <span style="color:rgba(255,255,255,.65);font-size:.75rem" id="current-role">-</span>
@@ -46,162 +64,267 @@
   </div>
 </header>
 
-<main class="pt-[60px] min-h-screen pb-6 px-44">
+<main class="pt-[60px] min-h-screen pb-6 px-20">
 
-  <div class="grid grid-cols-2 gap-5">
-    <!-- 홍대 -->
-    <div class="branch-col">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-bold text-[#1A1A2E]">홍대점</h3>
-        <span id="hd-progress" class="text-xs text-[#6B7280]">0/0</span>
-      </div>
-      <div id="hongdae-bundles"></div>
-    </div>
-    <!-- 연남 -->
-    <div class="branch-col">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-bold text-[#1A1A2E]">연남점</h3>
-        <span id="yn-progress" class="text-xs text-[#6B7280]">0/0</span>
-      </div>
-      <div id="yeongnam-bundles"></div>
-    </div>
+  <div class="flex justify-between items-center mb-4" style="max-width:1100px;margin:0 auto">
+    <div class="text-lg font-bold text-[#1A1A2E]">일일 업무 체크리스트</div>
+    <button id="edit-btn" onclick="toggleEdit()" class="hidden px-4 py-2 rounded-lg text-sm font-semibold"
+      style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;cursor:pointer">✏️ 편집</button>
   </div>
+
+  <div id="board" class="grid gap-5" style="max-width:1100px;margin:0 auto"></div>
 </main>
 
 <script>
 mbBoot('tasks.html');
 
-// 업무 골격 정의
-const TASK_TEMPLATE = {
+const TEMPLATE_KEY = 'mb_task_template_v2';
+
+// 기본 체크리스트 (운영 변경 시 관리자가 편집 → 즉시 반영)
+const DEFAULT_TEMPLATE = {
   '홍대': [
-    { id:'hd-open', label:'09:00 오픈', icon:'🌅', tasks:[
-      { id:'hd-o-1', text:'오픈 점검' },
-      { id:'hd-o-2', text:'환율 세팅' },
-      { id:'hd-o-3', text:'CEMS 점검' },
+    { id:'hd-b1', label:'09:00 ~ 12:00', tasks:[
+      { id:'hd-1', time:'09:00', text:'캐쉬플로우 확인' },
+      { id:'hd-2', time:'',      text:'인천공항 패킹 확인' },
+      { id:'hd-3', time:'',      text:'은행 매도 외화 정리 후 공유' },
+      { id:'hd-4', time:'',      text:'무인기 정산' },
     ]},
-    { id:'hd-mid', label:'12:00~15:00 미드', icon:'☀️', tasks:[
-      { id:'hd-m-1', text:'구글 리뷰 응대' },
-      { id:'hd-m-2', text:'샤오홍슈 포스팅' },
+    { id:'hd-b2', label:'12:00 ~ 15:00', tasks:[
+      { id:'hd-5', time:'12:00', text:'원화 및 외화 잔돈확인' },
+      { id:'hd-6', time:'13:00', text:'SNS 환율 컨텐츠 업로드' },
     ]},
-    { id:'hd-close', label:'18:00 마감', icon:'🌙', tasks:[
-      { id:'hd-c-1', text:'마감 시재 정리' },
-      { id:'hd-c-2', text:'환율 퇴근전 세팅' },
-      { id:'hd-c-3', text:'SNS 게시' },
+    { id:'hd-b3', label:'15:00 ~ 18:00', tasks:[
+      { id:'hd-7', time:'17:00', text:'시재마감 1차' },
+      { id:'hd-8', time:'18:00', text:'환경정리' },
+    ]},
+    { id:'hd-b4', label:'18:00 ~ 22:00', tasks:[
+      { id:'hd-9',  time:'20:00', text:'시재마감 2차' },
+      { id:'hd-10', time:'21:00', text:'무인기 시재마감' },
+      { id:'hd-11', time:'',      text:'환율 더블체크' },
+      { id:'hd-12', time:'',      text:'환경정리' },
     ]},
   ],
   '연남': [
-    { id:'yn-open', label:'09:00 오픈', icon:'🌅', tasks:[
-      { id:'yn-o-1', text:'오픈 점검' },
-      { id:'yn-o-2', text:'환율 세팅' },
+    { id:'yn-b1', label:'출근 전 ~ 09:00', tasks:[
+      { id:'yn-1', time:'출근 전', text:'전일 인수인계 사항 확인' },
     ]},
-    { id:'yn-mid', label:'12:00~15:00 미드', icon:'☀️', tasks:[
-      { id:'yn-m-1', text:'구글 리뷰 응대' },
-      { id:'yn-m-2', text:'포스팅' },
+    { id:'yn-b2', label:'09:00 ~ 12:00', tasks:[
+      { id:'yn-2', time:'09:00', text:'캐쉬플로우 확인 1차' },
+      { id:'yn-3', time:'',      text:'전체 환율 세팅 1차' },
+      { id:'yn-4', time:'',      text:'은행에 매도할 외화 정리' },
+      { id:'yn-5', time:'10:00', text:'외화별 거래내역 정리' },
     ]},
-    { id:'yn-close', label:'18:00 마감', icon:'🌙', tasks:[
-      { id:'yn-c-1', text:'마감 시재 정리' },
-      { id:'yn-c-2', text:'환율 퇴근전 세팅' },
-      { id:'yn-c-3', text:'SNS 게시' },
+    { id:'yn-b3', label:'12:00 ~ 15:00', tasks:[
+      { id:'yn-6', time:'13:00', text:'은행 주문' },
+      { id:'yn-7', time:'',      text:'거래 정보 인수인계 1차' },
+      { id:'yn-8', time:'14:00', text:'전체 환율 세팅 2차' },
+      { id:'yn-9', time:'',      text:'캐쉬플로우 확인 2차' },
+    ]},
+    { id:'yn-b4', label:'15:00 ~ 18:00', tasks:[
+      { id:'yn-10', time:'16:00', text:'시재마감 1차' },
+      { id:'yn-11', time:'16:00', text:'전체 환율 세팅 3차' },
+      { id:'yn-12', time:'17:00', text:'거래 정보 인수인계 2차' },
+    ]},
+    { id:'yn-b5', label:'18:00 ~ 21:00', tasks:[
+      { id:'yn-13', time:'20:00', text:'전체 환율 세팅 4차' },
+      { id:'yn-14', time:'',      text:'캐쉬플로우 확인 3차' },
+      { id:'yn-15', time:'',      text:'금일 이후 거래 & 업무 인수인계' },
+    ]},
+    { id:'yn-b6', label:'21:00 ~ 22:00', tasks:[
+      { id:'yn-16', time:'21:00', text:'시재마감 2차' },
+      { id:'yn-17', time:'',      text:'환경정리' },
     ]},
   ],
 };
 
+const clone = o => JSON.parse(JSON.stringify(o));
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function getTemplate() {
+  let t = mbGetOrDefault(TEMPLATE_KEY, null);
+  if (!t) { t = clone(DEFAULT_TEMPLATE); mbSet(TEMPLATE_KEY, t); }
+  if (!t['홍대']) t['홍대'] = [];
+  if (!t['연남']) t['연남'] = [];
+  return t;
+}
+function saveTemplate(t) { mbSet(TEMPLATE_KEY, t); }
+
 function getChecklist() {
   const cl = mbGetOrDefault(MB.CHECKLIST_KEY, {});
   if (!cl[today()]) cl[today()] = { tasks: {}, assignees: {} };
+  if (!cl[today()].tasks) cl[today()].tasks = {};
+  if (!cl[today()].assignees) cl[today()].assignees = {};
   return cl;
 }
 function saveChecklist(cl) { mbSet(MB.CHECKLIST_KEY, cl); }
 
+let editing = false;
+
+// ─── 완료 체크 / 서명 ───
 function onTaskCheck(branch, bundleId, taskId, checkbox) {
   const cl = getChecklist();
   cl[today()].tasks[taskId] = checkbox.checked;
   saveChecklist(cl);
-  renderBranch(branch);
+  refreshTaskGate(branch);
+  renderAll();
 }
 
 function onAssigneeCheck(branch, bundleId, checkbox) {
-  const bundle = TASK_TEMPLATE[branch].find(b => b.id === bundleId);
+  const block = getTemplate()[branch].find(b => b.id === bundleId);
   const cl = getChecklist();
-  const allDone = bundle.tasks.every(t => cl[today()].tasks[t.id] === true);
+  const allDone = block && block.tasks.length > 0 && block.tasks.every(t => cl[today()].tasks[t.id] === true);
   if (!allDone && checkbox.checked) {
-    alert('모든 업무를 완료해야 담당자 체크가 가능합니다.');
+    alert('모든 업무를 완료해야 담당자 서명이 가능합니다.');
     checkbox.checked = false;
     return;
   }
-  cl[today()].assignees[bundleId] = {
-    employeeId: getCurrentUser().id,
-    name: getCurrentUser().name,
-    checked: checkbox.checked,
-    at: nowTs(),
-  };
+  cl[today()].assignees[bundleId] = checkbox.checked
+    ? { employeeId: getCurrentUser().id, name: getCurrentUser().name, checked: true, at: nowTs() }
+    : { checked: false };
   saveChecklist(cl);
   refreshTaskGate(branch);
-  renderBranch(branch);
+  renderAll();
 }
 
 function refreshTaskGate(branch) {
   const user = getCurrentUser();
   if (!user) return;
   const cl = getChecklist();
-  const myBundles = TASK_TEMPLATE[user.branch] || [];
-  const ok = myBundles.some(b => {
+  const myBlocks = getTemplate()[user.branch] || [];
+  const ok = myBlocks.some(b => {
     const a = cl[today()].assignees[b.id];
     if (!a || a.employeeId !== user.id || !a.checked) return false;
-    return b.tasks.every(t => cl[today()].tasks[t.id]);
+    return b.tasks.length > 0 && b.tasks.every(t => cl[today()].tasks[t.id]);
   });
   const gate = mbGetOrDefault(MB.TASK_GATE_KEY, {});
   if (!gate[today()]) gate[today()] = {};
   gate[today()][user.id] = ok;
   mbSet(MB.TASK_GATE_KEY, gate);
-  renderClockBtn();
+  if (typeof renderClockBtn === 'function') renderClockBtn();
 }
 
-function renderBranch(branch) {
-  const cl = getChecklist();
-  const todayCl = cl[today()];
-  const bundles = TASK_TEMPLATE[branch];
-  let totalDone = 0, totalTasks = 0;
-  const html = bundles.map(b => {
-    const allDone = b.tasks.every(t => todayCl.tasks[t.id]);
+// ─── 템플릿 편집 (관리자) ───
+function tplEditLabel(branch, bid, val) { const t=getTemplate(); const b=t[branch].find(x=>x.id===bid); if(b){b.label=val; saveTemplate(t);} }
+function tplEditTime(branch, bid, tid, val) { const t=getTemplate(); const k=t[branch].find(x=>x.id===bid)?.tasks.find(x=>x.id===tid); if(k){k.time=val; saveTemplate(t);} }
+function tplEditText(branch, bid, tid, val) { const t=getTemplate(); const k=t[branch].find(x=>x.id===bid)?.tasks.find(x=>x.id===tid); if(k){k.text=val; saveTemplate(t);} }
+function tplAddTask(branch, bid) { const t=getTemplate(); const b=t[branch].find(x=>x.id===bid); if(b){b.tasks.push({id:uid(),time:'',text:''}); saveTemplate(t); renderAll();} }
+function tplDelTask(branch, bid, tid) { const t=getTemplate(); const b=t[branch].find(x=>x.id===bid); if(b){b.tasks=b.tasks.filter(x=>x.id!==tid); saveTemplate(t); renderAll();} }
+function tplAddBlock(branch) { const t=getTemplate(); t[branch].push({id:uid(),label:'새 시간블록',tasks:[]}); saveTemplate(t); renderAll(); }
+function tplDelBlock(branch, bid) { if(!confirm('이 시간블록을 삭제할까요?')) return; const t=getTemplate(); t[branch]=t[branch].filter(x=>x.id!==bid); saveTemplate(t); renderAll(); }
+function resetTemplate() { if(!confirm('체크리스트를 기본값으로 되돌릴까요? 편집한 내용이 사라집니다.')) return; mbSet(TEMPLATE_KEY, clone(DEFAULT_TEMPLATE)); renderAll(); }
+
+function toggleEdit() {
+  editing = !editing;
+  document.getElementById('edit-btn').textContent = editing ? '✓ 편집 완료' : '✏️ 편집';
+  renderAll();
+}
+
+// ─── 렌더 ───
+function buildNormalTable(branch) {
+  const blocks = getTemplate()[branch] || [];
+  const todayCl = getChecklist()[today()];
+  let totalDone = 0, total = 0, rows = '';
+  blocks.forEach(b => {
+    rows += `<tr class="blk-row"><td colspan="3">${esc(b.label)}</td></tr>`;
+    const allDone = b.tasks.length > 0 && b.tasks.every(t => todayCl.tasks[t.id]);
+    b.tasks.forEach(t => {
+      total++; const done = todayCl.tasks[t.id] === true; if (done) totalDone++;
+      rows += `<tr class="task-row ${done?'done':''}">
+        <td class="t-time">${esc(t.time)}</td>
+        <td class="t-text">${esc(t.text)}</td>
+        <td class="t-chk"><input type="checkbox" ${done?'checked':''}
+          onchange="onTaskCheck('${branch}','${b.id}','${t.id}',this)" class="w-4 h-4 accent-[#F5A623]"></td>
+      </tr>`;
+    });
     const a = todayCl.assignees[b.id];
-    const aDone = a?.checked;
-    let cls = 'bundle';
-    if (aDone) cls += ' assignee-done';
-    else if (allDone) cls += ' complete';
-    const taskHtml = b.tasks.map(t => {
-      totalTasks++;
-      const checked = todayCl.tasks[t.id] === true;
-      if (checked) totalDone++;
-      return `<li class="flex items-center gap-2">
-        <input type="checkbox" id="cb-${t.id}" ${checked?'checked':''}
-          onchange="onTaskCheck('${branch}','${b.id}','${t.id}',this)"
-          class="w-4 h-4 accent-[#F5A623]">
-        <label for="cb-${t.id}" class="text-sm ${checked?'line-through text-[#9CA3AF]':''}">${t.text}</label>
-      </li>`;
-    }).join('');
-    return `<div class="${cls}">
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-xs font-bold text-[#F5A623]">${b.icon} ${b.label}</span>
-        <span class="text-xs text-[#6B7280]">${b.tasks.filter(t=>todayCl.tasks[t.id]).length}/${b.tasks.length}</span>
-      </div>
-      <ul class="space-y-1.5 mb-3">${taskHtml}</ul>
-      <div class="pt-2 border-t flex items-center gap-2">
-        <input type="checkbox" id="ac-${b.id}" ${aDone?'checked':''}
-          onchange="onAssigneeCheck('${branch}','${b.id}',this)"
-          class="w-4 h-4 accent-[#F59E0B]">
-        <label for="ac-${b.id}" class="text-sm font-medium ${aDone?'text-[#92400E]':''}">
-          담당자 확인 ${a?.name ? `· ${a.name}` : ''}
-        </label>
-      </div>
-    </div>`;
-  }).join('');
-  document.getElementById(branch === '홍대' ? 'hongdae-bundles' : 'yeongnam-bundles').innerHTML = html;
-  document.getElementById(branch === '홍대' ? 'hd-progress' : 'yn-progress').textContent = `${totalDone}/${totalTasks}`;
+    const signed = a?.checked;
+    rows += `<tr class="sign-row ${signed?'signed':''}"><td colspan="3">
+      <label style="display:inline-flex;align-items:center;gap:.4rem;cursor:${allDone?'pointer':'not-allowed'}">
+        담당자 서명 :
+        <input type="checkbox" ${signed?'checked':''} ${allDone?'':'disabled'}
+          onchange="onAssigneeCheck('${branch}','${b.id}',this)" class="w-4 h-4 accent-[#10B981]">
+        <span style="font-weight:700">${signed && a?.name ? esc(a.name) : ''}</span>
+      </label>
+    </td></tr>`;
+  });
+  return { html:`<table class="chk-table">
+    <thead><tr><th style="width:84px">시간</th><th>업무 내용</th><th style="width:60px">완료</th></tr></thead>
+    <tbody>${rows}</tbody></table>`, totalDone, total };
 }
 
-renderBranch('홍대');
-renderBranch('연남');
+function buildEditTable(branch) {
+  const blocks = getTemplate()[branch] || [];
+  let rows = '';
+  blocks.forEach(b => {
+    rows += `<tr class="blk-row"><td colspan="3" style="padding:.35rem .5rem">
+      <div style="display:flex;gap:.4rem;align-items:center">
+        <input value="${esc(b.label)}" onchange="tplEditLabel('${branch}','${b.id}',this.value)"
+          style="flex:1;background:rgba(255,255,255,.92);border:none;border-radius:.35rem;padding:.3rem .5rem;font-weight:700;color:#1E2A3A;text-align:center;outline:none">
+        <button onclick="tplDelBlock('${branch}','${b.id}')" title="블록 삭제"
+          style="background:#fff;color:#DC2626;border:none;border-radius:.35rem;padding:.25rem .55rem;font-size:.7rem;font-weight:700;cursor:pointer;white-space:nowrap">블록삭제</button>
+      </div></td></tr>`;
+    b.tasks.forEach(t => {
+      rows += `<tr class="task-row">
+        <td class="t-time"><input value="${esc(t.time)}" placeholder="시간"
+          onchange="tplEditTime('${branch}','${b.id}','${t.id}',this.value)"
+          style="width:72px;border:1px solid #E5E7EB;border-radius:.3rem;padding:.25rem;text-align:center;font-size:.74rem;outline:none"></td>
+        <td class="t-text"><input value="${esc(t.text)}" placeholder="업무 내용"
+          onchange="tplEditText('${branch}','${b.id}','${t.id}',this.value)"
+          style="width:100%;border:1px solid #E5E7EB;border-radius:.3rem;padding:.25rem .4rem;font-size:.78rem;outline:none"></td>
+        <td class="t-chk"><button onclick="tplDelTask('${branch}','${b.id}','${t.id}')" title="항목 삭제"
+          style="color:#DC2626;background:none;border:none;cursor:pointer;font-size:.95rem;line-height:1">✕</button></td>
+      </tr>`;
+    });
+    rows += `<tr><td colspan="3" style="padding:.3rem .5rem">
+      <button onclick="tplAddTask('${branch}','${b.id}')"
+        style="color:#2563EB;background:none;border:1px dashed #93C5FD;border-radius:.4rem;padding:.25rem .75rem;font-size:.74rem;cursor:pointer;width:100%">+ 항목 추가</button>
+    </td></tr>`;
+  });
+  rows += `<tr><td colspan="3" style="padding:.5rem">
+    <button onclick="tplAddBlock('${branch}')"
+      style="color:#fff;background:#F5A623;border:none;border-radius:.4rem;padding:.4rem 1rem;font-size:.78rem;font-weight:600;cursor:pointer;width:100%">+ 시간블록 추가</button>
+  </td></tr>`;
+  return `<table class="chk-table">
+    <thead><tr><th style="width:84px">시간</th><th>업무 내용</th><th style="width:60px">삭제</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+function renderAll() {
+  const user = getCurrentUser();
+  const admin = isAdmin();
+  const branches = admin ? ['홍대','연남'] : (user?.branch ? [user.branch] : ['홍대','연남']);
+
+  const editBtn = document.getElementById('edit-btn');
+  editBtn.classList.toggle('hidden', !admin);
+
+  const board = document.getElementById('board');
+  board.className = 'grid gap-5' + (branches.length > 1 ? ' grid-cols-2' : ' grid-cols-1');
+  board.style.maxWidth = branches.length > 1 ? '1100px' : '640px';
+
+  let out = '';
+  branches.forEach(br => {
+    let body, prog = '';
+    if (editing) {
+      body = buildEditTable(br);
+    } else {
+      const r = buildNormalTable(br);
+      body = r.html;
+      prog = `<span style="float:right;font-size:.8rem;font-weight:500;opacity:.85">${r.totalDone}/${r.total}</span>`;
+    }
+    out += `<div class="chk-card">
+      <div class="chk-title">머니박스 환전소 · ${br}점 일일 업무 체크리스트${prog}</div>
+      <div class="chk-sub">담당자가 각 블록 완료 후 서명란을 작성하세요.${editing?' (편집 모드 — 변경 즉시 저장)':''}</div>
+      ${body}
+    </div>`;
+  });
+  if (editing) {
+    out += `<div style="text-align:center"><button onclick="resetTemplate()"
+      style="color:#6B7280;background:none;border:none;font-size:.75rem;text-decoration:underline;cursor:pointer">기본값으로 초기화</button></div>`;
+  }
+  board.innerHTML = out;
+}
+
+renderAll();
 </script>
 </body>
 </html>

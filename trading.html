@@ -6,7 +6,7 @@
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="js/mb-data.js?v=9"></script>
+<script src="js/mb-data.js?v=12"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .nav-link { display:inline-block; padding:.5rem 1.125rem; border-radius:.5rem; font-size:.9375rem; color:#fff; text-decoration:none; transition:all .15s; white-space:nowrap; font-weight:500; }
@@ -64,9 +64,16 @@
       <a href="atm.html" class="nav-link">무인기관리</a>
       <a href="storage.html" class="nav-link">보관함관리</a>
       <a href="archive.html" class="nav-link">자료실</a>
-      <a href="calc.html" class="nav-link" title="계산기" style="font-size:1.15rem;padding:.3rem .55rem;margin-left:.25rem">🧮</a>
     </nav>
     <div class="flex items-center gap-5 shrink-0 border-l border-[#2D3D52] pl-8">
+      <div id="admin-menu-wrap" style="position:relative;display:none">
+        <button onclick="toggleAdminMenu(event)" style="background:#2D3D52;color:#fff;border:none;border-radius:.5rem;padding:.45rem .85rem;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap">⚙️ 관리자 ▾</button>
+        <div id="admin-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border-radius:.6rem;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden;min-width:150px;z-index:50">
+          <a href="calc.html" style="display:block;padding:.65rem 1rem;font-size:.88rem;color:#1E2A3A;text-decoration:none;white-space:nowrap">🧮 계산기</a>
+          <a href="log.html" style="display:block;padding:.65rem 1rem;font-size:.88rem;color:#1E2A3A;text-decoration:none;white-space:nowrap;border-top:1px solid #F1F1F3">🗂 기록 로그</a>
+        </div>
+      </div>
+
       <div style="display:flex;align-items:center;gap:8px;white-space:nowrap">
         <span style="color:#fff;font-size:.875rem;font-weight:600" id="current-user">-</span>
         <span style="color:rgba(255,255,255,.65);font-size:.75rem" id="current-role">-</span>
@@ -498,13 +505,6 @@ function bindEvents(sheet) {
     if (!el.matches('input, select')) return;
     e.preventDefault();
     el.blur();
-    setTimeout(() => {
-      const tr = el.closest('tr');
-      const td = el.closest('td');
-      const colIdx = Array.from(tr.children).indexOf(td);
-      const nextTr = tr.nextElementSibling;
-      if (nextTr) nextTr.children[colIdx]?.querySelector('input, select')?.focus();
-    }, 50);
   });
 }
 
@@ -534,8 +534,11 @@ function resetWithSave() {
 }
 function resetWithoutSave() {
   const sheet = currentSheet;
-  if (!confirm(`${currentDate} 시트 ${sheet} 거래 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+  if (!confirm(`${currentDate} 시트 ${sheet} 거래 기록을 삭제하시겠습니까?\n삭제해도 [기록 로그]에서 30일간 복구할 수 있습니다.`)) return;
   const txList = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  const removed = txList.filter(x => x.date === currentDate && (x.sheet||1) === sheet);
+  if (typeof mbLogDelete === 'function')
+    mbLogDelete('거래시트 초기화', MB.TRANSACTIONS_KEY, removed, t => `${currentDate} 시트${sheet} ${t.counterparty||''} ${t.tradeType||''}`);
   mbSet(MB.TRANSACTIONS_KEY, txList.filter(x => !(x.date === currentDate && (x.sheet||1) === sheet)));
   document.getElementById('reset-modal').classList.add('hidden');
   renderAll();
@@ -613,7 +616,7 @@ function bindSelEvents(sheet) {
 }
 document.addEventListener('mouseup', () => { sel.dragging = false; sel._pendingStart = null; });
 
-function focusCell(sheet, r, c) {
+function focusCell(sheet, r, c, edit=false) {
   const tbody = document.getElementById(`tbody-${sheet}`);
   if (!tbody) return;
   const tr = tbody.rows[r];
@@ -623,7 +626,14 @@ function focusCell(sheet, r, c) {
   const inp = td.querySelector('input,select');
   Object.assign(sel, {sheet, r1:r, c1:c, r2:r, c2:c});
   applySel();
-  if (inp) inp.focus();
+  if (edit && inp) {
+    inp.focus();
+    if (inp.tagName === 'INPUT') inp.select();
+  } else if (document.activeElement &&
+             (document.activeElement.tagName==='INPUT' || document.activeElement.tagName==='SELECT')) {
+    // 이동 중엔 편집기에서 빠져나와 '셀 선택' 모드 유지
+    document.activeElement.blur();
+  }
 }
 
 document.addEventListener('keydown', async e => {
@@ -662,9 +672,35 @@ document.addEventListener('keydown', async e => {
       // 셀 선택 상태에서 Enter → 해당 셀 편집
       if (e.key === 'Enter') {
         e.preventDefault();
-        const td = tbody.rows[sel.r1]?.cells[sel.c1];
-        td?.querySelector('input,select')?.focus();
+        focusCell(sel.sheet, sel.r1, sel.c1, true);
         return;
+      }
+      // 셀 선택 상태에서 Delete/Backspace → 내용 지우기
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        const td = tbody.rows[sel.r1]?.cells[sel.c1];
+        const inp = td?.querySelector('input,select');
+        if (inp) {
+          if (inp.tagName === 'SELECT') inp.selectedIndex = 0; else inp.value = '';
+          inp.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        return;
+      }
+      // 셀 선택 상태에서 글자 입력 → 바로 편집 시작
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const td = tbody.rows[sel.r1]?.cells[sel.c1];
+        const inp = td?.querySelector('input,select');
+        if (inp && inp.tagName === 'INPUT') {
+          e.preventDefault();
+          inp.focus();
+          inp.value = e.key;
+          inp.setSelectionRange(inp.value.length, inp.value.length);
+          return;
+        } else if (inp && inp.tagName === 'SELECT') {
+          e.preventDefault();
+          inp.focus();
+          return;
+        }
       }
     } else if (active.tagName === 'SELECT') {
       // SELECT 포커스 중: 방향키 모두 셀 이동, Enter로 드롭다운 열기
@@ -675,11 +711,10 @@ document.addEventListener('keydown', async e => {
       if (e.key === 'Escape') { e.preventDefault(); active.blur(); applySel(); return; }
     } else {
       // INPUT 포커스 중
-      // 입력 중 Enter → 아래 셀로 이동
+      // 입력 중 Enter → 편집 완료 (이동 없음)
       if (e.key === 'Enter') {
         e.preventDefault();
         active.blur();
-        focusCell(sel.sheet, Math.min(ROWS-1, sel.r1+1), sel.c1);
         return;
       }
       // 입력 중 ArrowUp/Down → 위아래 이동

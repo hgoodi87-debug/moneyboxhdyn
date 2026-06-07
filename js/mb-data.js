@@ -34,6 +34,9 @@ const MB = {
   STORAGE_PRICE_KEY: 'mb_storage_price',
   ARCHIVE_KEY: 'mb_archive',
   CREDENTIALS_KEY: 'mb_credentials',
+  AUDIT_LOG_KEY: 'mb_audit_log',
+  ATM_MEMO_KEY: 'mb_atm_memo',
+  LOG_RETENTION_DAYS: 30,
 
   CURRENCIES: ['KRW','USD','JPY','EUR','CNY','HKD','SGD','THB','VND','TWD','AUD','CAD','GBP','PHP','IDR','MYR'],
 };
@@ -178,13 +181,46 @@ function checkClockOutGate(user, dateStr) {
   const taskGate = mbGetOrDefault(MB.TASK_GATE_KEY, {});
   const taskOk = taskGate[dateStr]?.[user.id] === true;
   if (!taskOk) return { ok: false, reason: '업무관리 담당자 체크 미완료' };
-  if (user.branch === '홍대') {
-    const atmGate = mbGetOrDefault(MB.ATM_GATE_KEY, {});
-    if (atmGate[dateStr]?.[user.id] !== true) {
-      return { ok: false, reason: '무인기 마감 담당자 체크 미완료' };
-    }
-  }
   return { ok: true };
+}
+
+// ─── 감사 로그 (삭제 기록 / 30일 보관) ──────────────────────
+function _dateNDaysAgo(n) {
+  const d = new Date(); d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+// 삭제된 항목을 스냅샷으로 로그에 기록. items: 단일 객체 또는 배열. descFn: 항목→설명문자열
+function mbLogDelete(module, storeKey, items, descFn) {
+  const arr = (Array.isArray(items) ? items : [items]).filter(Boolean);
+  if (!arr.length) return;
+  let desc = '';
+  try { desc = descFn ? arr.map(descFn).join(' / ') : ''; } catch { desc = ''; }
+  _mbLogPush({ action: 'delete', module, storeKey, desc, count: arr.length, snapshot: arr });
+}
+function _mbLogPush(entry) {
+  const log = mbGetOrDefault(MB.AUDIT_LOG_KEY, []);
+  log.push({
+    id: uid(), date: today(), time: nowTime(), ts: nowTs(),
+    user: getCurrentUser()?.name || '-', restored: false, ...entry,
+  });
+  const cutoff = _dateNDaysAgo(MB.LOG_RETENTION_DAYS);
+  mbSet(MB.AUDIT_LOG_KEY, log.filter(e => (e.date || '') >= cutoff));
+}
+// 로그 항목 복구: 스냅샷을 원래 저장소로 되돌림 (id 중복은 건너뜀)
+function mbLogRestore(logId) {
+  const log = mbGetOrDefault(MB.AUDIT_LOG_KEY, []);
+  const e = log.find(x => x.id === logId);
+  if (!e || e.restored) return false;
+  const list = mbGetOrDefault(e.storeKey, []);
+  (e.snapshot || []).forEach(item => {
+    if (!list.some(x => x.id === item.id)) list.push(item);
+  });
+  mbSet(e.storeKey, list);
+  e.restored = true;
+  e.restoredAt = (typeof nowTime==='function'?nowTime():'');
+  e.restoredBy = getCurrentUser()?.name || '-';
+  mbSet(MB.AUDIT_LOG_KEY, log);
+  return true;
 }
 
 function handleClockInOut() {
@@ -272,6 +308,27 @@ function renderSidebar(activePage) {
   const td = document.getElementById('today-date');
   if (td) td.textContent = formatDate();
   renderClockBtn();
+  setupAdminMenu();
+}
+
+// ─── 관리자 메뉴 (계산기 / 기록 로그) ─────────────────────────
+function toggleAdminMenu(e) {
+  if (e) e.stopPropagation();
+  const m = document.getElementById('admin-menu');
+  if (!m) return;
+  m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+}
+function setupAdminMenu() {
+  const wrap = document.getElementById('admin-menu-wrap');
+  if (!wrap) return;
+  wrap.style.display = isAdmin() ? 'block' : 'none';
+  if (!window._adminMenuBound) {
+    document.addEventListener('click', () => {
+      const m = document.getElementById('admin-menu');
+      if (m) m.style.display = 'none';
+    });
+    window._adminMenuBound = true;
+  }
 }
 
 // ─── 초기 데이터 시드 ────────────────────────────────────────
