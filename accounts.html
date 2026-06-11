@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoneyBox 로그인 관리</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="css/mb.css">
+<script src="js/mb-data.js?v=14"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+  .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.45rem .6rem; font-size:.85rem; outline:none; }
+  .input-base:focus { border-color:#F5A623; }
+  .btn-primary { background:#F5A623; color:#fff; padding:.5rem 1rem; border-radius:.5rem; font-size:.85rem; font-weight:600; cursor:pointer; }
+  .acc-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .acc-table th { background:#F5F7FA; color:#6B7280; font-weight:600; padding:.6rem; text-align:left; font-size:.78rem; border-bottom:1px solid #E5E7EB; }
+  .acc-table td { padding:.5rem .6rem; border-bottom:1px solid #F1F1F3; }
+  .role-badge { display:inline-block; padding:.1rem .55rem; border-radius:.4rem; font-size:.72rem; font-weight:700; }
+  .r-admin { background:#FEF3C7; color:#92400E; }
+  .r-senior { background:#D1FAE5; color:#065F46; }
+  .r-staff { background:#E5E7EB; color:#374151; }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<div id="mb-header"></div>
+
+<main class="pt-[60px] min-h-screen pb-6 px-20">
+  <div style="max-width:980px;margin:0 auto">
+
+    <!-- 관리자 전용 차단 -->
+    <div id="deny-wrap" style="display:none;max-width:420px;margin:80px auto 0;background:#fff;border-radius:1rem;padding:2.5rem;box-shadow:0 8px 24px rgba(0,0,0,.08);text-align:center">
+      <div style="font-size:2rem;margin-bottom:1rem">🔒</div>
+      <div style="font-weight:700;font-size:1.05rem;color:#1E2A3A;margin-bottom:.5rem">관리자 전용 메뉴</div>
+      <p style="font-size:.875rem;color:#6B7280;margin-bottom:1.5rem">로그인 관리는 관리자만 사용할 수 있습니다.</p>
+      <a href="index.html" style="display:inline-block;background:#1E2A3A;color:#fff;border-radius:.5rem;padding:.6rem 1.5rem;font-size:.875rem;font-weight:600;text-decoration:none">대시보드로</a>
+    </div>
+
+    <div id="acc-body" style="display:none">
+      <h2 class="text-xl font-bold text-[#1A1A2E] mb-4">🔑 로그인 관리</h2>
+
+      <!-- 현재 로그인 -->
+      <div class="card mb-5">
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="text-xs text-[#6B7280] mb-1">현재 로그인</p>
+            <p class="text-lg font-bold text-[#1A1A2E]"><span id="me-name">-</span>
+              <span id="me-role" class="role-badge ml-1"></span>
+              <span id="me-branch" class="text-sm text-[#6B7280] ml-1"></span></p>
+          </div>
+          <button onclick="confirmLogout()" class="px-4 py-2 rounded-lg text-sm font-semibold" style="background:#FEE2E2;color:#DC2626;border:1px solid #FCA5A5;cursor:pointer">로그아웃</button>
+        </div>
+      </div>
+
+      <!-- 직원 계정 목록 -->
+      <div class="card">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-[#1A1A2E]">직원 계정</h3>
+          <button onclick="openAddModal()" class="btn-primary">+ 직원 추가</button>
+        </div>
+        <table class="acc-table">
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th style="width:120px">권한</th>
+              <th style="width:120px">지점</th>
+              <th style="width:110px">입사일</th>
+              <th style="width:200px;text-align:right">비밀번호 / 관리</th>
+            </tr>
+          </thead>
+          <tbody id="acc-rows"></tbody>
+        </table>
+        <p class="text-xs text-[#9CA3AF] mt-3">· 권한/지점은 바로 변경되어 저장됩니다. · 비밀번호 초기화 시 <b>0000</b> 으로 변경됩니다.</p>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- 직원 추가 모달 -->
+<div id="add-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl p-6 w-[420px]">
+    <h3 class="text-lg font-bold mb-4">직원 추가</h3>
+    <div class="space-y-3">
+      <div><label class="text-xs text-[#6B7280]">이름</label><input type="text" id="add-name" class="input-base w-full"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs text-[#6B7280]">권한</label>
+          <select id="add-role" class="input-base w-full"><option value="staff">직원</option><option value="senior">시니어</option><option value="admin">관리자</option></select>
+        </div>
+        <div><label class="text-xs text-[#6B7280]">지점</label>
+          <select id="add-branch" class="input-base w-full"><option value="홍대">홍대</option><option value="연남">연남</option></select>
+        </div>
+      </div>
+      <div><label class="text-xs text-[#6B7280]">입사일</label><input type="date" id="add-join" class="input-base w-full"></div>
+      <p class="text-xs text-[#9CA3AF]">초기 비밀번호는 <b>0000</b> 으로 설정됩니다.</p>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="closeAddModal()" class="flex-1 py-2 rounded bg-gray-100">취소</button>
+      <button onclick="saveNewEmployee()" class="flex-1 btn-primary">추가</button>
+    </div>
+  </div>
+</div>
+
+<script>
+mbBoot('accounts.html');
+
+const ROLE_LABEL = { admin:'관리자', senior:'시니어', staff:'직원' };
+const ROLE_CLASS = { admin:'r-admin', senior:'r-senior', staff:'r-staff' };
+
+if (!isAdmin()) {
+  document.getElementById('deny-wrap').style.display = '';
+} else {
+  document.getElementById('acc-body').style.display = '';
+  renderMe();
+  renderAccounts();
+}
+
+function getEmployees() { return mbGetOrDefault(MB.EMPLOYEES_KEY, []); }
+function saveEmployees(list) { mbSet(MB.EMPLOYEES_KEY, list); }
+
+function renderMe() {
+  const u = getCurrentUser();
+  if (!u) return;
+  document.getElementById('me-name').textContent = u.name;
+  const rb = document.getElementById('me-role');
+  rb.textContent = ROLE_LABEL[u.role] || u.role;
+  rb.className = 'role-badge ml-1 ' + (ROLE_CLASS[u.role] || 'r-staff');
+  document.getElementById('me-branch').textContent = u.branch ? '· ' + u.branch : '';
+}
+
+function renderAccounts() {
+  const list = getEmployees();
+  const me = getCurrentUser();
+  document.getElementById('acc-rows').innerHTML = list.map(e => {
+    const isMe = me && e.id === me.id;
+    return `<tr>
+      <td class="font-medium text-[#1A1A2E]">${esc(e.name)}${isMe?' <span class="text-xs text-[#F5A623]">(나)</span>':''}</td>
+      <td>
+        <select onchange="updateField('${e.id}','role',this.value)" class="input-base" style="padding:.25rem .4rem">
+          <option value="staff" ${e.role==='staff'?'selected':''}>직원</option>
+          <option value="senior" ${e.role==='senior'?'selected':''}>시니어</option>
+          <option value="admin" ${e.role==='admin'?'selected':''}>관리자</option>
+        </select>
+      </td>
+      <td>
+        <select onchange="updateField('${e.id}','branch',this.value)" class="input-base" style="padding:.25rem .4rem">
+          <option value="홍대" ${e.branch==='홍대'?'selected':''}>홍대</option>
+          <option value="연남" ${e.branch==='연남'?'selected':''}>연남</option>
+        </select>
+      </td>
+      <td class="text-[#6B7280] text-xs">${e.joinDate||''}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button onclick="resetPw('${e.id}')" class="text-xs px-2 py-1 rounded" style="background:#EFF6FF;color:#2563EB">비번 초기화</button>
+        <button onclick="changePw('${e.id}')" class="text-xs px-2 py-1 rounded" style="background:#F3F4F6;color:#374151">변경</button>
+        <button onclick="removeEmployee('${e.id}')" class="text-xs px-2 py-1 rounded" style="background:#FEE2E2;color:#DC2626">삭제</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updateField(id, field, val) {
+  const list = getEmployees();
+  const e = list.find(x => x.id === id);
+  if (!e) return;
+  // 마지막 관리자의 권한 강등 방지
+  if (field === 'role' && e.role === 'admin' && val !== 'admin') {
+    const admins = list.filter(x => x.role === 'admin').length;
+    if (admins <= 1) { alert('마지막 관리자는 권한을 변경할 수 없습니다.'); renderAccounts(); return; }
+  }
+  e[field] = val;
+  saveEmployees(list);
+  renderAccounts();
+  renderMe();
+}
+
+function resetPw(id) {
+  if (!confirm('비밀번호를 0000 으로 초기화할까요?')) return;
+  const list = getEmployees();
+  const e = list.find(x => x.id === id);
+  if (!e) return;
+  e.password = '0000';
+  saveEmployees(list);
+  alert(`${e.name} 님의 비밀번호가 0000 으로 초기화되었습니다.`);
+}
+
+function changePw(id) {
+  const list = getEmployees();
+  const e = list.find(x => x.id === id);
+  if (!e) return;
+  const np = prompt(`${e.name} 님의 새 비밀번호 (4자리 이상)`);
+  if (np === null) return;
+  if (np.length < 4) { alert('4자리 이상 입력하세요.'); return; }
+  e.password = np;
+  saveEmployees(list);
+  alert('비밀번호가 변경되었습니다.');
+}
+
+function removeEmployee(id) {
+  const list = getEmployees();
+  const e = list.find(x => x.id === id);
+  if (!e) return;
+  const me = getCurrentUser();
+  if (me && me.id === id) { alert('현재 로그인한 본인 계정은 삭제할 수 없습니다.'); return; }
+  if (e.role === 'admin' && list.filter(x => x.role === 'admin').length <= 1) {
+    alert('마지막 관리자 계정은 삭제할 수 없습니다.'); return;
+  }
+  if (!confirm(`${e.name} 계정을 삭제할까요? (기록 로그에서 30일간 복구 가능)`)) return;
+  if (typeof mbLogDelete === 'function')
+    mbLogDelete('직원 계정', MB.EMPLOYEES_KEY, e, x => `${x.name} (${ROLE_LABEL[x.role]||x.role}·${x.branch||''})`);
+  saveEmployees(list.filter(x => x.id !== id));
+  renderAccounts();
+}
+
+function openAddModal() {
+  document.getElementById('add-name').value = '';
+  document.getElementById('add-role').value = 'staff';
+  document.getElementById('add-branch').value = '홍대';
+  document.getElementById('add-join').value = today();
+  document.getElementById('add-modal').classList.remove('hidden');
+}
+function closeAddModal() { document.getElementById('add-modal').classList.add('hidden'); }
+function saveNewEmployee() {
+  const name = document.getElementById('add-name').value.trim();
+  if (!name) { alert('이름을 입력하세요.'); return; }
+  const list = getEmployees();
+  if (list.some(x => x.name === name)) { alert('이미 같은 이름의 계정이 있습니다.'); return; }
+  list.push({
+    id: uid(), name,
+    role: document.getElementById('add-role').value,
+    branch: document.getElementById('add-branch').value,
+    joinDate: document.getElementById('add-join').value || today(),
+    password: '0000',
+  });
+  saveEmployees(list);
+  closeAddModal();
+  renderAccounts();
+}
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
