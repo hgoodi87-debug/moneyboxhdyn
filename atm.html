@@ -6,7 +6,7 @@
 <title>MoneyBox 무인기관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="css/mb.css">
-<script src="js/mb-data.js?v=18"></script>
+<script src="js/mb-data.js?v=19"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -30,12 +30,13 @@
       <h3 class="text-lg font-bold text-[#1A1A2E] mb-4">💵 시재 보충</h3>
       <div class="bg-[#FAFBFC] rounded-xl p-4 mb-4">
         <h4 class="font-bold mb-3 text-sm text-[#6B7280]">+ 보충 기록 추가</h4>
-        <div class="grid grid-cols-6 gap-2 mb-2 text-xs">
+        <div class="grid grid-cols-7 gap-2 mb-2 text-xs">
           <div><label class="text-[#6B7280]">5만원 묶음</label><input type="number" id="rf-50k" value="0" class="input-base w-full"></div>
           <div><label class="text-[#6B7280]">1만원 묶음</label><input type="number" id="rf-10k" value="0" class="input-base w-full"></div>
           <div><label class="text-[#6B7280]">5천원 묶음</label><input type="number" id="rf-5k" value="0" class="input-base w-full"></div>
           <div><label class="text-[#6B7280]">1천원 묶음</label><input type="number" id="rf-1k" value="0" class="input-base w-full"></div>
-          <div><label class="text-[#6B7280]">500원 묶음</label><input type="number" id="rf-500" value="0" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">500원(2.5만)</label><input type="number" id="rf-500" value="0" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">500원(2.0만)</label><input type="number" id="rf-500b" value="0" class="input-base w-full"></div>
           <div><label class="text-[#6B7280]">100원 묶음</label><input type="number" id="rf-100" value="0" class="input-base w-full"></div>
         </div>
         <div class="grid grid-cols-3 gap-2 items-end">
@@ -53,7 +54,8 @@
             <th class="py-2 px-2 text-center">1만</th>
             <th class="py-2 px-2 text-center">5천</th>
             <th class="py-2 px-2 text-center">1천</th>
-            <th class="py-2 px-2 text-center">500</th>
+            <th class="py-2 px-2 text-center">500<br><span class="text-[10px] font-normal">2.5만</span></th>
+            <th class="py-2 px-2 text-center">500<br><span class="text-[10px] font-normal">2.0만</span></th>
             <th class="py-2 px-2 text-center">100</th>
             <th class="py-2 px-2 text-right">금액</th>
             <th class="py-2 px-2 text-left">담당자</th>
@@ -184,27 +186,28 @@ mbBoot('atm.html');
 document.getElementById('is-cur').innerHTML = MB.CURRENCIES.map(c=>`<option>${c}</option>`).join('');
 
 // ─── 시재 보충 ───────────────────────────────────────
-function calcRefill(b50,b10,b5,b1,c500,c100) {
-  return b50*5000000 + b10*1000000 + b5*500000 + b1*100000 + c500*25000 + c100*5000;
+// 500원 동전: 2.5만원 묶음(c500a) / 2.0만원 묶음(c500b) 두 종류
+function calcRefill(b50,b10,b5,b1,c500a,c500b,c100) {
+  return b50*5000000 + b10*1000000 + b5*500000 + b1*100000 + c500a*25000 + c500b*20000 + c100*5000;
 }
 function readRefillForm() {
   const v = id => Number(document.getElementById(id).value || 0);
   return {
     bills_50k: v('rf-50k'), bills_10k: v('rf-10k'), bills_5k: v('rf-5k'),
-    bills_1k: v('rf-1k'), coins_500: v('rf-500'), coins_100: v('rf-100'),
+    bills_1k: v('rf-1k'), coins_500: v('rf-500'), coins_500_20k: v('rf-500b'), coins_100: v('rf-100'),
   };
 }
-['rf-50k','rf-10k','rf-5k','rf-1k','rf-500','rf-100'].forEach(id => {
+['rf-50k','rf-10k','rf-5k','rf-1k','rf-500','rf-500b','rf-100'].forEach(id => {
   document.getElementById(id).addEventListener('input', updateRefillTotal);
 });
 function updateRefillTotal() {
   const r = readRefillForm();
-  const total = calcRefill(r.bills_50k,r.bills_10k,r.bills_5k,r.bills_1k,r.coins_500,r.coins_100);
+  const total = calcRefill(r.bills_50k,r.bills_10k,r.bills_5k,r.bills_1k,r.coins_500,r.coins_500_20k,r.coins_100);
   document.getElementById('rf-total').textContent = fmtNum(total) + '원';
 }
 function saveRefill() {
   const r = readRefillForm();
-  const total = calcRefill(r.bills_50k,r.bills_10k,r.bills_5k,r.bills_1k,r.coins_500,r.coins_100);
+  const total = calcRefill(r.bills_50k,r.bills_10k,r.bills_5k,r.bills_1k,r.coins_500,r.coins_500_20k,r.coins_100);
   if (!total) { alert('금액 0원입니다.'); return; }
   const t = today();
   mbPush(MB.ATM_REFILL_KEY, {
@@ -213,7 +216,7 @@ function saveRefill() {
     assignee: getCurrentUser().name,
     note: document.getElementById('rf-note').value,
   });
-  ['rf-50k','rf-10k','rf-5k','rf-1k','rf-500','rf-100'].forEach(id => document.getElementById(id).value = 0);
+  ['rf-50k','rf-10k','rf-5k','rf-1k','rf-500','rf-500b','rf-100'].forEach(id => document.getElementById(id).value = 0);
   document.getElementById('rf-note').value = '';
   updateRefillTotal();
   renderRefills();
@@ -228,7 +231,7 @@ function deleteRefill(id) {
 function renderRefills() {
   const list = mbGetOrDefault(MB.ATM_REFILL_KEY, []).sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
   document.getElementById('refill-list').innerHTML = list.length === 0
-    ? '<tr><td colspan="10" class="text-center py-6 text-[#9CA3AF]">기록 없음</td></tr>'
+    ? '<tr><td colspan="11" class="text-center py-6 text-[#9CA3AF]">기록 없음</td></tr>'
     : list.map(r => `
       <tr class="border-b">
         <td class="py-2 px-2">${r.date} ${r.time}</td>
@@ -237,6 +240,7 @@ function renderRefills() {
         <td class="text-center">${r.bills_5k}</td>
         <td class="text-center">${r.bills_1k}</td>
         <td class="text-center">${r.coins_500}</td>
+        <td class="text-center">${r.coins_500_20k||0}</td>
         <td class="text-center">${r.coins_100}</td>
         <td class="text-right font-bold text-[#F5A623]">${fmtNum(r.totalAmount)}</td>
         <td class="px-2">${r.assignee}</td>

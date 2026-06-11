@@ -489,11 +489,12 @@ function mbRenderHeader(active) {
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;white-space:nowrap">
-        <span style="color:#fff;font-size:.875rem;font-weight:600;cursor:pointer" id="current-user" onclick="confirmLogout()" title="클릭하여 로그아웃">-</span>
+        <span style="color:#fff;font-size:.875rem;font-weight:600" id="current-user">-</span>
         <span style="color:rgba(255,255,255,.65);font-size:.75rem" id="current-role">-</span>
       </div>
       <button id="clock-btn" onclick="handleClockInOut()" class="px-5 py-2 rounded-lg bg-[#10B981] text-white font-bold text-sm">출근</button>
       <p id="clock-status" class="hidden"></p>
+      <button onclick="confirmLogout()" title="로그아웃" style="background:#374151;color:#fff;border:none;border-radius:.5rem;padding:.45rem .85rem;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap">로그아웃</button>
     </div>
   </div>
 </header>`;

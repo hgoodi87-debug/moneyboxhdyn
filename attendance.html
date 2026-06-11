@@ -7,7 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="css/mb.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="js/mb-data.js?v=18"></script>
+<script src="js/mb-data.js?v=19"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -28,13 +28,14 @@
   .att-tbl th { background:#E9EDF2; color:#374151; font-weight:700; padding:.4rem; border:1px solid #D9DFE7; font-size:.7rem; position:sticky; top:0; }
   .att-tbl td { border:1px solid #E5E7EB; padding:.3rem .4rem; text-align:center; height:30px; }
   .att-tbl td.att-d { font-weight:600; color:#374151; }
-  .att-time { width:80px; border:1px solid #E5E7EB; border-radius:.3rem; padding:.15rem .3rem; font-size:.72rem; text-align:center; outline:none; }
+  .att-time { width:74px; border:1px solid #E5E7EB; border-radius:.3rem; padding:.15rem .2rem; font-size:.72rem; text-align:center; outline:none; }
   .att-time:focus { border-color:#F5A623; }
   /* Calendar */
   .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:1px; background:#E5E7EB; border:1px solid #E5E7EB; border-radius:.5rem; overflow:hidden; }
   .cal-day-header { background:#F5F7FA; padding:.5rem; text-align:center; font-size:.75rem; font-weight:700; color:#6B7280; }
   .cal-cell { background:#fff; padding:.4rem; min-height:96px; }
-  .cal-cell.today { background:#FFFBF0; }
+  .cal-cell.holiday { background:#FFF5F5; }
+  .cal-cell.today { background:#FFFBF0; box-shadow:inset 0 0 0 2.5px #F5A623; }
   .cal-cell.other { background:#F9FAFB; }
   .cal-day-num { font-size:.75rem; font-weight:700; margin-bottom:.25rem; }
   .worker-tag { display:block; padding:1px 5px; border-radius:.25rem; font-size:.65rem; line-height:1.45; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -142,30 +143,28 @@
 
       <!-- 출퇴근 수정 -->
       <div id="subtab-att">
-        <div class="flex gap-2 mb-4 items-center">
+        <div class="flex flex-wrap gap-2 mb-4 items-center justify-center">
           <button onclick="moveAttMonth(-1)" class="btn-ghost bg-gray-100">◀</button>
           <input type="month" id="att-month" class="input-base" onchange="renderAttEdit()">
           <button onclick="moveAttMonth(1)" class="btn-ghost bg-gray-100">▶</button>
+          <select id="att-emp" class="input-base ml-2" style="font-weight:600" onchange="_attEmp=this.value;renderAttEdit()"></select>
           <button id="att-edit-toggle" onclick="toggleAttEdit()" class="btn-primary ml-2">✏️ 수정</button>
-          <span class="text-xs text-[#9CA3AF] ml-1">정해진 시간보다 일찍 출근·늦게 퇴근 시 정시로 자동 보정됩니다</span>
         </div>
-        <div id="att-edit-list" class="grid grid-cols-2 gap-3"></div>
+        <p class="text-xs text-[#9CA3AF] text-center mb-3">정해진 시간보다 일찍 출근·늦게 퇴근 시 정시로 자동 보정됩니다</p>
+        <div id="att-edit-list"></div>
       </div>
 
       <!-- 근무 일정 -->
       <div id="subtab-sched" class="hidden">
-        <div class="flex justify-between items-center mb-4">
-          <div class="flex items-center gap-2">
-            <button onclick="moveSchedMonth(-1)" class="btn-ghost bg-gray-100">◀</button>
-            <input type="month" id="sched-month" class="input-base">
-            <button onclick="moveSchedMonth(1)" class="btn-ghost bg-gray-100">▶</button>
-            <select id="sched-emp" class="input-base ml-2" style="font-weight:600" onchange="_schedEmp=this.value;renderSchedule()"></select>
-          </div>
-          <div class="flex gap-2">
-            <button onclick="autoSchedule()" class="btn-primary">⚡ 자동 배치</button>
-            <button onclick="resetSchedule()" class="btn-ghost text-xs" style="background:#FEE2E2;color:#DC2626">초기화</button>
-            <button onclick="downloadExcel()" class="btn-primary">엑셀 다운로드</button>
-          </div>
+        <div class="flex flex-wrap justify-center items-center gap-2 mb-4">
+          <button onclick="moveSchedMonth(-1)" class="btn-ghost bg-gray-100">◀</button>
+          <input type="month" id="sched-month" class="input-base">
+          <button onclick="moveSchedMonth(1)" class="btn-ghost bg-gray-100">▶</button>
+          <select id="sched-emp" class="input-base ml-1" style="font-weight:600" onchange="_schedEmp=this.value;renderSchedule()"></select>
+          <span class="mx-1 text-gray-300">|</span>
+          <button onclick="autoSchedule()" class="btn-primary">⚡ 자동 배치</button>
+          <button onclick="resetSchedule()" class="btn-ghost text-xs" style="background:#FEE2E2;color:#DC2626">초기화</button>
+          <button onclick="downloadExcel()" class="btn-primary">엑셀 다운로드</button>
         </div>
         <div id="sched-list"></div>
         <div class="mt-3 flex flex-wrap gap-2 text-xs items-center">
@@ -315,6 +314,27 @@ function tagClassFor(branch, shift) {
   if (branch === '연남' && shift === '마감') return 'tag-yn-close';
   return '';
 }
+// ─── 공휴일 (양력 고정 + 음력·대체공휴일 2025~2026) ───
+const HOLIDAYS_FIXED = {
+  '01-01':'신정', '03-01':'삼일절', '05-05':'어린이날', '06-06':'현충일',
+  '08-15':'광복절', '10-03':'개천절', '10-09':'한글날', '12-25':'성탄절',
+};
+const HOLIDAYS_VAR = {
+  // 2025
+  '2025-01-27':'임시공휴일', '2025-01-28':'설날', '2025-01-29':'설날', '2025-01-30':'설날',
+  '2025-03-03':'대체공휴일', '2025-05-06':'대체공휴일',
+  '2025-10-05':'추석', '2025-10-06':'추석', '2025-10-07':'추석', '2025-10-08':'대체공휴일',
+  // 2026
+  '2026-02-16':'설날', '2026-02-17':'설날', '2026-02-18':'설날',
+  '2026-03-02':'대체공휴일', '2026-05-24':'부처님오신날', '2026-05-25':'대체공휴일',
+  '2026-08-17':'대체공휴일',
+  '2026-09-24':'추석', '2026-09-25':'추석', '2026-09-26':'추석', '2026-09-28':'대체공휴일',
+  '2026-10-05':'대체공휴일',
+};
+function holidayName(dateStr) {
+  return HOLIDAYS_VAR[dateStr] || HOLIDAYS_FIXED[dateStr.slice(5)] || null;
+}
+
 function renderCalendar() {
   const [y, m] = _calMonth.split('-').map(Number);
   document.getElementById('cal-title').textContent = `${y}년 ${m}월`;
@@ -334,7 +354,8 @@ function renderCalendar() {
     const dateStr = `${_calMonth}-${String(d).padStart(2,'0')}`;
     const dt = new Date(y, m-1, d);
     const isToday = dateStr === todayStr;
-    const dayColor = dt.getDay()===0?'color:#EF4444':dt.getDay()===6?'color:#3B82F6':'';
+    const hol = holidayName(dateStr);
+    const dayColor = hol ? 'color:#EF4444' : (dt.getDay()===0?'color:#EF4444':dt.getDay()===6?'color:#3B82F6':'');
     const assignments = sched.filter(s => s.date === dateStr && s.shiftType !== '휴무' && s.shiftType !== '연차').sort((a,b) => {
       const order = (s) => `${s.branch || 'z'}${s.shiftType==='오픈'?'1':s.shiftType==='마감'?'2':'3'}`;
       return order(a).localeCompare(order(b));
@@ -348,8 +369,9 @@ function renderCalendar() {
       const shiftAbbr = s.shiftType[0];
       workersHtml += `<span class="worker-tag ${tagCls}" title="${s.branch||''} ${s.shiftType} - ${emp.name}">${branchAbbr}${shiftAbbr} ${emp.name}</span>`;
     });
-    html += `<div class="cal-cell ${isToday?'today':''}">
-      <div class="cal-day-num" style="${dayColor}">${d}</div>
+    const holLabel = hol ? `<span style="font-size:.58rem;color:#EF4444;font-weight:600;margin-left:2px">${hol}</span>` : '';
+    html += `<div class="cal-cell ${isToday?'today':''} ${hol?'holiday':''}">
+      <div class="cal-day-num" style="${dayColor}">${d}${holLabel}</div>
       ${workersHtml}
     </div>`;
   }
@@ -434,6 +456,7 @@ function moveAttMonth(delta) {
   renderAttEdit();
 }
 let _attEditMode = false;
+let _attEmp = null;
 function toggleAttEdit() {
   _attEditMode = !_attEditMode;
   document.getElementById('att-edit-toggle').textContent = _attEditMode ? '✓ 완료' : '✏️ 수정';
@@ -450,63 +473,72 @@ function renderAttEdit() {
   const branchOrder = { '홍대': 0, '연남': 1 };
   const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch)
     .sort((a,b) => (branchOrder[a.branch] ?? 9) - (branchOrder[b.branch] ?? 9) || (a.name||'').localeCompare(b.name||''));
+
+  // 직원 드롭다운 (한 명씩 보기)
+  const sel = document.getElementById('att-emp');
+  if (emps.length && (!_attEmp || !emps.some(e => e.id === _attEmp))) _attEmp = emps[0].id;
+  sel.innerHTML = emps.length
+    ? emps.map(e => `<option value="${e.id}" ${e.id===_attEmp?'selected':''}>${e.name} (${e.branch})</option>`).join('')
+    : '<option>직원 없음</option>';
+
+  const listEl = document.getElementById('att-edit-list');
+  const e = emps.find(x => x.id === _attEmp);
+  if (!e) { listEl.innerHTML = '<p class="text-sm text-[#9CA3AF] text-center py-8">지점이 배정된 직원이 없습니다.</p>'; return; }
+
   const dayNames = ['일','월','화','수','목','금','토'];
   const todayStr = today();
   const editing = _attEditMode;
+  let totalMin = 0;
 
-  const sections = emps.map(e => {
-    let totalMin = 0;
-    let rows = '';
-    for (let d=1; d<=days; d++) {
-      const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
-      const dt = new Date(y, m-1, d);
-      const wd = dt.getDay();
-      const dayName = dayNames[wd];
-      const dayColor = wd===0?'color:#EF4444':wd===6?'color:#3B82F6':'';
-      const wknd = wd===0 || wd===6;
-      const a = att.find(x => x.date === dateStr && x.employeeId === e.id) || {};
-      const asg = assignedShiftFor(e, dateStr, wd);
-      const isLeave = (asg && asg.shift === '연차') || leaves.some(l => l.employeeId===e.id && l.date===dateStr && l.status==='승인');
-      if (a.clockIn && a.clockOut) totalMin += adjustWorkMin(a.workMinutes || 0);
-      const isToday = dateStr === todayStr;
-
-      let inCell, outCell;
-      if (editing) {
-        inCell  = `<input type="time" id="ai-${e.id}-${d}" value="${a.clockIn||''}" onchange="saveAttDay('${e.id}','${dateStr}',${d})" class="att-time">`;
-        outCell = `<input type="time" id="ao-${e.id}-${d}" value="${a.clockOut||''}" onchange="saveAttDay('${e.id}','${dateStr}',${d})" class="att-time">`;
-      } else if (isLeave) {
-        inCell = outCell = '<span style="color:#6D28D9;font-weight:600">연차</span>';
-      } else {
-        inCell  = a.clockIn  ? `<span style="color:#2563EB;font-weight:600">${a.clockIn}</span>`  : '';
-        outCell = a.clockOut ? `<span style="color:#2563EB;font-weight:600">${a.clockOut}</span>` : '';
-      }
-      const rowBg = isToday ? 'background:#FFFBF0' : (wknd ? 'background:#FAFBFD' : '');
-      rows += `<tr style="${rowBg}">
-        <td class="att-d">${d}일</td>
-        <td class="att-d" style="${dayColor}">${dayName}</td>
-        <td>${inCell}</td>
-        <td>${outCell}</td>
-      </tr>`;
+  const dayRow = (d) => {
+    const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
+    const dt = new Date(y, m-1, d);
+    const wd = dt.getDay();
+    const dayColor = wd===0?'color:#EF4444':wd===6?'color:#3B82F6':'';
+    const wknd = wd===0 || wd===6;
+    const a = att.find(x => x.date === dateStr && x.employeeId === e.id) || {};
+    const asg = assignedShiftFor(e, dateStr, wd);
+    const isLeave = (asg && asg.shift === '연차') || leaves.some(l => l.employeeId===e.id && l.date===dateStr && l.status==='승인');
+    if (a.clockIn && a.clockOut) totalMin += adjustWorkMin(a.workMinutes || 0);
+    const isToday = dateStr === todayStr;
+    let inCell, outCell;
+    if (editing) {
+      inCell  = `<input type="time" id="ai-${e.id}-${d}" value="${a.clockIn||''}" onchange="saveAttDay('${e.id}','${dateStr}',${d})" class="att-time">`;
+      outCell = `<input type="time" id="ao-${e.id}-${d}" value="${a.clockOut||''}" onchange="saveAttDay('${e.id}','${dateStr}',${d})" class="att-time">`;
+    } else if (isLeave) {
+      inCell = outCell = '<span style="color:#6D28D9;font-weight:600">연차</span>';
+    } else {
+      inCell  = a.clockIn  ? `<span style="color:#2563EB;font-weight:600">${a.clockIn}</span>`  : '';
+      outCell = a.clockOut ? `<span style="color:#2563EB;font-weight:600">${a.clockOut}</span>` : '';
     }
-    const roleLabel = e.role==='admin'?'관리자':e.role==='senior'?'시니어':'직원';
-    return `<div class="border rounded-lg overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-2 bg-[#F5F7FA]">
-        <div class="flex items-center gap-2">
-          <span class="font-bold text-sm">${e.name}</span>
-          <span class="text-xs text-[#6B7280]">${e.branch} · ${roleLabel}</span>
-        </div>
-        <span class="text-xs">월 합계 <span class="text-[#F5A623] font-bold text-sm">${(totalMin/60).toFixed(1)}h</span></span>
-      </div>
-      <div style="max-height:420px;overflow-y:auto">
-        <table class="att-tbl">
-          <thead><tr><th style="width:64px">날짜</th><th style="width:48px">요일</th><th>출근</th><th>퇴근</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
-  }).join('');
-  document.getElementById('att-edit-list').innerHTML = sections
-    || '<p class="text-sm text-[#9CA3AF] text-center py-8" style="grid-column:1/-1">지점이 배정된 직원이 없습니다.</p>';
+    const rowBg = isToday ? 'background:#FFFBF0' : (wknd ? 'background:#FAFBFD' : '');
+    return `<tr style="${rowBg}">
+      <td class="att-d">${d}일</td>
+      <td class="att-d" style="${dayColor}">${dayNames[wd]}</td>
+      <td>${inCell}</td>
+      <td>${outCell}</td>
+    </tr>`;
+  };
+
+  // 2열 (15행씩) · 가운데 정렬
+  const cols = 2;
+  const per = Math.ceil(days / cols);
+  let tables = '';
+  for (let c=0; c<cols; c++) {
+    let bd = '';
+    for (let d=c*per+1; d<=Math.min((c+1)*per, days); d++) bd += dayRow(d);
+    if (bd) tables += `<table class="att-tbl" style="flex:1">
+      <thead><tr><th style="width:56px">날짜</th><th style="width:44px">요일</th><th>출근</th><th>퇴근</th></tr></thead>
+      <tbody>${bd}</tbody></table>`;
+  }
+  const roleLabel = e.role==='admin'?'관리자':e.role==='senior'?'시니어':'직원';
+  listEl.innerHTML = `<div class="border rounded-lg overflow-hidden" style="max-width:760px;margin:0 auto">
+    <div class="flex items-center justify-between px-4 py-2 bg-[#F5F7FA]">
+      <div class="flex items-center gap-2"><span class="font-bold text-base">${e.name}</span><span class="text-xs text-[#6B7280]">${e.branch} · ${roleLabel}</span></div>
+      <span class="text-xs">월 합계 <span class="text-[#F5A623] font-bold text-sm">${(totalMin/60).toFixed(1)}h</span></span>
+    </div>
+    <div style="display:flex;gap:10px;padding:10px;align-items:flex-start;justify-content:center">${tables}</div>
+  </div>`;
 }
 function saveAttDay(empId, date, d) {
   const ci = document.getElementById(`ai-${empId}-${d}`).value;
@@ -613,24 +645,24 @@ function renderSchedule() {
     </tr>`;
   };
 
-  // 월 전체를 여러 열로 나눠 스크롤 없이 한눈에
-  const cols = days > 22 ? 3 : 2;
+  // 2열 (15행씩) · 가운데 정렬
+  const cols = 2;
   const per = Math.ceil(days / cols);
   let tables = '';
   for (let c=0; c<cols; c++) {
-    let body = '';
-    for (let d=c*per+1; d<=Math.min((c+1)*per, days); d++) body += dayRow(d);
-    if (body) tables += `<table class="att-tbl" style="flex:1">
-      <thead><tr><th style="width:46px">날짜</th><th style="width:40px">요일</th><th>배정</th></tr></thead>
-      <tbody>${body}</tbody></table>`;
+    let bd = '';
+    for (let d=c*per+1; d<=Math.min((c+1)*per, days); d++) bd += dayRow(d);
+    if (bd) tables += `<table class="att-tbl" style="flex:1">
+      <thead><tr><th style="width:56px">날짜</th><th style="width:44px">요일</th><th>배정</th></tr></thead>
+      <tbody>${bd}</tbody></table>`;
   }
   const roleLabel = e.role==='admin'?'관리자':e.role==='senior'?'시니어':'직원';
-  listEl.innerHTML = `<div class="border rounded-lg overflow-hidden">
+  listEl.innerHTML = `<div class="border rounded-lg overflow-hidden" style="max-width:680px;margin:0 auto">
     <div class="flex items-center justify-between px-4 py-2 bg-[#F5F7FA]">
       <div class="flex items-center gap-2"><span class="font-bold text-base">${e.name}</span><span class="text-xs text-[#6B7280]">${e.branch} · ${roleLabel}</span></div>
       <span class="text-xs text-[#6B7280]">근무 <b class="text-[#F5A623]">${workDays}</b>일 · 휴무 <b class="text-[#374151]">${offDays}</b>일</span>
     </div>
-    <div style="display:flex;gap:8px;padding:8px;align-items:flex-start">${tables}</div>
+    <div style="display:flex;gap:10px;padding:10px;align-items:flex-start;justify-content:center">${tables}</div>
   </div>`;
 }
 function setSched(date, employeeId, value) {
