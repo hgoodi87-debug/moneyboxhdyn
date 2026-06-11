@@ -157,6 +157,17 @@ function mbChangePassword(newPw) {
   return true;
 }
 
+// 직원 삭제 — 근무표/출퇴근/연차 등 모든 참조까지 함께 제거
+function mbDeleteEmployee(id) {
+  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
+  const emp = emps.find(e => e.id === id) || null;
+  mbSet(MB.EMPLOYEES_KEY, emps.filter(e => e.id !== id));
+  mbSet(MB.SCHEDULE_KEY,   mbGetOrDefault(MB.SCHEDULE_KEY, []).filter(s => s.employeeId !== id));
+  mbSet(MB.ATTENDANCE_KEY, mbGetOrDefault(MB.ATTENDANCE_KEY, []).filter(a => a.employeeId !== id));
+  mbSet(MB.LEAVE_KEY,      mbGetOrDefault(MB.LEAVE_KEY, []).filter(l => l.employeeId !== id));
+  return emp;
+}
+
 // 비밀번호 변경 모달 (사이드바 ⚙ 클릭용)
 function showChangePwModal() {
   const old = document.getElementById('_cpw-modal');
@@ -242,17 +253,63 @@ function mbLogRestore(logId) {
   return true;
 }
 
+// ─── 시프트 정해진 근무시간 / 보정 ───────────────────────────
+const SHIFT_HOURS = {
+  '오픈': { start: '09:00', end: '18:00' },
+  '마감': { start: '12:00', end: '21:00' },
+  '풀':   { start: '09:00', end: '21:00' },
+};
+function _hmToMin(t) { if (!t) return null; const [h,m] = t.split(':').map(Number); return h*60 + m; }
+// 직원의 요일별 고정 근무 템플릿 (구버전 필드 자동 변환)
+function mbWeekTemplate(e) {
+  if (e && e.weekTemplate) return e.weekTemplate;
+  const t = {};
+  for (let wd=0; wd<7; wd++) {
+    if ((e && e.fixedOffWeekdays || []).includes(wd)) t[wd] = '|휴무';
+    else if (e && e.defaultBranch && e.defaultShiftType) t[wd] = `${e.defaultBranch}|${e.defaultShiftType}`;
+    else t[wd] = '';
+  }
+  return t;
+}
+// 해당 날짜의 배정 {branch, shift} (실제 일정 우선, 없으면 요일 고정 템플릿)
+function mbAssignmentFor(employeeId, date) {
+  const s = mbGetOrDefault(MB.SCHEDULE_KEY, []).find(x => x.date === date && x.employeeId === employeeId);
+  if (s) return { branch: s.branch || null, shift: s.shiftType };
+  const e = mbGetOrDefault(MB.EMPLOYEES_KEY, []).find(x => x.id === employeeId);
+  if (!e) return null;
+  const v = mbWeekTemplate(e)[new Date(date).getDay()];
+  if (!v) return null;
+  const [b, sh] = v.split('|');
+  return { branch: b || e.branch || null, shift: sh };
+}
+// 해당 날짜의 배정 시프트만
+function mbShiftFor(employeeId, date) {
+  const a = mbAssignmentFor(employeeId, date);
+  return a ? a.shift : null;
+}
+// 일찍 출근/늦게 퇴근을 정해진 근무시간으로 보정
+function mbClampClock(shift, clockIn, clockOut) {
+  const h = SHIFT_HOURS[shift];
+  if (!h) return { clockIn: clockIn || null, clockOut: clockOut || null };
+  let ci = clockIn || null, co = clockOut || null;
+  if (ci && _hmToMin(ci) < _hmToMin(h.start)) ci = h.start;
+  if (co && _hmToMin(co) > _hmToMin(h.end))   co = h.end;
+  return { clockIn: ci, clockOut: co };
+}
+
 function handleClockInOut() {
   const user = getCurrentUser();
   if (!user) { showUserSelectModal(); return; }
   const todayStr = today();
+  const shift = mbShiftFor(user.id, todayStr);
   const records = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
   const rec = records.find(r => r.employeeId === user.id && r.date === todayStr);
 
   if (!rec) {
+    const ci = mbClampClock(shift, nowTime(), null).clockIn;
     records.push({
       id: uid(), employeeId: user.id, date: todayStr,
-      clockIn: nowTime(), clockOut: null,
+      clockIn: ci, clockOut: null,
       branch: user.branch, shiftType: '', workMinutes: 0,
     });
     mbSet(MB.ATTENDANCE_KEY, records);
@@ -262,10 +319,10 @@ function handleClockInOut() {
       alert('퇴근할 수 없습니다.\n사유: ' + gate.reason);
       return;
     }
-    rec.clockOut = nowTime();
-    const [ih, im] = rec.clockIn.split(':').map(Number);
-    const [oh, om] = rec.clockOut.split(':').map(Number);
-    rec.workMinutes = (oh*60 + om) - (ih*60 + im);
+    const c = mbClampClock(shift, rec.clockIn, nowTime());
+    rec.clockIn = c.clockIn;
+    rec.clockOut = c.clockOut;
+    rec.workMinutes = Math.max(0, _hmToMin(rec.clockOut) - _hmToMin(rec.clockIn));
     mbSet(MB.ATTENDANCE_KEY, records);
   } else {
     alert('이미 퇴근 처리되었습니다.');
@@ -362,11 +419,6 @@ function mbInit() {
     // 김동교(e1) 지점 배정 마이그레이션
     const dk = employees.find(e => e.id === 'e1');
     if (dk && !dk.branch) { dk.branch = '홍대'; updated = true; }
-    // 연남 직원 추가 마이그레이션
-    if (!employees.find(e => e.id === 'e5')) {
-      employees.push({ id:'e5', name:'정수민', role:'senior', joinDate:'2025-01-15', branch:'연남', password:'0000' });
-      updated = true;
-    }
     if (updated) mbSet(MB.EMPLOYEES_KEY, employees);
   }
   if (!mbGet(MB.STORAGE_PRICE_KEY)) {

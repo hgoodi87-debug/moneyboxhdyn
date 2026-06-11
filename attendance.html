@@ -7,7 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="css/mb.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="js/mb-data.js?v=14"></script>
+<script src="js/mb-data.js?v=18"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -18,7 +18,18 @@
   .btn-ghost { padding:.5rem 1rem; border-radius:.5rem; font-size:.875rem; cursor:pointer; }
   .tab-btn { padding:.625rem 1.25rem; font-size:.875rem; font-weight:600; color:#6B7280; border-bottom:2px solid transparent; cursor:pointer; background:none; }
   .tab-btn.active { color:#F5A623; border-bottom-color:#F5A623; }
-  .schedule-cell { min-width:96px; padding:.5rem; border-right:1px solid #F3F4F6; font-size:.7rem; vertical-align:top; }
+  /* 근무 일정 - 배정 선택 */
+  .sched-sel { width:100%; border:1px solid #E5E7EB; border-radius:.35rem; padding:.2rem .3rem; font-size:.7rem; font-weight:600; outline:none; cursor:pointer; }
+  .sched-sel:focus { border-color:#F5A623; box-shadow:0 0 0 2px #FDE68A; }
+  .wk-sel { width:42px; border:1px solid #E5E7EB; border-radius:.3rem; padding:.15rem 0; font-size:.64rem; font-weight:700; text-align:center; cursor:pointer; outline:none; }
+  .wk-sel:focus { border-color:#F5A623; }
+  /* 출퇴근 수정 표 */
+  .att-tbl { width:100%; border-collapse:collapse; font-size:.74rem; }
+  .att-tbl th { background:#E9EDF2; color:#374151; font-weight:700; padding:.4rem; border:1px solid #D9DFE7; font-size:.7rem; position:sticky; top:0; }
+  .att-tbl td { border:1px solid #E5E7EB; padding:.3rem .4rem; text-align:center; height:30px; }
+  .att-tbl td.att-d { font-weight:600; color:#374151; }
+  .att-time { width:80px; border:1px solid #E5E7EB; border-radius:.3rem; padding:.15rem .3rem; font-size:.72rem; text-align:center; outline:none; }
+  .att-time:focus { border-color:#F5A623; }
   /* Calendar */
   .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:1px; background:#E5E7EB; border:1px solid #E5E7EB; border-radius:.5rem; overflow:hidden; }
   .cal-day-header { background:#F5F7FA; padding:.5rem; text-align:center; font-size:.75rem; font-weight:700; color:#6B7280; }
@@ -105,6 +116,7 @@
                   <tr>
                     <th class="py-2 px-2 text-left">날짜</th>
                     <th class="py-2 px-2 text-center">요일</th>
+                    <th class="py-2 px-2 text-center">배정</th>
                     <th class="py-2 px-2 text-center">출근</th>
                     <th class="py-2 px-2 text-center">퇴근</th>
                     <th class="py-2 px-2 text-right">근무시간</th>
@@ -134,7 +146,8 @@
           <button onclick="moveAttMonth(-1)" class="btn-ghost bg-gray-100">◀</button>
           <input type="month" id="att-month" class="input-base" onchange="renderAttEdit()">
           <button onclick="moveAttMonth(1)" class="btn-ghost bg-gray-100">▶</button>
-          <span class="text-xs text-[#6B7280] ml-2">시간 변경 시 자동 저장됩니다</span>
+          <button id="att-edit-toggle" onclick="toggleAttEdit()" class="btn-primary ml-2">✏️ 수정</button>
+          <span class="text-xs text-[#9CA3AF] ml-1">정해진 시간보다 일찍 출근·늦게 퇴근 시 정시로 자동 보정됩니다</span>
         </div>
         <div id="att-edit-list" class="grid grid-cols-2 gap-3"></div>
       </div>
@@ -146,33 +159,32 @@
             <button onclick="moveSchedMonth(-1)" class="btn-ghost bg-gray-100">◀</button>
             <input type="month" id="sched-month" class="input-base">
             <button onclick="moveSchedMonth(1)" class="btn-ghost bg-gray-100">▶</button>
+            <select id="sched-emp" class="input-base ml-2" style="font-weight:600" onchange="_schedEmp=this.value;renderSchedule()"></select>
           </div>
           <div class="flex gap-2">
             <button onclick="autoSchedule()" class="btn-primary">⚡ 자동 배치</button>
-            <button onclick="seedScheduleSamples()" class="btn-ghost bg-gray-100 text-xs">샘플 채우기</button>
+            <button onclick="resetSchedule()" class="btn-ghost text-xs" style="background:#FEE2E2;color:#DC2626">초기화</button>
             <button onclick="downloadExcel()" class="btn-primary">엑셀 다운로드</button>
           </div>
         </div>
-        <div class="overflow-x-auto border rounded-lg">
-          <table class="text-sm" id="sched-table">
-            <thead class="bg-[#F5F7FA]"></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <div class="mt-3 flex gap-3 text-xs text-[#6B7280]">
-          <span class="px-2 py-0.5 pill-open rounded">오픈</span>
-          <span class="px-2 py-0.5 pill-close rounded">마감</span>
-          <span class="px-2 py-0.5 pill-full rounded">풀</span>
-          <span class="px-2 py-0.5 pill-off rounded">휴무</span>
-          <span class="px-2 py-0.5 pill-leave rounded">연차</span>
-          <span>· 셀 클릭으로 배정 변경 (풀=풀타임, 그 지점에 오픈/마감 별도 배정 X)</span>
+        <div id="sched-list"></div>
+        <div class="mt-3 flex flex-wrap gap-2 text-xs items-center">
+          <span class="tag-hd-open px-2 py-0.5 rounded">홍대 오픈</span>
+          <span class="tag-hd-close px-2 py-0.5 rounded">홍대 마감</span>
+          <span class="tag-hd-full px-2 py-0.5 rounded">홍대 풀</span>
+          <span class="tag-yn-open px-2 py-0.5 rounded">연남 오픈</span>
+          <span class="tag-yn-close px-2 py-0.5 rounded">연남 마감</span>
+          <span class="tag-yn-full px-2 py-0.5 rounded">연남 풀</span>
+          <span class="tag-off px-2 py-0.5 rounded">휴무</span>
+          <span class="tag-leave px-2 py-0.5 rounded">연차</span>
+          <span class="text-[#9CA3AF] ml-1">· 배정 칸을 눌러 직접 선택</span>
         </div>
       </div>
 
       <!-- 직원 관리 -->
       <div id="subtab-emp" class="hidden">
         <div class="flex justify-between items-center mb-3">
-          <div class="text-xs text-[#6B7280]">고정 시프트와 고정 휴무는 [근무 일정 → 자동 배치]에 사용됩니다</div>
+          <div class="text-xs text-[#6B7280]">요일별 고정 근무를 설정하면 [근무 일정 → 자동 배치]와 출/퇴근 화면에 반영됩니다</div>
           <button onclick="openAddEmpModal()" class="btn-primary" id="add-emp-btn">+ 직원 추가</button>
         </div>
         <table class="w-full text-sm">
@@ -180,8 +192,7 @@
             <tr>
               <th class="py-2.5 px-3 text-left">이름</th>
               <th class="py-2.5 px-3 text-left">직급</th>
-              <th class="py-2.5 px-3 text-center">고정 시프트</th>
-              <th class="py-2.5 px-3 text-center">고정 휴무</th>
+              <th class="py-2.5 px-3 text-center">주간 고정 근무 (일~토)</th>
               <th class="py-2.5 px-3 text-center">잔여연차</th>
               <th class="py-2.5 px-3 text-center"></th>
             </tr>
@@ -393,16 +404,21 @@ function renderMyMonthTable() {
       }
     }
     const isToday = dateStr === today();
+    const asg = assignedShiftFor(u, dateStr, dt.getDay());
+    const asgCell = asg
+      ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${tagClassFor(asg.branch, asg.shift)}">${asg.branch?asg.branch[0]:''}${asg.shift}</span>`
+      : '<span class="text-[#D1D5DB]">-</span>';
     html += `<tr class="border-b ${isToday?'bg-[#FFFBF0] font-medium':''}">
       <td class="py-1.5 px-2">${m}/${d}</td>
       <td class="py-1.5 px-2 text-center" style="${dayColor}">${dayName}</td>
+      <td class="py-1.5 px-2 text-center">${asgCell}</td>
       <td class="py-1.5 px-2 text-center">${clockIn}</td>
       <td class="py-1.5 px-2 text-center">${clockOut}</td>
       <td class="py-1.5 px-2 text-right font-medium">${workH}</td>
     </tr>`;
   }
   html += `<tr class="bg-[#F5F7FA] font-bold">
-    <td colspan="4" class="py-2 px-2 text-right">월 합계</td>
+    <td colspan="5" class="py-2 px-2 text-right">월 합계</td>
     <td class="py-2 px-2 text-right text-[#F5A623]">${(totalMin/60).toFixed(1)}h</td>
   </tr>`;
   document.getElementById('my-month-tbody').innerHTML = html;
@@ -417,17 +433,26 @@ function moveAttMonth(delta) {
   inp.value = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
   renderAttEdit();
 }
+let _attEditMode = false;
+function toggleAttEdit() {
+  _attEditMode = !_attEditMode;
+  document.getElementById('att-edit-toggle').textContent = _attEditMode ? '✓ 완료' : '✏️ 수정';
+  renderAttEdit();
+}
 function renderAttEdit() {
   const inp = document.getElementById('att-month');
   if (!inp.value) inp.value = thisYearMonth();
   const ym = inp.value;
   const [y, m] = ym.split('-').map(Number);
   const days = new Date(y, m, 0).getDate();
-  const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []);
   const att = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
-  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch);
+  const leaves = mbGetOrDefault(MB.LEAVE_KEY, []);
+  const branchOrder = { '홍대': 0, '연남': 1 };
+  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch)
+    .sort((a,b) => (branchOrder[a.branch] ?? 9) - (branchOrder[b.branch] ?? 9) || (a.name||'').localeCompare(b.name||''));
   const dayNames = ['일','월','화','수','목','금','토'];
   const todayStr = today();
+  const editing = _attEditMode;
 
   const sections = emps.map(e => {
     let totalMin = 0;
@@ -435,22 +460,32 @@ function renderAttEdit() {
     for (let d=1; d<=days; d++) {
       const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
       const dt = new Date(y, m-1, d);
-      const dayName = dayNames[dt.getDay()];
-      const dayColor = dt.getDay()===0?'color:#EF4444':dt.getDay()===6?'color:#3B82F6':'';
-      const s = sched.find(x => x.date === dateStr && x.employeeId === e.id);
+      const wd = dt.getDay();
+      const dayName = dayNames[wd];
+      const dayColor = wd===0?'color:#EF4444':wd===6?'color:#3B82F6':'';
+      const wknd = wd===0 || wd===6;
       const a = att.find(x => x.date === dateStr && x.employeeId === e.id) || {};
-      const adjMin = a.workMinutes ? adjustWorkMin(a.workMinutes) : 0;
-      const wmH = adjMin / 60;
-      totalMin += adjMin;
+      const asg = assignedShiftFor(e, dateStr, wd);
+      const isLeave = (asg && asg.shift === '연차') || leaves.some(l => l.employeeId===e.id && l.date===dateStr && l.status==='승인');
+      if (a.clockIn && a.clockOut) totalMin += adjustWorkMin(a.workMinutes || 0);
       const isToday = dateStr === todayStr;
-      const shiftLabel = s ? `${s.branch?s.branch[0]:''}${s.shiftType}` : '-';
-      rows += `<tr class="border-b ${isToday?'bg-[#FFFBF0]':''}">
-        <td class="py-1 px-1.5">${m}/${d}</td>
-        <td class="py-1 px-1 text-center" style="${dayColor}">${dayName}</td>
-        <td class="py-1 px-1 text-center text-[10px] text-[#6B7280]">${shiftLabel}</td>
-        <td class="py-1 px-1 text-center"><input type="time" id="ai-${e.id}-${d}" value="${a.clockIn||''}" onchange="saveAttDay('${e.id}','${dateStr}',${d})" class="input-base" style="padding:.15rem .3rem;width:78px;font-size:.7rem"></td>
-        <td class="py-1 px-1 text-center"><input type="time" id="ao-${e.id}-${d}" value="${a.clockOut||''}" onchange="saveAttDay('${e.id}','${dateStr}',${d})" class="input-base" style="padding:.15rem .3rem;width:78px;font-size:.7rem"></td>
-        <td class="py-1 px-1.5 text-right font-medium">${wmH > 0 ? wmH.toFixed(1)+'h'+(a.workMinutes>540?'*':'') : '-'}</td>
+
+      let inCell, outCell;
+      if (editing) {
+        inCell  = `<input type="time" id="ai-${e.id}-${d}" value="${a.clockIn||''}" onchange="saveAttDay('${e.id}','${dateStr}',${d})" class="att-time">`;
+        outCell = `<input type="time" id="ao-${e.id}-${d}" value="${a.clockOut||''}" onchange="saveAttDay('${e.id}','${dateStr}',${d})" class="att-time">`;
+      } else if (isLeave) {
+        inCell = outCell = '<span style="color:#6D28D9;font-weight:600">연차</span>';
+      } else {
+        inCell  = a.clockIn  ? `<span style="color:#2563EB;font-weight:600">${a.clockIn}</span>`  : '';
+        outCell = a.clockOut ? `<span style="color:#2563EB;font-weight:600">${a.clockOut}</span>` : '';
+      }
+      const rowBg = isToday ? 'background:#FFFBF0' : (wknd ? 'background:#FAFBFD' : '');
+      rows += `<tr style="${rowBg}">
+        <td class="att-d">${d}일</td>
+        <td class="att-d" style="${dayColor}">${dayName}</td>
+        <td>${inCell}</td>
+        <td>${outCell}</td>
       </tr>`;
     }
     const roleLabel = e.role==='admin'?'관리자':e.role==='senior'?'시니어':'직원';
@@ -462,43 +497,39 @@ function renderAttEdit() {
         </div>
         <span class="text-xs">월 합계 <span class="text-[#F5A623] font-bold text-sm">${(totalMin/60).toFixed(1)}h</span></span>
       </div>
-      <div style="max-height:340px;overflow-y:auto">
-        <table class="w-full text-xs">
-          <thead class="bg-white text-[#6B7280] sticky top-0 border-b">
-            <tr>
-              <th class="py-1.5 px-2 text-left">날짜</th>
-              <th class="py-1.5 px-2 text-center">요일</th>
-              <th class="py-1.5 px-2 text-center">배정</th>
-              <th class="py-1.5 px-2 text-center">출근</th>
-              <th class="py-1.5 px-2 text-center">퇴근</th>
-              <th class="py-1.5 px-2 text-right">근무h</th>
-            </tr>
-          </thead>
+      <div style="max-height:420px;overflow-y:auto">
+        <table class="att-tbl">
+          <thead><tr><th style="width:64px">날짜</th><th style="width:48px">요일</th><th>출근</th><th>퇴근</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
     </div>`;
   }).join('');
-  document.getElementById('att-edit-list').innerHTML = sections;
+  document.getElementById('att-edit-list').innerHTML = sections
+    || '<p class="text-sm text-[#9CA3AF] text-center py-8" style="grid-column:1/-1">지점이 배정된 직원이 없습니다.</p>';
 }
 function saveAttDay(empId, date, d) {
   const ci = document.getElementById(`ai-${empId}-${d}`).value;
   const co = document.getElementById(`ao-${empId}-${d}`).value;
+  const shift = (typeof mbShiftFor === 'function') ? mbShiftFor(empId, date) : null;
+  const clamped = (typeof mbClampClock === 'function')
+    ? mbClampClock(shift, ci || null, co || null)
+    : { clockIn: ci || null, clockOut: co || null };
   const list = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
   const emp = mbGetOrDefault(MB.EMPLOYEES_KEY, []).find(e => e.id === empId);
   let rec = list.find(x => x.employeeId === empId && x.date === date);
   if (!rec) {
-    if (!ci && !co) return;
-    rec = { id: uid(), employeeId: empId, date, clockIn: ci || null, clockOut: co || null, branch: emp?.branch || null, shiftType: '', workMinutes: 0 };
+    if (!clamped.clockIn && !clamped.clockOut) return;
+    rec = { id: uid(), employeeId: empId, date, clockIn: clamped.clockIn, clockOut: clamped.clockOut, branch: emp?.branch || null, shiftType: '', workMinutes: 0 };
     list.push(rec);
   } else {
-    rec.clockIn = ci || null;
-    rec.clockOut = co || null;
+    rec.clockIn = clamped.clockIn;
+    rec.clockOut = clamped.clockOut;
   }
   if (rec.clockIn && rec.clockOut) {
     const [ih, im] = rec.clockIn.split(':').map(Number);
     const [oh, om] = rec.clockOut.split(':').map(Number);
-    rec.workMinutes = (oh*60 + om) - (ih*60 + im);
+    rec.workMinutes = Math.max(0, (oh*60 + om) - (ih*60 + im));
   } else {
     rec.workMinutes = 0;
   }
@@ -506,10 +537,12 @@ function saveAttDay(empId, date, d) {
   renderAttEdit();
   renderTodayStatus();
   renderMyMonthTable();
+  renderCalendar();
 }
 
 // ─── 근무 일정 (월별 출근표) ───
 let _schedMonth = thisYearMonth();
+let _schedEmp = null;
 document.getElementById('sched-month').value = _schedMonth;
 document.getElementById('sched-month').addEventListener('change', e => {
   _schedMonth = e.target.value;
@@ -530,87 +563,107 @@ function pillFor(shift) {
   if (shift === '연차') return 'pill-leave';
   return '';
 }
+const SCHED_OPTS = [
+  ['', '· 없음'],
+  ['홍대|오픈', '홍대 오픈'], ['홍대|마감', '홍대 마감'], ['홍대|풀', '홍대 풀'],
+  ['연남|오픈', '연남 오픈'], ['연남|마감', '연남 마감'], ['연남|풀', '연남 풀'],
+  ['|휴무', '휴무'], ['|연차', '연차'],
+];
+function schedOptions(cur) {
+  return SCHED_OPTS.map(([v,l]) => `<option value="${v}" ${v===cur?'selected':''}>${l}</option>`).join('');
+}
 function renderSchedule() {
-  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch);
+  const branchOrder = { '홍대': 0, '연남': 1 };
+  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch)
+    .sort((a,b) => (branchOrder[a.branch] ?? 9) - (branchOrder[b.branch] ?? 9) || (a.name||'').localeCompare(b.name||''));
+
+  // 직원 드롭다운 채우기 (한 명씩 보기)
+  const sel = document.getElementById('sched-emp');
+  if (employees.length && (!_schedEmp || !employees.some(e => e.id === _schedEmp))) _schedEmp = employees[0].id;
+  sel.innerHTML = employees.length
+    ? employees.map(e => `<option value="${e.id}" ${e.id===_schedEmp?'selected':''}>${e.name} (${e.branch})</option>`).join('')
+    : '<option>직원 없음</option>';
+
+  const listEl = document.getElementById('sched-list');
+  const e = employees.find(x => x.id === _schedEmp);
+  if (!e) { listEl.innerHTML = '<p class="text-sm text-[#9CA3AF] text-center py-8">지점이 배정된 직원이 없습니다. (직원 관리에서 지점을 지정하세요)</p>'; return; }
+
   const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []);
-  const att = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
   const [y, m] = _schedMonth.split('-').map(Number);
   const days = new Date(y, m, 0).getDate();
-  let thead = '<tr><th class="py-2 px-3 text-left bg-[#F5F7FA] sticky left-0 z-10 border-r">직원</th>';
-  for (let d=1; d<=days; d++) {
+  const dayNames = ['일','월','화','수','목','금','토'];
+  const todayStr = today();
+  let workDays = 0, offDays = 0;
+
+  const dayRow = (d) => {
+    const dateStr = `${_schedMonth}-${String(d).padStart(2,'0')}`;
     const dt = new Date(y, m-1, d);
-    const dayName = ['일','월','화','수','목','금','토'][dt.getDay()];
-    const isWeekend = dt.getDay()===0 || dt.getDay()===6;
-    thead += `<th class="py-2 px-1 text-center text-xs ${isWeekend?'text-[#EF4444]':''} bg-[#F5F7FA] border-r">${d}<br>(${dayName})</th>`;
+    const wd = dt.getDay();
+    const wknd = wd===0 || wd===6;
+    const dayColor = wd===0?'color:#EF4444':wd===6?'color:#3B82F6':'';
+    const s = sched.find(x => x.date === dateStr && x.employeeId === e.id);
+    const cur = s ? `${s.branch||''}|${s.shiftType}` : '';
+    if (s) { if (s.shiftType==='휴무'||s.shiftType==='연차') offDays++; else workDays++; }
+    const pillCls = s ? tagClassFor(s.branch, s.shiftType) : '';
+    const isToday = dateStr === todayStr;
+    return `<tr style="${isToday?'background:#FFFBF0':(wknd?'background:#FAFBFD':'')}">
+      <td class="att-d">${d}일</td>
+      <td class="att-d" style="${dayColor}">${dayNames[wd]}</td>
+      <td style="padding:2px 4px"><select onchange="setSched('${dateStr}','${e.id}',this.value)" class="sched-sel ${pillCls}">${schedOptions(cur)}</select></td>
+    </tr>`;
+  };
+
+  // 월 전체를 여러 열로 나눠 스크롤 없이 한눈에
+  const cols = days > 22 ? 3 : 2;
+  const per = Math.ceil(days / cols);
+  let tables = '';
+  for (let c=0; c<cols; c++) {
+    let body = '';
+    for (let d=c*per+1; d<=Math.min((c+1)*per, days); d++) body += dayRow(d);
+    if (body) tables += `<table class="att-tbl" style="flex:1">
+      <thead><tr><th style="width:46px">날짜</th><th style="width:40px">요일</th><th>배정</th></tr></thead>
+      <tbody>${body}</tbody></table>`;
   }
-  thead += '<th class="py-2 px-2 bg-[#F5F7FA]">근무h</th><th class="py-2 px-2 bg-[#F5F7FA]">휴무</th></tr>';
-  document.querySelector('#sched-table thead').innerHTML = thead;
-  let tbody = '';
-  employees.forEach(e => {
-    let totalMin = 0, offDays = 0;
-    let row = `<tr class="border-b"><td class="py-2 px-3 font-medium sticky left-0 bg-white border-r z-10">${e.name}<div class="text-xs text-[#6B7280]">${e.branch||''}</div></td>`;
-    for (let d=1; d<=days; d++) {
-      const dateStr = `${_schedMonth}-${String(d).padStart(2,'0')}`;
-      const s = sched.find(x => x.date === dateStr && x.employeeId === e.id);
-      const a = att.find(x => x.date === dateStr && x.employeeId === e.id);
-      let cell = '';
-      if (s) {
-        const branch = s.branch ? s.branch[0] : '';
-        cell = `<div class="px-1.5 py-0.5 rounded ${pillFor(s.shiftType)} text-center text-[10px] font-bold cursor-pointer" onclick="editCell('${dateStr}','${e.id}')">${branch}${s.shiftType}</div>`;
-        if (s.shiftType === '휴무' || s.shiftType === '연차') offDays++;
-      } else {
-        cell = `<div class="text-[#D1D5DB] text-center cursor-pointer" onclick="editCell('${dateStr}','${e.id}')">·</div>`;
-      }
-      if (a && a.clockIn) {
-        cell += `<div class="text-[10px] text-[#6B7280] text-center mt-0.5">${a.clockIn}${a.clockOut?'~'+a.clockOut:''}</div>`;
-        if (a.workMinutes) totalMin += adjustWorkMin(a.workMinutes);
-      }
-      row += `<td class="schedule-cell">${cell}</td>`;
-    }
-    row += `<td class="py-2 px-2 text-center font-bold text-[#F5A623]">${(totalMin/60).toFixed(1)}h</td><td class="py-2 px-2 text-center">${offDays}</td></tr>`;
-    tbody += row;
-  });
-  document.querySelector('#sched-table tbody').innerHTML = tbody;
+  const roleLabel = e.role==='admin'?'관리자':e.role==='senior'?'시니어':'직원';
+  listEl.innerHTML = `<div class="border rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-[#F5F7FA]">
+      <div class="flex items-center gap-2"><span class="font-bold text-base">${e.name}</span><span class="text-xs text-[#6B7280]">${e.branch} · ${roleLabel}</span></div>
+      <span class="text-xs text-[#6B7280]">근무 <b class="text-[#F5A623]">${workDays}</b>일 · 휴무 <b class="text-[#374151]">${offDays}</b>일</span>
+    </div>
+    <div style="display:flex;gap:8px;padding:8px;align-items:flex-start">${tables}</div>
+  </div>`;
 }
-function editCell(date, employeeId) {
-  if (!_isManager) { alert('관리자만 배정 변경 가능'); return; }
-  const opts = [
-    {label:'홍대 오픈', branch:'홍대', shift:'오픈'},
-    {label:'홍대 마감', branch:'홍대', shift:'마감'},
-    {label:'홍대 풀',   branch:'홍대', shift:'풀'},
-    {label:'연남 오픈', branch:'연남', shift:'오픈'},
-    {label:'연남 마감', branch:'연남', shift:'마감'},
-    {label:'연남 풀',   branch:'연남', shift:'풀'},
-    {label:'휴무',     branch:null,    shift:'휴무'},
-    {label:'연차',     branch:null,    shift:'연차'},
-    {label:'삭제',     branch:null,    shift:null},
-  ];
-  let txt = `${date} 배정\n`;
-  opts.forEach((o,i) => txt += `${i+1}. ${o.label}\n`);
-  txt += '번호 입력:';
-  const choice = prompt(txt);
-  const idx = Number(choice) - 1;
-  if (idx < 0 || idx >= opts.length) return;
-  const opt = opts[idx];
-  const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []);
-  const filtered = sched.filter(x => !(x.date === date && x.employeeId === employeeId));
-  if (opt.shift) {
-    const emp = mbGetOrDefault(MB.EMPLOYEES_KEY, []).find(e => e.id === employeeId);
-    filtered.push({ date, employeeId, branch: opt.branch || emp?.defaultBranch || emp?.branch || '홍대', shiftType: opt.shift });
+function setSched(date, employeeId, value) {
+  if (!_isManager) { alert('관리자만 배정을 변경할 수 있습니다.'); renderSchedule(); return; }
+  const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []).filter(x => !(x.date === date && x.employeeId === employeeId));
+  if (value) {
+    const [branch, shift] = value.split('|');
+    sched.push({ date, employeeId, branch: branch || null, shiftType: shift });
   }
-  mbSet(MB.SCHEDULE_KEY, filtered);
+  mbSet(MB.SCHEDULE_KEY, sched);
+  renderSchedule();
+  renderCalendar();
+}
+function resetSchedule() {
+  if (!_isManager) { alert('관리자만 가능합니다.'); return; }
+  const removed = mbGetOrDefault(MB.SCHEDULE_KEY, []).filter(s => s.date.startsWith(_schedMonth));
+  if (removed.length === 0) { alert(`${_schedMonth} 근무 일정이 비어 있습니다.`); return; }
+  if (!confirm(`${_schedMonth} 근무 일정 ${removed.length}건을 모두 초기화할까요?\n(기록 로그에서 30일 복구 가능)`)) return;
+  if (typeof mbLogDelete === 'function')
+    mbLogDelete('근무 일정 초기화', MB.SCHEDULE_KEY, removed, s => `${s.date} ${s.branch||''}${s.shiftType}`);
+  mbSet(MB.SCHEDULE_KEY, mbGetOrDefault(MB.SCHEDULE_KEY, []).filter(s => !s.date.startsWith(_schedMonth)));
   renderSchedule();
   renderCalendar();
 }
 function autoSchedule() {
   if (!_isManager) { alert('관리자만 가능'); return; }
-  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
-  const eligible = employees.filter(e => (e.fixedOffWeekdays && e.fixedOffWeekdays.length) || (e.defaultBranch && e.defaultShiftType));
+  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch);
+  const eligible = employees.filter(e => Object.values(getWeekTemplate(e)).some(v => v));
   if (eligible.length === 0) {
-    alert('자동 배치 가능한 직원이 없습니다.\n[직원 관리]에서 고정 시프트 또는 고정 휴무를 먼저 설정하세요.');
+    alert('자동 배치 가능한 직원이 없습니다.\n[직원 관리]에서 요일별 고정 근무를 먼저 설정하세요.');
     return;
   }
-  if (!confirm(`${_schedMonth} 자동 배치하시겠습니까?\n\n각 직원의 [고정 시프트]와 [고정 휴무]를 기반으로 배치합니다.\n${_schedMonth} 기존 일정은 모두 덮어씁니다.`)) return;
+  if (!confirm(`${_schedMonth} 자동 배치하시겠습니까?\n\n각 직원의 [요일별 고정 근무]를 기반으로 배치합니다.\n${_schedMonth} 기존 일정은 모두 덮어씁니다.`)) return;
   const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []).filter(s => !s.date.startsWith(_schedMonth));
   const [y, m] = _schedMonth.split('-').map(Number);
   const days = new Date(y, m, 0).getDate();
@@ -619,13 +672,11 @@ function autoSchedule() {
     const dateStr = `${_schedMonth}-${String(d).padStart(2,'0')}`;
     const weekday = new Date(y, m-1, d).getDay();
     employees.forEach(e => {
-      if ((e.fixedOffWeekdays || []).includes(weekday)) {
-        sched.push({ date: dateStr, employeeId: e.id, branch: e.defaultBranch || e.branch || '홍대', shiftType: '휴무' });
-        off++;
-      } else if (e.defaultBranch && e.defaultShiftType) {
-        sched.push({ date: dateStr, employeeId: e.id, branch: e.defaultBranch, shiftType: e.defaultShiftType });
-        added++;
-      }
+      const v = getWeekTemplate(e)[weekday];
+      if (!v) return;
+      const [b, sh] = v.split('|');
+      sched.push({ date: dateStr, employeeId: e.id, branch: b || e.branch || null, shiftType: sh });
+      if (sh === '휴무' || sh === '연차') off++; else added++;
     });
   }
   mbSet(MB.SCHEDULE_KEY, sched);
@@ -687,74 +738,79 @@ function downloadExcel() {
 }
 
 // ─── 직원 관리 ───
+const WEEK_OPTS = [
+  ['', '·'],
+  ['홍대|오픈', '홍오'], ['홍대|마감', '홍마'], ['홍대|풀', '홍풀'],
+  ['연남|오픈', '연오'], ['연남|마감', '연마'], ['연남|풀', '연풀'],
+  ['|휴무', '휴'],
+];
+const DAY_SHORT = ['일','월','화','수','목','금','토'];
+// 직원의 요일별 고정 근무 템플릿 (구버전 필드 자동 변환)
+function getWeekTemplate(e) {
+  if (e.weekTemplate) return e.weekTemplate;
+  const t = {};
+  for (let wd=0; wd<7; wd++) {
+    if ((e.fixedOffWeekdays||[]).includes(wd)) t[wd] = '|휴무';
+    else if (e.defaultBranch && e.defaultShiftType) t[wd] = `${e.defaultBranch}|${e.defaultShiftType}`;
+    else t[wd] = '';
+  }
+  return t;
+}
+function weekOptions(cur) {
+  return WEEK_OPTS.map(([v,l]) => `<option value="${v}" ${v===cur?'selected':''}>${l}</option>`).join('');
+}
+// 특정 날짜의 배정 = 실제 일정 우선, 없으면 요일 고정 템플릿
+function assignedShiftFor(emp, dateStr, weekday) {
+  const s = mbGetOrDefault(MB.SCHEDULE_KEY, []).find(x => x.date === dateStr && x.employeeId === emp.id);
+  if (s) return { branch: s.branch, shift: s.shiftType };
+  const v = getWeekTemplate(emp)[weekday];
+  if (v) { const [b, sh] = v.split('|'); return { branch: b || null, shift: sh }; }
+  return null;
+}
+function setWeekTemplate(empId, wd, value) {
+  if (!isAdmin()) return;
+  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
+  const emp = employees.find(e => e.id === empId);
+  if (!emp) return;
+  const t = getWeekTemplate(emp);
+  t[wd] = value;
+  emp.weekTemplate = t;
+  mbSet(MB.EMPLOYEES_KEY, employees);
+  renderEmpList();
+  renderMyMonthTable();
+  renderCalendar();
+}
 function renderEmpList() {
   const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
   const leaves = mbGetOrDefault(MB.LEAVE_KEY, []);
   const showAdmin = isAdmin();
   document.getElementById('add-emp-btn').style.display = showAdmin ? '' : 'none';
-  const dayShort = ['일','월','화','수','목','금','토'];
   document.getElementById('emp-list').innerHTML = employees.map(e => {
     const total = calcLeave(e.joinDate);
     const used = leaves.filter(l => l.employeeId === e.id && l.status === '승인').length;
     const remain = total - used;
     const roleLabel = e.role==='admin'?'관리자':e.role==='senior'?'시니어':'직원';
-    const offDays = (e.fixedOffWeekdays || []);
-    const offCells = [0,1,2,3,4,5,6].map(d => {
-      const checked = offDays.includes(d);
-      const dayColor = d===0?'#EF4444':d===6?'#3B82F6':'#374151';
-      return `<label class="inline-flex items-center cursor-pointer mr-1" style="font-size:.7rem">
-        <input type="checkbox" ${checked?'checked':''} ${showAdmin?'':'disabled'} onchange="toggleEmpOffDay('${e.id}',${d})" class="w-3 h-3 mr-0.5 accent-[#F5A623]">
-        <span style="color:${dayColor};${checked?'font-weight:700':''}">${dayShort[d]}</span>
-      </label>`;
+    const t = getWeekTemplate(e);
+    const weekCells = [0,1,2,3,4,5,6].map(wd => {
+      const cur = t[wd] || '';
+      const [b, sh] = cur ? cur.split('|') : ['',''];
+      const pill = cur ? tagClassFor(b||null, sh) : '';
+      const dayColor = wd===0?'#EF4444':wd===6?'#3B82F6':'#6B7280';
+      return `<div style="text-align:center">
+        <div style="font-size:.6rem;color:${dayColor};margin-bottom:1px">${DAY_SHORT[wd]}</div>
+        <select ${showAdmin?'':'disabled'} onchange="setWeekTemplate('${e.id}',${wd},this.value)" class="wk-sel ${pill}">${weekOptions(cur)}</select>
+      </div>`;
     }).join('');
-    const fixedVal = (e.defaultBranch && e.defaultShiftType) ? `${e.defaultBranch}|${e.defaultShiftType}` : '';
     return `<tr class="border-b hover:bg-gray-50">
-      <td class="py-2.5 px-3 font-medium">${e.name}</td>
-      <td class="py-2.5 px-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-100">${roleLabel}</span></td>
-      <td class="py-2.5 px-3 text-center">
-        <select ${showAdmin?'':'disabled'} onchange="updateEmpFixedShift('${e.id}',this.value)" class="input-base" style="padding:.25rem .5rem;font-size:.75rem">
-          <option value="" ${!fixedVal?'selected':''}>없음</option>
-          <option value="홍대|오픈" ${fixedVal==='홍대|오픈'?'selected':''}>홍대 오픈</option>
-          <option value="홍대|마감" ${fixedVal==='홍대|마감'?'selected':''}>홍대 마감</option>
-          <option value="연남|오픈" ${fixedVal==='연남|오픈'?'selected':''}>연남 오픈</option>
-          <option value="연남|마감" ${fixedVal==='연남|마감'?'selected':''}>연남 마감</option>
-        </select>
-      </td>
-      <td class="py-2.5 px-3 text-center" style="white-space:nowrap">${offCells}</td>
-      <td class="py-2.5 px-3 text-center"><span class="font-bold text-[#10B981]">${remain}</span> / ${total}</td>
-      <td class="py-2.5 px-3 text-center">
+      <td class="py-2.5 px-3 font-medium align-middle">${e.name}<div class="text-[10px] text-[#9CA3AF]">${e.branch||'-'}</div></td>
+      <td class="py-2.5 px-3 align-middle"><span class="text-xs px-2 py-0.5 rounded bg-gray-100">${roleLabel}</span></td>
+      <td class="py-2 px-3"><div style="display:flex;gap:3px;justify-content:center">${weekCells}</div></td>
+      <td class="py-2.5 px-3 text-center align-middle"><span class="font-bold text-[#10B981]">${remain}</span> / ${total}</td>
+      <td class="py-2.5 px-3 text-center align-middle">
         ${showAdmin ? `<button onclick="deleteEmp('${e.id}')" class="text-[#EF4444] text-xs">삭제</button>` : ''}
       </td>
     </tr>`;
   }).join('');
-}
-function updateEmpFixedShift(empId, value) {
-  if (!isAdmin()) return;
-  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
-  const emp = employees.find(e => e.id === empId);
-  if (!emp) return;
-  if (value) {
-    const [b, s] = value.split('|');
-    emp.defaultBranch = b;
-    emp.defaultShiftType = s;
-  } else {
-    emp.defaultBranch = null;
-    emp.defaultShiftType = null;
-  }
-  mbSet(MB.EMPLOYEES_KEY, employees);
-}
-function toggleEmpOffDay(empId, day) {
-  if (!isAdmin()) return;
-  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
-  const emp = employees.find(e => e.id === empId);
-  if (!emp) return;
-  emp.fixedOffWeekdays = emp.fixedOffWeekdays || [];
-  const idx = emp.fixedOffWeekdays.indexOf(day);
-  if (idx >= 0) emp.fixedOffWeekdays.splice(idx, 1);
-  else emp.fixedOffWeekdays.push(day);
-  emp.fixedOffWeekdays.sort();
-  mbSet(MB.EMPLOYEES_KEY, employees);
-  renderEmpList();
 }
 function openAddEmpModal() {
   document.getElementById('ne-join').value = today();
@@ -777,9 +833,21 @@ function saveEmp() {
   renderEmpList();
 }
 function deleteEmp(id) {
-  if (!confirm('삭제하시겠습니까?')) return;
-  mbRemove(MB.EMPLOYEES_KEY, x => x.id === id);
+  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
+  const emp = emps.find(x => x.id === id);
+  if (!emp) return;
+  const me = getCurrentUser();
+  if (me && me.id === id) { alert('본인 계정은 삭제할 수 없습니다.'); return; }
+  if (emp.role === 'admin' && emps.filter(x => x.role === 'admin').length <= 1) {
+    alert('마지막 관리자 계정은 삭제할 수 없습니다.'); return;
+  }
+  if (!confirm(`${emp.name} 직원을 삭제하시겠습니까?\n근무표·출퇴근·연차 기록에서도 함께 사라집니다. (기록 로그에서 30일 복구 가능)`)) return;
+  if (typeof mbLogDelete === 'function')
+    mbLogDelete('직원 계정', MB.EMPLOYEES_KEY, emp, x => `${x.name} (${x.branch||''})`);
+  mbDeleteEmployee(id);
   renderEmpList();
+  renderSchedule();
+  renderCalendar();
 }
 
 // ─── 연차 ───

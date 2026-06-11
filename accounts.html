@@ -6,7 +6,7 @@
 <title>MoneyBox 로그인 관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="css/mb.css">
-<script src="js/mb-data.js?v=14"></script>
+<script src="js/mb-data.js?v=18"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -26,7 +26,7 @@
 
 <div id="mb-header"></div>
 
-<main class="pt-[60px] min-h-screen pb-6 px-20">
+<main class="pt-[84px] min-h-screen pb-6 px-20">
   <div style="max-width:980px;margin:0 auto">
 
     <!-- 관리자 전용 차단 -->
@@ -63,15 +63,16 @@
           <thead>
             <tr>
               <th>이름</th>
-              <th style="width:120px">권한</th>
-              <th style="width:120px">지점</th>
-              <th style="width:110px">입사일</th>
-              <th style="width:200px;text-align:right">비밀번호 / 관리</th>
+              <th style="width:108px">권한</th>
+              <th style="width:108px">지점</th>
+              <th style="width:108px">입사일</th>
+              <th style="width:100px">비밀번호</th>
+              <th style="width:170px;text-align:right">관리</th>
             </tr>
           </thead>
           <tbody id="acc-rows"></tbody>
         </table>
-        <p class="text-xs text-[#9CA3AF] mt-3">· 권한/지점은 바로 변경되어 저장됩니다. · 비밀번호 초기화 시 <b>0000</b> 으로 변경됩니다.</p>
+        <p class="text-xs text-[#9CA3AF] mt-3">· 권한/지점은 바로 변경되어 저장됩니다. · <b>변경</b> 버튼으로 이름·입사일·비밀번호를 수정할 수 있습니다. · <b>초기화</b> 시 비밀번호가 <b>0000</b> 으로 바뀝니다.</p>
       </div>
     </div>
 
@@ -98,6 +99,23 @@
     <div class="flex gap-2 mt-5">
       <button onclick="closeAddModal()" class="flex-1 py-2 rounded bg-gray-100">취소</button>
       <button onclick="saveNewEmployee()" class="flex-1 btn-primary">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 계정 정보 변경 모달 -->
+<div id="edit-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl p-6 w-[420px]">
+    <h3 class="text-lg font-bold mb-4">계정 정보 변경</h3>
+    <input type="hidden" id="edit-id">
+    <div class="space-y-3">
+      <div><label class="text-xs text-[#6B7280]">이름</label><input type="text" id="edit-name" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">입사일</label><input type="date" id="edit-join" class="input-base w-full"></div>
+      <div><label class="text-xs text-[#6B7280]">비밀번호</label><input type="text" id="edit-pw" class="input-base w-full"></div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="closeEditModal()" class="flex-1 py-2 rounded bg-gray-100">취소</button>
+      <button onclick="saveEdit()" class="flex-1 btn-primary">저장</button>
     </div>
   </div>
 </div>
@@ -150,9 +168,10 @@ function renderAccounts() {
         </select>
       </td>
       <td class="text-[#6B7280] text-xs">${e.joinDate||''}</td>
+      <td style="font-family:monospace;color:#1F2937;font-weight:600">${esc(e.password||'0000')}</td>
       <td style="text-align:right;white-space:nowrap">
-        <button onclick="resetPw('${e.id}')" class="text-xs px-2 py-1 rounded" style="background:#EFF6FF;color:#2563EB">비번 초기화</button>
-        <button onclick="changePw('${e.id}')" class="text-xs px-2 py-1 rounded" style="background:#F3F4F6;color:#374151">변경</button>
+        <button onclick="resetPw('${e.id}')" class="text-xs px-2 py-1 rounded" style="background:#EFF6FF;color:#2563EB">초기화</button>
+        <button onclick="openEditModal('${e.id}')" class="text-xs px-2 py-1 rounded" style="background:#F3F4F6;color:#374151">변경</button>
         <button onclick="removeEmployee('${e.id}')" class="text-xs px-2 py-1 rounded" style="background:#FEE2E2;color:#DC2626">삭제</button>
       </td>
     </tr>`;
@@ -184,16 +203,34 @@ function resetPw(id) {
   alert(`${e.name} 님의 비밀번호가 0000 으로 초기화되었습니다.`);
 }
 
-function changePw(id) {
+function openEditModal(id) {
+  const e = getEmployees().find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('edit-id').value = e.id;
+  document.getElementById('edit-name').value = e.name;
+  document.getElementById('edit-join').value = e.joinDate || '';
+  document.getElementById('edit-pw').value = e.password || '0000';
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+function closeEditModal() { document.getElementById('edit-modal').classList.add('hidden'); }
+function saveEdit() {
+  const id = document.getElementById('edit-id').value;
+  const name = document.getElementById('edit-name').value.trim();
+  const join = document.getElementById('edit-join').value;
+  const pw = document.getElementById('edit-pw').value;
+  if (!name) { alert('이름을 입력하세요.'); return; }
+  if (pw.length < 4) { alert('비밀번호는 4자리 이상이어야 합니다.'); return; }
   const list = getEmployees();
+  if (list.some(x => x.name === name && x.id !== id)) { alert('이미 같은 이름의 계정이 있습니다.'); return; }
   const e = list.find(x => x.id === id);
   if (!e) return;
-  const np = prompt(`${e.name} 님의 새 비밀번호 (4자리 이상)`);
-  if (np === null) return;
-  if (np.length < 4) { alert('4자리 이상 입력하세요.'); return; }
-  e.password = np;
+  e.name = name;
+  e.joinDate = join;
+  e.password = pw;
   saveEmployees(list);
-  alert('비밀번호가 변경되었습니다.');
+  closeEditModal();
+  renderAccounts();
+  renderMe();
 }
 
 function removeEmployee(id) {
@@ -205,10 +242,10 @@ function removeEmployee(id) {
   if (e.role === 'admin' && list.filter(x => x.role === 'admin').length <= 1) {
     alert('마지막 관리자 계정은 삭제할 수 없습니다.'); return;
   }
-  if (!confirm(`${e.name} 계정을 삭제할까요? (기록 로그에서 30일간 복구 가능)`)) return;
+  if (!confirm(`${e.name} 계정을 삭제할까요?\n근무표·출퇴근·연차 기록에서도 함께 사라집니다. (기록 로그에서 30일 복구 가능)`)) return;
   if (typeof mbLogDelete === 'function')
     mbLogDelete('직원 계정', MB.EMPLOYEES_KEY, e, x => `${x.name} (${ROLE_LABEL[x.role]||x.role}·${x.branch||''})`);
-  saveEmployees(list.filter(x => x.id !== id));
+  mbDeleteEmployee(id);
   renderAccounts();
 }
 

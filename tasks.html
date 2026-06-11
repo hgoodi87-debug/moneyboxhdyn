@@ -6,7 +6,7 @@
 <title>MoneyBox 업무관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="css/mb.css">
-<script src="js/mb-data.js?v=14"></script>
+<script src="js/mb-data.js?v=18"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.4rem .6rem; font-size:.85rem; outline:none; }
@@ -128,6 +128,33 @@ function saveChecklist(cl) { mbSet(MB.CHECKLIST_KEY, cl); }
 
 let editing = false;
 
+// ─── 시프트 필터 ───
+function getShiftWindow(shift) {
+  if (shift === '오픈') return { start: 9*60,  end: 18*60, label: '09:00~18:00' };
+  if (shift === '마감') return { start: 12*60, end: 22*60, label: '12:00~22:00' };
+  if (shift === '풀')   return { start: 9*60,  end: 22*60, label: '09:00~22:00' };
+  return null;
+}
+function parseBlockWindow(label) {
+  const ms = (String(label).match(/\d{1,2}:\d{2}/g) || []);
+  const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60 + m; };
+  if (ms.length >= 2) return { start: toMin(ms[0]), end: toMin(ms[ms.length-1]) };
+  if (ms.length === 1) return { start: 0, end: toMin(ms[0]) }; // "출근 전 ~ 09:00"
+  return { start: 0, end: 24*60 };
+}
+function filterBlocksByShift(blocks, win) {
+  if (!win) return blocks;
+  return blocks.filter(b => {
+    const w = parseBlockWindow(b.label);
+    return w.start < win.end && w.end > win.start; // 시프트 시간과 겹치면 표시
+  });
+}
+function myAssignment() {
+  const u = getCurrentUser();
+  if (!u || typeof mbAssignmentFor !== 'function') return null;
+  return mbAssignmentFor(u.id, today());
+}
+
 // ─── 완료 체크 / 서명 ───
 function onTaskCheck(branch, bundleId, taskId, checkbox) {
   const cl = getChecklist();
@@ -154,16 +181,23 @@ function onAssigneeCheck(branch, bundleId, checkbox) {
   renderAll();
 }
 
-function refreshTaskGate(branch) {
+function refreshTaskGate() {
   const user = getCurrentUser();
   if (!user) return;
   const cl = getChecklist();
-  const myBlocks = getTemplate()[user.branch] || [];
-  const ok = myBlocks.some(b => {
-    const a = cl[today()].assignees[b.id];
-    if (!a || a.employeeId !== user.id || !a.checked) return false;
-    return b.tasks.length > 0 && b.tasks.every(t => cl[today()].tasks[t.id]);
-  });
+  const asg = myAssignment();
+  let ok;
+  if (!asg || asg.shift === '휴무' || asg.shift === '연차') {
+    ok = true; // 근무 배정 없음/휴무·연차 → 체크 요건 없음
+  } else {
+    const win = getShiftWindow(asg.shift);
+    const branch = asg.branch || user.branch;
+    const blocks = filterBlocksByShift(getTemplate()[branch] || [], win);
+    // 시프트에 해당하는 블록의 모든 업무를 체크해야 퇴근 가능
+    ok = blocks.length > 0
+      ? blocks.every(b => b.tasks.length > 0 && b.tasks.every(t => cl[today()].tasks[t.id]))
+      : true;
+  }
   const gate = mbGetOrDefault(MB.TASK_GATE_KEY, {});
   if (!gate[today()]) gate[today()] = {};
   gate[today()][user.id] = ok;
@@ -188,8 +222,8 @@ function toggleEdit() {
 }
 
 // ─── 렌더 ───
-function buildNormalTable(branch) {
-  const blocks = getTemplate()[branch] || [];
+function buildNormalTable(branch, win) {
+  const blocks = filterBlocksByShift(getTemplate()[branch] || [], win);
   const todayCl = getChecklist()[today()];
   let totalDone = 0, total = 0, rows = '';
   blocks.forEach(b => {
@@ -260,36 +294,60 @@ function buildEditTable(branch) {
 function renderAll() {
   const user = getCurrentUser();
   const admin = isAdmin();
-  const branches = admin ? ['홍대','연남'] : (user?.branch ? [user.branch] : ['홍대','연남']);
-
   const editBtn = document.getElementById('edit-btn');
   editBtn.classList.toggle('hidden', !admin);
-
   const board = document.getElementById('board');
-  board.className = 'grid gap-5' + (branches.length > 1 ? ' grid-cols-2' : ' grid-cols-1');
-  board.style.maxWidth = branches.length > 1 ? '1100px' : '640px';
 
-  let out = '';
-  branches.forEach(br => {
-    let body, prog = '';
+  // ── 관리자 / 편집 모드: 양쪽 지점 전체 표시 ──
+  if (admin || editing) {
+    board.className = 'grid gap-5 grid-cols-2';
+    board.style.maxWidth = '1100px';
+    let out = '';
+    ['홍대','연남'].forEach(br => {
+      let body, prog = '';
+      if (editing) {
+        body = buildEditTable(br);
+      } else {
+        const r = buildNormalTable(br, null);
+        body = r.html;
+        prog = `<span style="float:right;font-size:.8rem;font-weight:500;opacity:.85">${r.totalDone}/${r.total}</span>`;
+      }
+      out += `<div class="chk-card">
+        <div class="chk-title">머니박스 환전소 · ${br}점 일일 업무 체크리스트${prog}</div>
+        <div class="chk-sub">${editing?'편집 모드 — 변경 즉시 저장':'담당자가 각 블록 완료 후 서명란을 작성하세요.'}</div>
+        ${body}
+      </div>`;
+    });
     if (editing) {
-      body = buildEditTable(br);
-    } else {
-      const r = buildNormalTable(br);
-      body = r.html;
-      prog = `<span style="float:right;font-size:.8rem;font-weight:500;opacity:.85">${r.totalDone}/${r.total}</span>`;
+      out += `<div style="grid-column:1/-1;text-align:center"><button onclick="resetTemplate()"
+        style="color:#6B7280;background:none;border:none;font-size:.75rem;text-decoration:underline;cursor:pointer">기본값으로 초기화</button></div>`;
     }
-    out += `<div class="chk-card">
-      <div class="chk-title">머니박스 환전소 · ${br}점 일일 업무 체크리스트${prog}</div>
-      <div class="chk-sub">담당자가 각 블록 완료 후 서명란을 작성하세요.${editing?' (편집 모드 — 변경 즉시 저장)':''}</div>
-      ${body}
-    </div>`;
-  });
-  if (editing) {
-    out += `<div style="text-align:center"><button onclick="resetTemplate()"
-      style="color:#6B7280;background:none;border:none;font-size:.75rem;text-decoration:underline;cursor:pointer">기본값으로 초기화</button></div>`;
+    board.innerHTML = out;
+    return;
   }
-  board.innerHTML = out;
+
+  // ── 일반 직원: 오늘 배정(지점+시프트)에 맞는 체크리스트만 ──
+  board.className = 'grid gap-5 grid-cols-1';
+  board.style.maxWidth = '640px';
+  const asg = myAssignment();
+
+  if (!asg || asg.shift === '휴무' || asg.shift === '연차') {
+    board.innerHTML = `<div class="chk-card">
+      <div class="chk-title">오늘 업무 체크리스트</div>
+      <div class="chk-sub">${asg && (asg.shift==='휴무'||asg.shift==='연차')
+        ? `오늘은 <b>${asg.shift}</b> 입니다. 진행할 체크리스트가 없습니다.`
+        : '오늘 배정된 근무가 없습니다. (근태관리에서 배정 확인)'}</div></div>`;
+    return;
+  }
+
+  const win = getShiftWindow(asg.shift);
+  const branch = asg.branch || user.branch;
+  const r = buildNormalTable(branch, win);
+  board.innerHTML = `<div class="chk-card">
+    <div class="chk-title">${branch}점 ${asg.shift} 체크리스트
+      <span style="float:right;font-size:.8rem;font-weight:500;opacity:.85">${r.totalDone}/${r.total}</span></div>
+    <div class="chk-sub">오늘 근무: <b>${branch} ${asg.shift}</b>${win?` · ${win.label}`:''} — 해당 시간대 체크리스트만 표시됩니다. 모두 완료해야 퇴근할 수 있어요.</div>
+    ${r.html}</div>`;
 }
 
 renderAll();

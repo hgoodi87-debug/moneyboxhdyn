@@ -6,13 +6,14 @@
 <title>MoneyBox 보관함관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="css/mb.css">
-<script src="js/mb-data.js?v=14"></script>
+<script src="js/mb-data.js?v=18"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
 
   /* 월별 장부 */
   .led-card { border:1px solid #E5E7EB; border-radius:.5rem; overflow:hidden; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.04); }
   .led-head { background:#FBE2CC; text-align:center; font-weight:700; padding:.55rem; font-size:.95rem; color:#7C4A1E; border-bottom:1px solid #E7CBB0; }
+  .led-col th { background:#FFF3E2; color:#7C4A1E; font-weight:700; font-size:.7rem; padding:3px 4px; border:1px solid #ECECEC; }
   .led-table { width:100%; border-collapse:collapse; font-size:.72rem; table-layout:fixed; }
   .led-table td { border:1px solid #ECECEC; padding:0; height:21px; }
   .led-day { background:#FCEFDB; color:#8A5A22; text-align:center; font-weight:600; width:40px; }
@@ -30,7 +31,7 @@
 
 <div id="mb-header"></div>
 
-<main class="pt-[60px] min-h-screen pb-8 px-6">
+<main class="pt-[84px] min-h-screen pb-8 px-6">
   <div style="max-width:1440px;margin:0 auto">
     <div class="flex justify-between items-center mb-5">
       <div>
@@ -114,7 +115,8 @@ function renderLedger() {
     html += `<div class="led-card">
       <div class="led-head">${yy}-${m}월</div>
       <table class="led-table">
-        <colgroup><col style="width:42px"><col><col style="width:46px"></colgroup>
+        <colgroup><col style="width:44px"><col><col style="width:66px"></colgroup>
+        <thead><tr class="led-col"><th>일</th><th>금액</th><th>건</th></tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr class="led-foot">
           <td class="label">합계</td>
