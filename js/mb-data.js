@@ -477,18 +477,18 @@ function mbRenderHeader(active) {
   ).join('\n          ');
   return `<header class="fixed top-0 left-0 right-0 bg-[#1E2A3A] z-30" style="height:60px">
   <div class="flex items-center h-full px-10">
-    <span id="today-date" style="color:#fff;font-size:.75rem;white-space:nowrap;flex-shrink:0;margin-right:1.25rem"></span>
-    <nav class="flex-1 flex justify-center items-center gap-1">
+    <span id="today-date" class="mb-hide-sm" style="color:#fff;font-size:.75rem;white-space:nowrap;flex-shrink:0;margin-right:1.25rem"></span>
+    <nav id="mb-nav" class="flex-1 flex justify-center items-center gap-1">
       ${nav}
     </nav>
-    <div class="flex items-center gap-5 shrink-0 border-l border-[#2D3D52] pl-8">
+    <div id="mb-userbox" class="flex items-center gap-5 shrink-0 border-l border-[#2D3D52] pl-8">
       <div id="admin-menu-wrap" style="position:relative;display:none">
         <button onclick="toggleAdminMenu(event)" style="background:#2D3D52;color:#fff;border:none;border-radius:.5rem;padding:.45rem .85rem;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap">⚙️ 관리자 ▾</button>
         <div id="admin-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border-radius:.6rem;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden;min-width:150px;z-index:50">
           ${adminItems}
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;white-space:nowrap">
+      <div class="mb-hide-sm" style="display:flex;align-items:center;gap:8px;white-space:nowrap">
         <span style="color:#fff;font-size:.875rem;font-weight:600" id="current-user">-</span>
         <span style="color:rgba(255,255,255,.65);font-size:.75rem" id="current-role">-</span>
       </div>
@@ -496,8 +496,13 @@ function mbRenderHeader(active) {
       <p id="clock-status" class="hidden"></p>
       <button onclick="confirmLogout()" title="로그아웃" style="background:#374151;color:#fff;border:none;border-radius:.5rem;padding:.45rem .85rem;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap">로그아웃</button>
     </div>
+    <button id="mb-burger" onclick="mbToggleNav()" title="메뉴" style="display:none;background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer;margin-left:.6rem;line-height:1">☰</button>
   </div>
 </header>`;
+}
+function mbToggleNav() {
+  const n = document.getElementById('mb-nav');
+  if (n) n.classList.toggle('mb-open');
 }
 
 function mbBoot(activePage) {

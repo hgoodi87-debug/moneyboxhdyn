@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css">
+<link rel="stylesheet" href="css/mb.css?v=23">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="js/mb-data.js?v=19"></script>
+<script src="js/mb-data.js?v=23"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -47,30 +49,38 @@
   .ss-table tfoot tr.foot-sell td { background:#EFF6FF; color:#1E40AF; }
   .ss-table tfoot tr.foot-total td { background:#1E2A3A; color:#fff; }
   .ss-table tfoot tr.foot-total td.total-val { color:#F5A623; font-size:.95rem; }
+
+  /* ===== 모바일 ===== */
+  @media (max-width: 640px) {
+    .tr-controls { flex-wrap:wrap; gap:6px; justify-content:center; }
+    .tr-controls .input-base { padding:.35rem .4rem; font-size:.8rem; }
+    .tr-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .sheet-tab { padding:.4rem .55rem; font-size:.72rem; margin-right:1px; }
+    /* 시트는 좀 더 넓게 — 카드 안에서 가로 스크롤 (페이지는 안 흔들림) */
+    .card { padding:.35rem; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .ss-table { min-width:540px; font-size:.74rem; }
+    .ss-table th { font-size:.66rem; padding:.3rem 2px; }
+    .ss-table input, .ss-table select { font-size:.72rem; padding:0 3px; height:30px; }
+    .ss-table td { height:30px; }
+  }
 </style>
 </head>
 <body class="bg-[#F5F7FA]">
 
 <div id="mb-header"></div>
 
-<main class="pt-[76px] min-h-screen pb-6" style="padding-left:clamp(16px,10vw,240px);padding-right:clamp(16px,10vw,240px)">
+<main class="pt-[64px] min-h-screen pb-6" style="padding-left:clamp(16px,10vw,240px);padding-right:clamp(16px,10vw,240px)">
   <div style="display:flex;flex-direction:column;align-items:center">
   <!-- 상단 컨트롤 -->
-  <div class="mb-4 flex justify-between items-center gap-3" style="max-width:640px;width:100%">
-    <div class="flex items-center gap-2">
-      <button onclick="moveDate(-1)" class="px-2 py-1.5 rounded bg-gray-100 text-sm">◀</button>
-      <input type="date" id="trade-date" class="input-base">
-      <button onclick="moveDate(1)" class="px-2 py-1.5 rounded bg-gray-100 text-sm">▶</button>
-      <button onclick="setToday()" class="px-3 py-1.5 rounded bg-gray-100 text-sm">오늘</button>
-    </div>
-    <div class="flex gap-2">
-      <button onclick="exportTrading()" class="px-3 py-2 rounded-lg bg-gray-100 text-sm font-medium">엑셀 다운로드</button>
-      <button onclick="openResetModal()" class="px-3 py-2 rounded-lg text-sm font-medium" style="background:#FEE2E2;color:#DC2626">초기화</button>
-    </div>
+  <div class="tr-controls mb-2 flex justify-center items-center gap-2" style="max-width:640px;width:100%">
+    <button onclick="moveDate(-1)" class="px-2 py-1.5 rounded bg-gray-100 text-sm">◀</button>
+    <input type="date" id="trade-date" class="input-base">
+    <button onclick="moveDate(1)" class="px-2 py-1.5 rounded bg-gray-100 text-sm">▶</button>
+    <button onclick="setToday()" class="px-3 py-1.5 rounded bg-gray-100 text-sm">오늘</button>
   </div>
 
   <!-- 4개 시트 탭 + 표 중앙 정렬 wrapper -->
-  <div class="flex items-end mb-0" style="border-bottom:1px solid #E5E7EB;max-width:640px;width:100%">
+  <div class="tr-tabs flex items-end mb-0" style="border-bottom:1px solid #E5E7EB;max-width:640px;width:100%">
     <button class="sheet-tab active" onclick="switchSheet(1)" id="tab-1">홍대 연남 지점간 거래</button>
     <button class="sheet-tab" onclick="switchSheet(2)" id="tab-2">외부거래1</button>
     <button class="sheet-tab" onclick="switchSheet(3)" id="tab-3">외부거래2</button>
@@ -320,12 +330,12 @@ function buildTable(sheet) {
   const sumBuyId = `sum-buy-${sheet}`, sumSellId = `sum-sell-${sheet}`, sumTotalId = `sum-total-${sheet}`;
   return `<table class="ss-table" id="ss-table-${sheet}">
     <colgroup>
-      <col style="width:120px">
+      <col style="width:100px">
       <col style="width:80px">
-      <col style="width:50px">
-      <col style="width:110px">
+      <col style="width:66px">
+      <col style="width:108px">
       <col style="width:90px">
-      <col style="width:110px">
+      <col style="width:108px">
     </colgroup>
     <thead><tr>
       <th class="text-left">거래처 / 비고</th>

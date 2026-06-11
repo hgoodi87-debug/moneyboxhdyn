@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css">
+<link rel="stylesheet" href="css/mb.css?v=23">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="js/mb-data.js?v=19"></script>
+<script src="js/mb-data.js?v=23"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
   .widget { background:#fff; border-radius:.875rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.06); display:flex; flex-direction:column; height:100%; overflow:hidden; }
@@ -28,6 +30,13 @@
   input[type=number]::-webkit-outer-spin-button,
   input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   input[type=number] { -moz-appearance:textfield; }
+  /* 모바일: 3열 → 세로 스택, 고정 높이 해제 */
+  @media (max-width: 860px) {
+    .dash-row { flex-direction:column; }
+    .dash-col { width:100% !important; height:auto !important; }
+    .widget { height:auto !important; }
+    .widget-body { max-height:300px; overflow-y:auto; }
+  }
 </style>
 </head>
 <body class="bg-[#F5F7FA]">
@@ -35,10 +44,10 @@
 <div id="mb-header"></div>
 
 <main class="pt-[60px] pb-6 px-44">
-  <div class="pt-5 flex gap-4">
+  <div class="pt-5 flex gap-4 dash-row">
 
     <!-- 왼쪽 컬럼 -->
-    <div style="flex:1;display:flex;flex-direction:column;gap:16px">
+    <div class="dash-col" style="flex:1;display:flex;flex-direction:column;gap:16px">
 
       <!-- 금일 출근자 -->
       <div class="widget" style="height:220px">
@@ -89,7 +98,7 @@
     </div>
 
     <!-- 가운데 컬럼 (5:5) -->
-    <div style="flex:1;display:flex;flex-direction:column;gap:16px;height:796px">
+    <div class="dash-col" style="flex:1;display:flex;flex-direction:column;gap:16px;height:796px">
 
       <!-- 전달사항 -->
       <div class="widget" style="flex:1">
@@ -153,7 +162,7 @@
     </div>
 
     <!-- 오른쪽 컬럼 (5:5) -->
-    <div style="flex:1;display:flex;flex-direction:column;gap:16px;height:796px">
+    <div class="dash-col" style="flex:1;display:flex;flex-direction:column;gap:16px;height:796px">
 
       <!-- 당일 업무 처리건 -->
       <div class="widget" style="flex:1">

@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 근태관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css">
+<link rel="stylesheet" href="css/mb.css?v=23">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="js/mb-data.js?v=19"></script>
+<script src="js/mb-data.js?v=23"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -30,14 +32,23 @@
   .att-tbl td.att-d { font-weight:600; color:#374151; }
   .att-time { width:74px; border:1px solid #E5E7EB; border-radius:.3rem; padding:.15rem .2rem; font-size:.72rem; text-align:center; outline:none; }
   .att-time:focus { border-color:#F5A623; }
-  /* Calendar */
-  .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:1px; background:#E5E7EB; border:1px solid #E5E7EB; border-radius:.5rem; overflow:hidden; }
-  .cal-day-header { background:#F5F7FA; padding:.5rem; text-align:center; font-size:.75rem; font-weight:700; color:#6B7280; }
-  .cal-cell { background:#fff; padding:.4rem; min-height:96px; }
-  .cal-cell.holiday { background:#FFF5F5; }
-  .cal-cell.today { background:#FFFBF0; box-shadow:inset 0 0 0 2.5px #F5A623; }
-  .cal-cell.other { background:#F9FAFB; }
-  .cal-day-num { font-size:.75rem; font-weight:700; margin-bottom:.25rem; }
+  /* Calendar (깔끔한 월 달력) */
+  .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:0; }
+  .cal-day-header { text-align:center; font-size:.72rem; font-weight:600; color:#9CA3AF; padding:.4rem 0 .55rem; }
+  .cal-cell { display:flex; flex-direction:column; align-items:center; padding:3px 0; cursor:pointer; min-height:46px; }
+  .cal-cell.other { cursor:default; }
+  .cal-daynum { display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; font-size:.9rem; font-weight:600; transition:background .12s; }
+  .cal-cell:hover .cal-daynum { background:#F3F4F6; }
+  .cal-cell.today .cal-daynum { background:#F5A623; color:#fff !important; }
+  .cal-cell.selected:not(.today) .cal-daynum { box-shadow:inset 0 0 0 2px #F5A623; }
+  .cal-dot { width:5px; height:5px; border-radius:50%; background:#F5A623; margin-top:3px; }
+  .cal-dot.empty { background:transparent; }
+  /* 선택일 근무 인원 */
+  .day-detail-head { font-weight:700; font-size:1rem; color:#1A1A2E; margin-bottom:.4rem; }
+  .day-row { display:flex; align-items:center; gap:.6rem; padding:.5rem .1rem; border-bottom:1px solid #F3F4F6; }
+  .day-row .ddot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .day-row .dshift { font-weight:600; font-size:.85rem; color:#374151; }
+  .day-row .dname { margin-left:auto; font-weight:700; font-size:.9rem; color:#1A1A2E; }
   .worker-tag { display:block; padding:1px 5px; border-radius:.25rem; font-size:.65rem; line-height:1.45; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tag-hd-open  { background:#FFF8EC; color:#92400E; border-left:2px solid #F5A623; }
   .tag-hd-close { background:#FEF2F2; color:#B91C1C; border-left:2px solid #EF4444; }
@@ -79,12 +90,13 @@
             <button onclick="moveCalMonth(1)" class="btn-ghost bg-gray-100">▶</button>
           </div>
           <div class="cal-grid" id="cal-grid"></div>
-          <div class="mt-3 flex flex-wrap gap-3 text-xs text-[#6B7280]">
+          <div class="mt-2 flex flex-wrap gap-2 text-[11px] text-[#6B7280]">
             <span><span class="legend-dot" style="background:#F5A623"></span>홍대 오픈</span>
             <span><span class="legend-dot" style="background:#EF4444"></span>홍대 마감</span>
             <span><span class="legend-dot" style="background:#10B981"></span>연남 오픈</span>
             <span><span class="legend-dot" style="background:#3B82F6"></span>연남 마감</span>
           </div>
+          <div id="cal-day-detail" class="mt-4 pt-3 border-t"></div>
         </div>
 
         <!-- 우측: 오늘 출퇴근 + 일별 근무표 -->
@@ -297,6 +309,7 @@ function handleClockInOutWrapped() {
 
 // ─── 캘린더 ───
 let _calMonth = thisYearMonth();
+let _selDate = today();
 function moveCalMonth(d) {
   const [y, m] = _calMonth.split('-').map(Number);
   const dt = new Date(y, m - 1 + d, 1);
@@ -335,6 +348,12 @@ function holidayName(dateStr) {
   return HOLIDAYS_VAR[dateStr] || HOLIDAYS_FIXED[dateStr.slice(5)] || null;
 }
 
+function shiftColor(branch, shift) {
+  if (shift === '풀') return branch==='홍대' ? '#EA580C' : '#1E40AF';
+  if (branch === '홍대') return shift==='오픈' ? '#F5A623' : '#EF4444';
+  if (branch === '연남') return shift==='오픈' ? '#10B981' : '#3B82F6';
+  return '#9CA3AF';
+}
 function renderCalendar() {
   const [y, m] = _calMonth.split('-').map(Number);
   document.getElementById('cal-title').textContent = `${y}년 ${m}월`;
@@ -342,43 +361,65 @@ function renderCalendar() {
   const days = new Date(y, m, 0).getDate();
   const todayStr = today();
   const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []);
-  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
   const dayHeaders = ['일','월','화','수','목','금','토'];
   let html = '';
   dayHeaders.forEach((d,i) => {
-    const color = i===0 ? 'color:#EF4444' : i===6 ? 'color:#3B82F6' : '';
-    html += `<div class="cal-day-header" style="${color}">${d}</div>`;
+    const c = i===0 ? '#EF4444' : i===6 ? '#3B82F6' : '#9CA3AF';
+    html += `<div class="cal-day-header" style="color:${c}">${d}</div>`;
   });
   for (let i=0; i<startDay; i++) html += '<div class="cal-cell other"></div>';
   for (let d=1; d<=days; d++) {
     const dateStr = `${_calMonth}-${String(d).padStart(2,'0')}`;
-    const dt = new Date(y, m-1, d);
+    const wd = new Date(y, m-1, d).getDay();
     const isToday = dateStr === todayStr;
+    const isSel = dateStr === _selDate;
     const hol = holidayName(dateStr);
-    const dayColor = hol ? 'color:#EF4444' : (dt.getDay()===0?'color:#EF4444':dt.getDay()===6?'color:#3B82F6':'');
-    const assignments = sched.filter(s => s.date === dateStr && s.shiftType !== '휴무' && s.shiftType !== '연차').sort((a,b) => {
-      const order = (s) => `${s.branch || 'z'}${s.shiftType==='오픈'?'1':s.shiftType==='마감'?'2':'3'}`;
-      return order(a).localeCompare(order(b));
-    });
-    let workersHtml = '';
-    assignments.forEach(s => {
-      const emp = emps.find(e => e.id === s.employeeId);
-      if (!emp) return;
-      const tagCls = tagClassFor(s.branch, s.shiftType);
-      const branchAbbr = s.branch ? s.branch[0] : '';
-      const shiftAbbr = s.shiftType[0];
-      workersHtml += `<span class="worker-tag ${tagCls}" title="${s.branch||''} ${s.shiftType} - ${emp.name}">${branchAbbr}${shiftAbbr} ${emp.name}</span>`;
-    });
-    const holLabel = hol ? `<span style="font-size:.58rem;color:#EF4444;font-weight:600;margin-left:2px">${hol}</span>` : '';
-    html += `<div class="cal-cell ${isToday?'today':''} ${hol?'holiday':''}">
-      <div class="cal-day-num" style="${dayColor}">${d}${holLabel}</div>
-      ${workersHtml}
+    const numColor = (hol || wd===0) ? '#EF4444' : wd===6 ? '#3B82F6' : '#1A1A2E';
+    const hasWork = sched.some(s => s.date === dateStr && s.shiftType !== '휴무' && s.shiftType !== '연차');
+    html += `<div class="cal-cell ${isToday?'today':''} ${isSel?'selected':''}" onclick="selectCalDay('${dateStr}')">
+      <div class="cal-daynum" style="color:${numColor}">${d}</div>
+      <div class="cal-dot ${hasWork?'':'empty'}"></div>
     </div>`;
   }
   const total = startDay + days;
   const remainder = (7 - (total % 7)) % 7;
   for (let i=0; i<remainder; i++) html += '<div class="cal-cell other"></div>';
   document.getElementById('cal-grid').innerHTML = html;
+  renderDayDetail();
+}
+function selectCalDay(dateStr) {
+  _selDate = dateStr;
+  renderCalendar();
+}
+function renderDayDetail() {
+  const el = document.getElementById('cal-day-detail');
+  if (!el) return;
+  const dateStr = _selDate;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const wd = ['일','월','화','수','목','금','토'][new Date(y, m-1, d).getDay()];
+  const hol = holidayName(dateStr);
+  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
+  const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []).filter(s => s.date === dateStr);
+  const order = s => `${({'홍대':0,'연남':1})[s.branch] ?? 9}${s.shiftType==='오픈'?0:s.shiftType==='마감'?1:2}`;
+  const work = sched.filter(s => s.shiftType !== '휴무' && s.shiftType !== '연차')
+    .sort((a,b) => order(a).localeCompare(order(b)));
+  const off = sched.filter(s => s.shiftType === '휴무' || s.shiftType === '연차');
+  let rows = work.map(s => {
+    const e = emps.find(x => x.id === s.employeeId);
+    if (!e) return '';
+    return `<div class="day-row">
+      <span class="ddot" style="background:${shiftColor(s.branch, s.shiftType)}"></span>
+      <span class="dshift">${s.branch||''} ${s.shiftType}</span>
+      <span class="dname">${e.name}</span>
+    </div>`;
+  }).join('');
+  if (!rows) rows = '<p class="text-sm text-[#9CA3AF] py-3">근무 배정 없음</p>';
+  let offHtml = '';
+  if (off.length) {
+    const names = off.map(s => { const e = emps.find(x => x.id === s.employeeId); return e ? `${e.name}(${s.shiftType})` : ''; }).filter(Boolean).join(', ');
+    offHtml = `<div class="text-xs text-[#9CA3AF] mt-2">휴무/연차: ${names}</div>`;
+  }
+  el.innerHTML = `<div class="day-detail-head">${m}월 ${d}일 (${wd})${hol?` <span style="color:#EF4444;font-size:.85rem">· ${hol}</span>`:''}</div>${rows}${offHtml}`;
 }
 
 // ─── 오늘 출퇴근 + 일별 근무 ───
@@ -537,7 +578,7 @@ function renderAttEdit() {
       <div class="flex items-center gap-2"><span class="font-bold text-base">${e.name}</span><span class="text-xs text-[#6B7280]">${e.branch} · ${roleLabel}</span></div>
       <span class="text-xs">월 합계 <span class="text-[#F5A623] font-bold text-sm">${(totalMin/60).toFixed(1)}h</span></span>
     </div>
-    <div style="display:flex;gap:10px;padding:10px;align-items:flex-start;justify-content:center">${tables}</div>
+    <div class="att-cols" style="display:flex;gap:10px;padding:10px;align-items:flex-start;justify-content:center">${tables}</div>
   </div>`;
 }
 function saveAttDay(empId, date, d) {
@@ -634,7 +675,7 @@ function renderSchedule() {
     const wknd = wd===0 || wd===6;
     const dayColor = wd===0?'color:#EF4444':wd===6?'color:#3B82F6':'';
     const s = sched.find(x => x.date === dateStr && x.employeeId === e.id);
-    const cur = s ? `${s.branch||''}|${s.shiftType}` : '';
+    const cur = s ? ((s.shiftType==='휴무'||s.shiftType==='연차') ? `|${s.shiftType}` : `${s.branch||''}|${s.shiftType}`) : '';
     if (s) { if (s.shiftType==='휴무'||s.shiftType==='연차') offDays++; else workDays++; }
     const pillCls = s ? tagClassFor(s.branch, s.shiftType) : '';
     const isToday = dateStr === todayStr;
@@ -662,7 +703,7 @@ function renderSchedule() {
       <div class="flex items-center gap-2"><span class="font-bold text-base">${e.name}</span><span class="text-xs text-[#6B7280]">${e.branch} · ${roleLabel}</span></div>
       <span class="text-xs text-[#6B7280]">근무 <b class="text-[#F5A623]">${workDays}</b>일 · 휴무 <b class="text-[#374151]">${offDays}</b>일</span>
     </div>
-    <div style="display:flex;gap:10px;padding:10px;align-items:flex-start;justify-content:center">${tables}</div>
+    <div class="att-cols" style="display:flex;gap:10px;padding:10px;align-items:flex-start;justify-content:center">${tables}</div>
   </div>`;
 }
 function setSched(date, employeeId, value) {
@@ -707,7 +748,8 @@ function autoSchedule() {
       const v = getWeekTemplate(e)[weekday];
       if (!v) return;
       const [b, sh] = v.split('|');
-      sched.push({ date: dateStr, employeeId: e.id, branch: b || e.branch || null, shiftType: sh });
+      // 휴무/연차는 지점 없이 저장 (드롭다운 옵션과 일치)
+      sched.push({ date: dateStr, employeeId: e.id, branch: b || null, shiftType: sh });
       if (sh === '휴무' || sh === '연차') off++; else added++;
     });
   }
@@ -942,6 +984,8 @@ renderCalendar();
 renderTodayStatus();
 renderMyMonthTable();
 setInterval(() => { renderTodayStatus(); }, 30000);
+// 같은 브라우저의 다른 탭/창(홈페이지·모바일)에서 일정·근무 변경 시 자동 반영
+window.addEventListener('storage', () => { renderCalendar(); renderTodayStatus(); renderMyMonthTable(); });
 </script>
 </body>
 </html>
