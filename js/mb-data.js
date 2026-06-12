@@ -63,6 +63,10 @@ function mbGet(key) {
 }
 function mbSet(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
+  // 클라우드 동기화 (mb-sync.js 로드 시에만 동작, 없으면 로컬 전용)
+  if (typeof window !== 'undefined' && window.mbCloudPush) {
+    try { window.mbCloudPush(key, data); } catch (e) { /* noop */ }
+  }
 }
 function mbGetOrDefault(key, defaultValue) {
   const v = mbGet(key);
