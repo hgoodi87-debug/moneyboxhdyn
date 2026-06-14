@@ -1036,8 +1036,15 @@ renderCalendar();
 renderTodayStatus();
 renderMyMonthTable();
 setInterval(() => { renderTodayStatus(); }, 30000);
-// 같은 브라우저의 다른 탭/창(홈페이지·모바일)에서 일정·근무 변경 시 자동 반영
-window.addEventListener('storage', () => { renderCalendar(); renderTodayStatus(); renderMyMonthTable(); });
+// 다른 탭/창·다른 기기에서 일정·근무 변경 시 자동 반영 (유기적 연동)
+function attRefreshAll() {
+  if (typeof renderCalendar === 'function') renderCalendar();
+  if (typeof renderTodayStatus === 'function') renderTodayStatus();
+  if (typeof renderMyMonthTable === 'function') renderMyMonthTable();
+  if (typeof renderAttEdit === 'function' && document.getElementById('att-edit-list')) renderAttEdit();
+  if (typeof renderSchedule === 'function' && document.getElementById('sched-emp')) renderSchedule();
+}
+mbOnDataChange(attRefreshAll);
 </script>
 </body>
 </html>

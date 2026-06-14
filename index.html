@@ -286,7 +286,7 @@ function renderAttendance() {
     { branch:'연남', shift:'마감', label:'연남 마감', color:'bg-[#EFF6FF]', border:'border-l-4 border-[#3B82F6]' },
   ];
   document.getElementById('attendance-grid').innerHTML = slots.map(s => {
-    const assigned = sched.filter(x => x.branch===s.branch && x.shiftType===s.shift)
+    const assigned = sched.filter(x => x.branch===s.branch && (x.shiftType===s.shift || x.shiftType==='풀'))
       .map(x => emps.find(e => e.id===x.employeeId)).filter(Boolean);
     const items = assigned.length === 0
       ? '<span class="text-[#9CA3AF] text-xs">배정 없음</span>'
@@ -463,14 +463,18 @@ function renderTransfers() {
       }).join('');
 }
 
-renderAttendance();
-renderHandovers();
-renderTradeNotices();
-renderMainTrades();
-renderDailyTasks();
-renderTransfers();
+function dashAll() {
+  renderAttendance();
+  renderHandovers();
+  renderTradeNotices();
+  renderMainTrades();
+  renderDailyTasks();
+  renderTransfers();
+}
+dashAll();
 
-window.addEventListener('storage', renderAttendance);
+// 데이터가 바뀌면(다른 탭·다른 기기 포함) 대시보드 전체 자동 갱신
+mbOnDataChange(dashAll);
 
 // ─── Enter 키 등록 ───
 (function() {

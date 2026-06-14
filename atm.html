@@ -423,12 +423,16 @@ function renderMemos() {
       </div>`).join('');
 }
 
-renderRefills();
-updateRefillTotal();
-renderSettles();
-updateSettleTotal();
-renderIssues();
-renderMemos();
+function atmAll() {
+  renderRefills();
+  updateRefillTotal();
+  renderSettles();
+  updateSettleTotal();
+  renderIssues();
+  renderMemos();
+}
+atmAll();
+mbOnDataChange(atmAll);
 </script>
 </body>
 </html>

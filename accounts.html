@@ -141,6 +141,13 @@ if (!isAdmin()) {
   renderAccounts();
 }
 
+// 직원 정보가 다른 곳에서 바뀌면 자동 갱신
+function accountsAll() {
+  const body = document.getElementById('acc-body');
+  if (body && body.style.display !== 'none' && typeof renderAccounts === 'function') { renderMe(); renderAccounts(); }
+}
+mbOnDataChange(accountsAll);
+
 function getEmployees() { return mbGetOrDefault(MB.EMPLOYEES_KEY, []); }
 function saveEmployees(list) { mbSet(MB.EMPLOYEES_KEY, list); }
 
