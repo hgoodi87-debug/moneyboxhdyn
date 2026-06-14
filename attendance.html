@@ -37,17 +37,18 @@
   .att-tbl td.att-d { font-weight:600; color:#374151; }
   .att-time { width:74px; border:1px solid #E5E7EB; border-radius:.3rem; padding:.15rem .2rem; font-size:.72rem; text-align:center; outline:none; }
   .att-time:focus { border-color:#F5A623; }
-  /* Calendar (깔끔한 월 달력) */
-  .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:0; }
-  .cal-day-header { text-align:center; font-size:.72rem; font-weight:600; color:#9CA3AF; padding:.4rem 0 .55rem; }
-  .cal-cell { display:flex; flex-direction:column; align-items:center; padding:3px 0; cursor:pointer; min-height:46px; }
-  .cal-cell.other { cursor:default; }
-  .cal-daynum { display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; font-size:.9rem; font-weight:600; transition:background .12s; }
-  .cal-cell:hover .cal-daynum { background:#F3F4F6; }
-  .cal-cell.today .cal-daynum { background:#F5A623; color:#fff !important; }
-  .cal-cell.selected:not(.today) .cal-daynum { box-shadow:inset 0 0 0 2px #F5A623; }
-  .cal-dot { width:5px; height:5px; border-radius:50%; background:#F5A623; margin-top:3px; }
-  .cal-dot.empty { background:transparent; }
+  /* Calendar (명확한 칸 달력) */
+  .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:1px; background:#E5E7EB; border:1px solid #E5E7EB; border-radius:10px; overflow:hidden; }
+  .cal-day-header { text-align:center; font-size:.72rem; font-weight:700; color:#6B7280; padding:.5rem 0; background:#F9FAFB; }
+  .cal-cell { background:#fff; min-height:60px; padding:4px 2px 4px; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; position:relative; }
+  .cal-cell.other { background:#FAFAFA; cursor:default; }
+  .cal-cell:not(.other):hover { background:#FFF8EC; }
+  .cal-cell.selected { box-shadow:inset 0 0 0 2px #F5A623; z-index:1; }
+  .cal-daynum { font-size:.84rem; font-weight:600; line-height:1; margin-top:2px; }
+  .cal-cell.today .cal-daynum { background:#F5A623; color:#fff !important; width:23px; height:23px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .cal-dots { display:flex; flex-wrap:wrap; gap:2px; justify-content:center; align-items:center; min-height:8px; padding:0 1px; }
+  .cal-dots .d { width:7px; height:7px; border-radius:50%; }
+  .cal-dots .dmore { font-size:.56rem; font-weight:700; color:#6B7280; line-height:1; margin-left:1px; }
   /* 선택일 근무 인원 */
   .day-detail-head { font-weight:700; font-size:1rem; color:#1A1A2E; margin-bottom:.4rem; }
   .day-row { display:flex; align-items:center; gap:.6rem; padding:.5rem .1rem; border-bottom:1px solid #F3F4F6; }
@@ -380,10 +381,15 @@ function renderCalendar() {
     const isSel = dateStr === _selDate;
     const hol = holidayName(dateStr);
     const numColor = (hol || wd===0) ? '#EF4444' : wd===6 ? '#3B82F6' : '#1A1A2E';
-    const hasWork = sched.some(s => s.date === dateStr && s.shiftType !== '휴무' && s.shiftType !== '연차');
+    const work = sched.filter(s => s.date === dateStr && s.shiftType !== '휴무' && s.shiftType !== '연차');
+    const ord = s => `${({'홍대':0,'연남':1})[s.branch] ?? 9}${s.shiftType==='오픈'?0:s.shiftType==='마감'?1:2}`;
+    work.sort((a,b) => ord(a).localeCompare(ord(b)));
+    const shown = work.slice(0, 4);
+    let dots = shown.map(s => `<span class="d" style="background:${shiftColor(s.branch, s.shiftType)}"></span>`).join('');
+    if (work.length > 4) dots += `<span class="dmore">+${work.length - 4}</span>`;
     html += `<div class="cal-cell ${isToday?'today':''} ${isSel?'selected':''}" onclick="selectCalDay('${dateStr}')">
       <div class="cal-daynum" style="color:${numColor}">${d}</div>
-      <div class="cal-dot ${hasWork?'':'empty'}"></div>
+      <div class="cal-dots">${dots}</div>
     </div>`;
   }
   const total = startDay + days;
