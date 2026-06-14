@@ -167,8 +167,9 @@
           <button onclick="moveAttMonth(1)" class="btn-ghost bg-gray-100">▶</button>
           <select id="att-emp" class="input-base ml-2" style="font-weight:600" onchange="_attEmp=this.value;renderAttEdit()"></select>
           <button id="att-edit-toggle" onclick="toggleAttEdit()" class="btn-primary ml-2">✏️ 수정</button>
+          <button id="att-bulk-btn" onclick="bulkFillAttendance()" class="btn-ghost ml-1" style="display:none;background:#ECFDF5;color:#047857;font-weight:700">📋 근무표대로 일괄등록</button>
         </div>
-        <p class="text-xs text-[#9CA3AF] text-center mb-3">정해진 시간보다 일찍 출근·늦게 퇴근 시 정시로 자동 보정됩니다</p>
+        <p class="text-xs text-[#9CA3AF] text-center mb-3">정해진 시간보다 일찍 출근·늦게 퇴근 시 정시로 자동 보정됩니다 · <b>일괄등록</b>은 근무표(오픈 9–18 / 마감 12–21 / 풀 9–21)대로 채웁니다</p>
         <div id="att-edit-list"></div>
       </div>
 
@@ -512,7 +513,47 @@ let _attEmp = null;
 function toggleAttEdit() {
   _attEditMode = !_attEditMode;
   document.getElementById('att-edit-toggle').textContent = _attEditMode ? '✓ 완료' : '✏️ 수정';
+  const bulk = document.getElementById('att-bulk-btn');
+  if (bulk) bulk.style.display = _attEditMode ? '' : 'none';
   renderAttEdit();
+}
+// 근무표대로 출퇴근 일괄 등록 (선택 직원·해당 월) — 휴무/연차/미배정·미래일·이미입력일은 건너뜀
+function bulkFillAttendance() {
+  const ym = document.getElementById('att-month').value || thisYearMonth();
+  const e = mbGetOrDefault(MB.EMPLOYEES_KEY, []).find(x => x.id === _attEmp);
+  if (!e) { alert('직원을 먼저 선택하세요.'); return; }
+  const [y, m] = ym.split('-').map(Number);
+  const days = new Date(y, m, 0).getDate();
+  const todayStr = today();
+  if (!confirm(`${e.name} 직원의 ${ym} 출퇴근을 근무표대로 일괄 등록할까요?\n\n· 오픈 9–18 / 마감 12–21 / 풀 9–21\n· 휴무·연차·미배정일은 건너뜁니다\n· 미래 날짜, 이미 입력된 날은 그대로 둡니다`)) return;
+  const list = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
+  let filled = 0, skipped = 0;
+  for (let d = 1; d <= days; d++) {
+    const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
+    if (dateStr > todayStr) break; // 미래 날짜는 등록 안 함
+    const wd = new Date(y, m-1, d).getDay();
+    const asg = assignedShiftFor(e, dateStr, wd);
+    if (!asg || !SHIFT_HOURS[asg.shift]) continue; // 휴무/연차/미배정
+    let rec = list.find(x => x.employeeId === e.id && x.date === dateStr);
+    if (rec && rec.clockIn) { skipped++; continue; } // 이미 입력된 날은 보존
+    const h = SHIFT_HOURS[asg.shift];
+    const [ih, im] = h.start.split(':').map(Number);
+    const [oh, om] = h.end.split(':').map(Number);
+    const wm = Math.max(0, (oh*60+om) - (ih*60+im));
+    if (!rec) {
+      list.push({ id: uid(), employeeId: e.id, date: dateStr, clockIn: h.start, clockOut: h.end, branch: asg.branch || e.branch || null, shiftType: asg.shift, workMinutes: wm });
+    } else {
+      rec.clockIn = h.start; rec.clockOut = h.end; rec.shiftType = asg.shift; rec.workMinutes = wm;
+      if (asg.branch) rec.branch = asg.branch;
+    }
+    filled++;
+  }
+  mbSet(MB.ATTENDANCE_KEY, list);
+  renderAttEdit();
+  if (typeof renderTodayStatus === 'function') renderTodayStatus();
+  if (typeof renderMyMonthTable === 'function') renderMyMonthTable();
+  if (typeof renderCalendar === 'function') renderCalendar();
+  alert(`✅ ${filled}일 등록 완료${skipped ? ` · ${skipped}일은 이미 입력돼 있어 건너뜀` : ''}`);
 }
 function renderAttEdit() {
   const inp = document.getElementById('att-month');
