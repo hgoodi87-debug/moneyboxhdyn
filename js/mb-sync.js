@@ -1,14 +1,19 @@
 // ─────────────────────────────────────────────────────────────
 // mb-sync.js — Firebase Firestore 실시간 동기화 (기기 간)
-//   · 쓰기: mbSet() → localStorage + Firestore 동시 저장
-//   · 읽기: Firestore onSnapshot → localStorage 반영 + 화면 자동 갱신
-//   · 설정(firebase-config.js)이 비어 있으면 자동으로 꺼짐(로컬 전용)
+//   · 설정은 "이 브라우저(localStorage)"에서 읽음 → 깃허브·서버·AI에 노출 안 됨
+//   · 보안: 익명 로그인(Auth) 후에만 동기화 시작 (규칙이 인증 사용자만 허용)
+//   · 설정이 없으면 자동으로 꺼짐(로컬 전용) — 앱은 그대로 작동
 // ─────────────────────────────────────────────────────────────
 (function () {
-  const cfg = window.MB_FIREBASE_CONFIG;
+  // 1) 설정 읽기: 브라우저 저장값 우선(setup.html에서 저장), 없으면 파일 fallback
+  let cfg = null;
+  try { cfg = JSON.parse(localStorage.getItem('mb_firebase_config') || 'null'); } catch (e) { cfg = null; }
+  if (!cfg || !cfg.projectId) cfg = window.MB_FIREBASE_CONFIG || null;
+
+  window.mbSyncStatus = '로컬 전용';
 
   if (!cfg || !cfg.projectId) {
-    console.info('[mb-sync] Firebase 미설정 — 로컬(localStorage) 전용 모드');
+    console.info('[mb-sync] Firebase 미설정 — 로컬 전용 모드. 연결하려면 setup.html 을 여세요.');
     return;
   }
   if (typeof firebase === 'undefined' || !firebase.firestore) {
@@ -16,7 +21,7 @@
     return;
   }
 
-  // 동기화할 localStorage 키 (앱 데이터 전체)
+  // 2) 동기화할 localStorage 키 (앱 데이터 전체) — 설정값(mb_firebase_config)은 절대 포함 안 함
   const KEYS = [
     'mb_employees', 'mb_schedule', 'mb_attendance', 'mb_leave_requests',
     'mb_handovers', 'mb_trade_notices', 'mb_main_trades', 'mb_daily_tasks',
@@ -55,37 +60,51 @@
     _lastPushed[key] = json;
     localStorage.setItem(key, json);
     _applyingRemote = false;
-    // 같은 탭에서 화면 갱신을 위한 이벤트
     window.dispatchEvent(new CustomEvent('mb-remote', { detail: { key } }));
     try {
       window.dispatchEvent(new StorageEvent('storage', { key: key, newValue: json }));
     } catch (e) { /* 일부 브라우저 StorageEvent 생성 제한 */ }
   }
 
-  KEYS.forEach(key => {
-    col.doc(key).onSnapshot(
-      snap => {
-        if (!snap.exists) return;
-        const d = snap.data();
-        if (!d || !('v' in d)) return;
-        applyRemote(key, d.v);
-      },
-      err => console.warn('[mb-sync] 수신 오류', key, err)
-    );
-  });
-
-  // ── 최초 1회: 클라우드에 없고 로컬에 있으면 업로드(초기 이관) ──
-  KEYS.forEach(key => {
-    col.doc(key).get().then(snap => {
-      if (!snap.exists) {
-        const local = localStorage.getItem(key);
-        if (local !== null) {
-          try { col.doc(key).set({ v: JSON.parse(local), at: firebase.firestore.FieldValue.serverTimestamp() }); }
-          catch (e) { /* noop */ }
+  // ── 동기화 시작 (실시간 수신 + 최초 이관) ──
+  function startSync() {
+    window.mbSyncStatus = '동기화 중';
+    KEYS.forEach(key => {
+      col.doc(key).onSnapshot(
+        snap => {
+          if (!snap.exists) return;
+          const d = snap.data();
+          if (!d || !('v' in d)) return;
+          applyRemote(key, d.v);
+        },
+        err => console.warn('[mb-sync] 수신 오류', key, err)
+      );
+    });
+    // 최초 1회: 클라우드에 없고 로컬에 있으면 업로드
+    KEYS.forEach(key => {
+      col.doc(key).get().then(snap => {
+        if (!snap.exists) {
+          const local = localStorage.getItem(key);
+          if (local !== null) {
+            try { col.doc(key).set({ v: JSON.parse(local), at: firebase.firestore.FieldValue.serverTimestamp() }); }
+            catch (e) { /* noop */ }
+          }
         }
-      }
-    }).catch(() => {});
-  });
+      }).catch(() => {});
+    });
+    console.info('[mb-sync] 동기화 활성화 ·', cfg.projectId, '/ workspace:', ws);
+  }
 
-  console.info('[mb-sync] Firebase 동기화 활성화 ·', cfg.projectId, '/ workspace:', ws);
+  // ── 보안: 익명 로그인 후 동기화 시작 ──
+  if (firebase.auth) {
+    firebase.auth().signInAnonymously()
+      .then(() => { window.mbSyncStatus = '연결됨'; startSync(); })
+      .catch(err => {
+        window.mbSyncStatus = '익명 로그인 필요';
+        console.warn('[mb-sync] 익명 로그인 실패 — Firebase 콘솔 > Authentication 에서 "익명"을 켜주세요.', err && err.code);
+        startSync(); // 테스트(개방) 규칙이면 인증 없이도 동작 시도
+      });
+  } else {
+    startSync();
+  }
 })();

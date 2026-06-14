@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>MoneyBox · Firebase 연결 설정</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="css/mb.css?v=25">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+  body { font-family:'Pretendard',-apple-system,system-ui,sans-serif; }
+  .card { background:#fff; border-radius:1rem; padding:1.75rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .step { display:flex; gap:.6rem; padding:.5rem 0; font-size:.9rem; color:#374151; }
+  .step b { color:#1A1A2E; }
+  .num { flex:0 0 auto; width:22px; height:22px; border-radius:50%; background:#F5A623; color:#fff; font-size:.75rem; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  textarea { width:100%; min-height:150px; border:1.5px solid #E5E7EB; border-radius:.75rem; padding:.85rem 1rem; font-size:.82rem; font-family:ui-monospace,Menlo,monospace; outline:none; resize:vertical; }
+  textarea:focus { border-color:#F5A623; }
+  .btn { padding:.7rem 1.1rem; border-radius:.6rem; font-size:.9rem; font-weight:600; cursor:pointer; border:none; }
+  .btn-primary { background:#F5A623; color:#fff; }
+  .btn-primary:hover { background:#E0951F; }
+  .btn-ghost { background:#F3F4F6; color:#374151; }
+  .btn-ghost:hover { background:#E5E7EB; }
+  .msg { margin-top:1rem; padding:.8rem 1rem; border-radius:.6rem; font-size:.86rem; font-weight:500; display:none; }
+  .msg.ok { background:#ECFDF5; color:#047857; display:block; }
+  .msg.err { background:#FEF2F2; color:#B91C1C; display:block; }
+  .msg.info { background:#EFF6FF; color:#1D4ED8; display:block; }
+  .pill { display:inline-block; padding:.15rem .6rem; border-radius:.5rem; font-size:.78rem; font-weight:700; }
+  .pill.on { background:#D1FAE5; color:#047857; }
+  .pill.off { background:#F3F4F6; color:#6B7280; }
+</style>
+</head>
+<body class="bg-[#F5F7FA] min-h-screen">
+
+<div class="max-w-[640px] mx-auto px-4 py-8">
+
+  <div class="text-center mb-6">
+    <div class="text-4xl mb-2">🔗</div>
+    <h1 class="text-2xl font-bold text-[#1A1A2E]">Firebase 연결 설정</h1>
+    <p class="text-sm text-[#6B7280] mt-1">여러 기기에서 데이터를 실시간으로 공유합니다</p>
+  </div>
+
+  <!-- 현재 상태 -->
+  <div class="card mb-5">
+    <div class="flex items-center justify-between">
+      <span class="text-sm font-semibold text-[#374151]">현재 연결 상태</span>
+      <span id="cur-pill" class="pill off">로컬 전용</span>
+    </div>
+    <p id="cur-detail" class="text-xs text-[#9CA3AF] mt-2"></p>
+  </div>
+
+  <!-- 안내 -->
+  <div class="card mb-5">
+    <h2 class="font-bold text-[#1A1A2E] mb-2">설정값 가져오는 법</h2>
+    <div class="step"><span class="num">1</span><span><b>Firebase 콘솔</b> → ⚙️ <b>프로젝트 설정</b> → 아래로 스크롤 <b>내 앱</b></span></div>
+    <div class="step"><span class="num">2</span><span>웹앱의 <b>SDK 설정 및 구성</b>에서 <b>구성(Config)</b> 선택 → <code>firebaseConfig = { … }</code> 전체 복사</span></div>
+    <div class="step"><span class="num">3</span><span>아래 칸에 <b>그대로 붙여넣고</b> → <b>연결 테스트</b> → <b>저장</b></span></div>
+    <p class="text-xs text-[#10B981] mt-3 font-medium">🔒 이 값은 <b>이 브라우저에만</b> 저장됩니다. 깃허브·서버·AI 어디에도 올라가지 않아요.</p>
+  </div>
+
+  <!-- 입력 -->
+  <div class="card">
+    <label class="text-sm font-semibold text-[#374151] mb-2 block">Firebase 설정 붙여넣기</label>
+    <textarea id="cfg-input" placeholder='예시:&#10;const firebaseConfig = {&#10;  apiKey: "AIza...",&#10;  authDomain: "moneybox-xxxx.firebaseapp.com",&#10;  projectId: "moneybox-xxxx",&#10;  storageBucket: "moneybox-xxxx.appspot.com",&#10;  messagingSenderId: "1234567890",&#10;  appId: "1:1234:web:abcd..."&#10;};'></textarea>
+
+    <div id="msg" class="msg"></div>
+
+    <div class="flex flex-wrap gap-2 mt-4">
+      <button class="btn btn-ghost" onclick="testConn()">🔍 연결 테스트</button>
+      <button class="btn btn-primary" onclick="saveCfg()">💾 저장하고 시작</button>
+      <button class="btn btn-ghost ml-auto" onclick="clearCfg()" style="color:#B91C1C">설정 지우기</button>
+    </div>
+  </div>
+
+  <p class="text-center text-xs text-[#9CA3AF] mt-6">
+    <a href="index.html" class="hover:text-[#F5A623]">← 메인으로 돌아가기</a>
+  </p>
+</div>
+
+<script>
+const ta  = document.getElementById('cfg-input');
+const msg = document.getElementById('msg');
+const STORE_KEY = 'mb_firebase_config';
+
+function show(text, type) { msg.className = 'msg ' + type; msg.textContent = text; }
+
+// 붙여넣은 텍스트에서 설정값 추출 (firebaseConfig 통째 / 객체만 / JSON 모두 허용)
+function parseCfg(text) {
+  const get = k => {
+    const m = text.match(new RegExp(k + '\\s*[:=]\\s*["\\\']([^"\\\']+)["\\\']'));
+    return m ? m[1] : '';
+  };
+  return {
+    apiKey: get('apiKey'),
+    authDomain: get('authDomain'),
+    projectId: get('projectId'),
+    storageBucket: get('storageBucket'),
+    messagingSenderId: get('messagingSenderId'),
+    appId: get('appId'),
+    workspace: 'moneybox'
+  };
+}
+
+async function testConn() {
+  const cfg = parseCfg(ta.value);
+  if (!cfg.projectId) { show('설정을 인식하지 못했어요. firebaseConfig 전체를 붙여넣어 주세요.', 'err'); return; }
+  show('연결 시도 중…', 'info');
+  try {
+    let app;
+    try { app = firebase.initializeApp(cfg, 'mb-test'); }
+    catch (e) { app = firebase.app('mb-test'); }
+    await app.auth().signInAnonymously();
+    await app.firestore()
+      .collection('mb_workspaces').doc(cfg.workspace).collection('data').doc('__ping__').get();
+    show('✅ 연결 성공! 익명 로그인과 데이터 접근이 정상입니다. 이제 [저장하고 시작]을 눌러주세요.', 'ok');
+  } catch (e) {
+    const code = (e && (e.code || e.message)) || '';
+    let m = '❌ 연결 실패: ' + code;
+    if (code.includes('operation-not-allowed') || code.includes('admin-restricted'))
+      m += '\n→ Firebase 콘솔 > Authentication 에서 "익명" 로그인을 켜주세요.';
+    else if (code.includes('permission-denied'))
+      m += '\n→ Firestore > 규칙 을 게시했는지 확인해주세요 (firestore.rules 내용).';
+    else if (code.includes('api-key') || code.includes('invalid'))
+      m += '\n→ 붙여넣은 설정값(apiKey 등)을 다시 확인해주세요.';
+    show(m, 'err');
+  }
+}
+
+function saveCfg() {
+  const cfg = parseCfg(ta.value);
+  if (!cfg.projectId) { show('설정 인식 실패. firebaseConfig 전체를 붙여넣어 주세요.', 'err'); return; }
+  localStorage.setItem(STORE_KEY, JSON.stringify(cfg));
+  show('저장됐어요! 잠시 후 메인으로 이동합니다…', 'ok');
+  refreshCur();
+  setTimeout(() => { location.href = 'index.html'; }, 1300);
+}
+
+function clearCfg() {
+  localStorage.removeItem(STORE_KEY);
+  show('설정을 지웠어요. 이제 로컬 전용 모드로 작동합니다.', 'info');
+  refreshCur();
+}
+
+function refreshCur() {
+  let cfg = null;
+  try { cfg = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
+  const pill = document.getElementById('cur-pill');
+  const detail = document.getElementById('cur-detail');
+  if (cfg && cfg.projectId) {
+    pill.className = 'pill on'; pill.textContent = '연결 설정됨';
+    detail.textContent = '프로젝트: ' + cfg.projectId + ' · 작업공간: ' + (cfg.workspace || 'moneybox');
+    if (!ta.value) ta.value = 'projectId: "' + cfg.projectId + '"  (이미 저장됨 — 바꾸려면 새 설정을 붙여넣으세요)';
+  } else {
+    pill.className = 'pill off'; pill.textContent = '로컬 전용';
+    detail.textContent = '아직 연결되지 않았습니다. 위 설정을 입력하면 기기 간 동기화가 켜집니다.';
+  }
+}
+refreshCur();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────
+// MoneyBox Firestore 보안 규칙
+//  · Firebase 콘솔 > Firestore Database > [규칙] 탭에 이 내용을 통째로 붙여넣고 [게시]
+//  · 로그인(익명 인증)한 사용자만 데이터 읽기/쓰기 가능. 그 외 전부 차단.
+// ─────────────────────────────────────────────────────────────
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // MoneyBox 공유 데이터: 인증된 사용자만 접근
+    match /mb_workspaces/{ws}/data/{doc} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 그 외 모든 경로 차단
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
