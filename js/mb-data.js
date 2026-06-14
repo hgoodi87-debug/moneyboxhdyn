@@ -7,10 +7,8 @@ const MB = {
   EMPLOYEES_KEY: 'mb_employees',
   DEFAULT_EMPLOYEES: [
     { id: 'e1', name: '김동교', role: 'admin',  joinDate: '2024-11-01', branch: '홍대', password: '0000' },
-    { id: 'e2', name: '임재원', role: 'senior', joinDate: '2024-03-06', branch: '홍대', password: '0000' },
     { id: 'e3', name: '박진호', role: 'senior', joinDate: '2024-08-08', branch: '연남', password: '0000' },
     { id: 'e4', name: '류천명', role: 'senior', joinDate: '2025-05-19', branch: '홍대', password: '0000' },
-    { id: 'e5', name: '정수민', role: 'senior', joinDate: '2025-01-15', branch: '연남', password: '0000' },
   ],
 
   SESSION_KEY: 'mb_session',
@@ -412,9 +410,13 @@ function setupAdminMenu() {
 }
 
 // ─── 초기 데이터 시드 ────────────────────────────────────────
+// 시드 전용: 로컬에만 기록(클라우드로 올리지 않음 → 새 기기가 클라우드 데이터를 덮어쓰지 않게)
+function mbSeedLocal(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+}
 function mbInit() {
   if (!mbGet(MB.EMPLOYEES_KEY)) {
-    mbSet(MB.EMPLOYEES_KEY, MB.DEFAULT_EMPLOYEES);
+    mbSeedLocal(MB.EMPLOYEES_KEY, MB.DEFAULT_EMPLOYEES);
   } else {
     // 기존 직원 데이터에 password 필드가 없으면 '0000' 마이그레이션
     const employees = mbGet(MB.EMPLOYEES_KEY);
@@ -426,18 +428,18 @@ function mbInit() {
     if (updated) mbSet(MB.EMPLOYEES_KEY, employees);
   }
   if (!mbGet(MB.STORAGE_PRICE_KEY)) {
-    mbSet(MB.STORAGE_PRICE_KEY, { XL: 15000, L: 12000, M: 9000, S: 6000 });
+    mbSeedLocal(MB.STORAGE_PRICE_KEY, { XL: 15000, L: 12000, M: 9000, S: 6000 });
   }
   if (!mbGet(MB.SCHEDULE_KEY)) {
     const t = today();
-    mbSet(MB.SCHEDULE_KEY, [
+    mbSeedLocal(MB.SCHEDULE_KEY, [
       { date: t, employeeId: 'e2', branch: '홍대', shiftType: '오픈' },
       { date: t, employeeId: 'e4', branch: '홍대', shiftType: '마감' },
       { date: t, employeeId: 'e3', branch: '연남', shiftType: '오픈' },
     ]);
   }
   if (!mbGet(MB.CREDENTIALS_KEY)) {
-    mbSet(MB.CREDENTIALS_KEY, [
+    mbSeedLocal(MB.CREDENTIALS_KEY, [
       { id: uid(), brand: '머니박스', purpose: '인스타그램',  googleId: 'moneybox.kr@gmail.com', googlePw: 'samplePw1!', snsName: '인스타그램', snsId: 'moneybox.official', snsPw: 'instaPw!', note: '메인 계정' },
       { id: uid(), brand: '빌리버',   purpose: '구글계정',     googleId: 'beeliber@gmail.com',   googlePw: 'beePw1!',    snsName: '', snsId: '', snsPw: '', note: '' },
     ]);
