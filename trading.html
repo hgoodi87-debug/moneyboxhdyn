@@ -537,6 +537,24 @@ function exportTrading() {
   XLSX.writeFile(wb, `거래_${currentDate}.xlsx`);
 }
 
+// ─── 시트 실행취소(undo) + 복사 버퍼 (전역 — 붙여넣기/Ctrl+Z에서 사용) ───
+let _copyBuffer = '';
+const _undoStack = [];
+const UNDO_LIMIT = 30;
+function pushUndo() {
+  const snapshot = JSON.parse(JSON.stringify(mbGetOrDefault(MB.TRANSACTIONS_KEY, []).filter(x => x.date === currentDate)));
+  _undoStack.push(snapshot);
+  if (_undoStack.length > UNDO_LIMIT) _undoStack.shift();
+}
+function doUndo() {
+  if (_undoStack.length === 0) return;
+  const snapshot = _undoStack.pop();
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  const other = list.filter(x => x.date !== currentDate);
+  mbSet(MB.TRANSACTIONS_KEY, [...other, ...snapshot]);
+  renderAll();
+}
+
 // ─── 셀 선택 / 복사 / 붙여넣기 ───
 const sel = { sheet:null, r1:-1, c1:-1, r2:-1, c2:-1, dragging:false };
 const FIELD_ORDER = ['counterparty','tradeType','currency','amount','rate'];
