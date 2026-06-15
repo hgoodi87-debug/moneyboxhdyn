@@ -370,6 +370,36 @@ function krwDisplay(tradeType, amount, rate) {
   return v ? fmtNum(v) : '';
 }
 
+// ─── 숫자 서식 (천단위 쉼표) ───
+function parseNum(v) { return Number(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
+function fmtInput(v) {
+  if (v === '' || v === null || v === undefined) return '';
+  const s = String(v).replace(/,/g, '');
+  if (s === '' || isNaN(Number(s))) return '';
+  const dot = s.indexOf('.');
+  const intPart = dot === -1 ? s : s.slice(0, dot);
+  const decPart = dot === -1 ? '' : s.slice(dot);
+  const n = Number(intPart);
+  return (isNaN(n) ? '' : n.toLocaleString('en-US')) + decPart;
+}
+// 입력 중 실시간 쉼표 (정수부만 콤마, 소수부·커서 유지)
+function applyCommaFormat(el) {
+  const old = el.value;
+  const selStart = el.selectionStart != null ? el.selectionStart : old.length;
+  const keepCount = old.slice(0, selStart).replace(/[^\d.]/g, '').length;
+  const cleaned = old.replace(/[^\d.]/g, '');
+  const firstDot = cleaned.indexOf('.');
+  let intPart, decPart;
+  if (firstDot === -1) { intPart = cleaned; decPart = ''; }
+  else { intPart = cleaned.slice(0, firstDot); decPart = '.' + cleaned.slice(firstDot + 1).replace(/\./g, ''); }
+  const newVal = (intPart === '' ? '' : Number(intPart).toLocaleString('en-US')) + decPart;
+  if (newVal === old) return;
+  el.value = newVal;
+  let pos = 0, cnt = 0;
+  while (pos < newVal.length && cnt < keepCount) { if (/[\d.]/.test(newVal[pos])) cnt++; pos++; }
+  if (el.setSelectionRange) { try { el.setSelectionRange(pos, pos); } catch (e) {} }
+}
+
 function buildRow(tx, isEmpty, sheet) {
   const cls = isEmpty ? 'empty' : `t-${tx.tradeType}`;
   const typeList = SHEET_EXT.includes(sheet) ? TYPES_EXT : TYPES;
@@ -383,16 +413,16 @@ function buildRow(tx, isEmpty, sheet) {
     <td><input type="text" value="${tx.counterparty||''}" data-field="counterparty" placeholder="거래처/비고"></td>
     <td><select data-field="tradeType" class="${typeClass}" onchange="this.className='type-'+this.value; const tr=this.closest('tr'); tr.className=this.value?'t-'+this.value:'empty'; tr.style.color=''; updateKrwCell(tr);">${optType}</select></td>
     <td><select data-field="currency">${optCurr}</select></td>
-    <td><input type="text" inputmode="numeric" class="num" value="${tx.amount||''}" data-field="amount" placeholder="0"></td>
-    <td><input type="text" inputmode="decimal" class="num" value="${tx.rate||''}" data-field="rate" placeholder="0"></td>
+    <td><input type="text" inputmode="numeric" class="num" value="${fmtInput(tx.amount)}" data-field="amount" placeholder="0"></td>
+    <td><input type="text" inputmode="decimal" class="num" value="${fmtInput(tx.rate)}" data-field="rate" placeholder="0"></td>
     <td class="calc cell-krw" style="color:${krwCol}">${krwTxt}</td>
   </tr>`;
 }
 
 function updateKrwCell(tr) {
   const t    = tr.querySelector('select[data-field="tradeType"]')?.value || '';
-  const amt  = tr.querySelector('input[data-field="amount"]')?.value || 0;
-  const rate = tr.querySelector('input[data-field="rate"]')?.value || 0;
+  const amt  = parseNum(tr.querySelector('input[data-field="amount"]')?.value);
+  const rate = parseNum(tr.querySelector('input[data-field="rate"]')?.value);
   const c    = tr.querySelector('.cell-krw');
   if (!c) return;
   c.textContent  = krwDisplay(t, amt, rate);
@@ -431,7 +461,7 @@ function updateSummary(sheet) {
       if (!typeEl) return;
       const t = typeEl.value;
       if (!t || t === '외화미수금' || t === '지급완료') return;
-      const krw = calcKrw(t, amtEl?.value||0, rateEl?.value||0);
+      const krw = calcKrw(t, parseNum(amtEl?.value), parseNum(rateEl?.value));
       if (t === '매각') sell += krw;
       if (t === '매입') buy += krw;
     });
@@ -463,12 +493,12 @@ function bindEvents(sheet) {
       // 새 행: 변경된 필드 하나만 쓰지 않고 DOM의 현재 모든 필드 값을 읽어 저장
       tr.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
         const f = el.dataset.field;
-        tx[f] = (f==='amount'||f==='rate') ? Number(el.value) : el.value;
+        tx[f] = (f==='amount'||f==='rate') ? parseNum(el.value) : el.value;
       });
       if (!hasMeaningful(tx)) return;
       list.push(tx);
     } else {
-      tx[field] = (field==='amount'||field==='rate') ? Number(target.value) : target.value;
+      tx[field] = (field==='amount'||field==='rate') ? parseNum(target.value) : target.value;
     }
     pushUndo();
     mbSet(MB.TRANSACTIONS_KEY, list);
@@ -486,6 +516,7 @@ function bindEvents(sheet) {
   tbody.addEventListener('input', (e) => {
     const target = e.target;
     if (!target.matches('input')) return; // select은 change에서 처리됨
+    if (target.classList.contains('num')) applyCommaFormat(target); // 천단위 쉼표 실시간
     const tr = target.closest('tr');
     const id = tr.dataset.id;
     const field = target.dataset.field;
@@ -495,12 +526,12 @@ function bindEvents(sheet) {
       tx = emptyTpl(sheet); tx.id = id;
       tr.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
         const f = el.dataset.field;
-        tx[f] = (f==='amount'||f==='rate') ? Number(el.value) : el.value;
+        tx[f] = (f==='amount'||f==='rate') ? parseNum(el.value) : el.value;
       });
       if (!hasMeaningful(tx)) return;
       list.push(tx);
     } else {
-      tx[field] = (field==='amount'||field==='rate') ? Number(target.value) : target.value;
+      tx[field] = (field==='amount'||field==='rate') ? parseNum(target.value) : target.value;
     }
     mbSet(MB.TRANSACTIONS_KEY, list);
     if (field==='amount' || field==='rate') updateKrwCell(tr);
@@ -818,10 +849,11 @@ function pasteData(text) {
       if (!td) return;
       const inp = td.querySelector('input,select');
       if (!inp) return;
-      val = val.trim(); inp.value = val;
+      val = val.trim();
+      inp.value = (field==='amount'||field==='rate') ? fmtInput(val) : val;
       if (!tx && val) { tx = emptyTpl(sheet); tx.id = txId; list.push(tx); }
       if (tx) {
-        tx[field] = (field==='amount'||field==='rate') ? Number(val) : val;
+        tx[field] = (field==='amount'||field==='rate') ? parseNum(val) : val;
         if (field==='tradeType') {
           inp.className = val ? `type-${val}` : '';
           tr.classList.remove('empty','t-매입','t-매각','t-외화미수금','t-지급완료','t-');
