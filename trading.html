@@ -7,14 +7,14 @@
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=26">
+<link rel="stylesheet" href="css/mb.css?v=27">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=26"></script>
-<script src="js/mb-data.js?v=26"></script>
-<script src="js/mb-sync.js?v=26"></script>
+<script src="js/firebase-config.js?v=27"></script>
+<script src="js/mb-data.js?v=27"></script>
+<script src="js/mb-sync.js?v=27"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -482,6 +482,30 @@ function bindEvents(sheet) {
     updateSummary(sheet);
   });
 
+  // 실시간 저장: 타이핑할 때마다 즉시 저장 (blur 안 해도 유실 없음)
+  tbody.addEventListener('input', (e) => {
+    const target = e.target;
+    if (!target.matches('input')) return; // select은 change에서 처리됨
+    const tr = target.closest('tr');
+    const id = tr.dataset.id;
+    const field = target.dataset.field;
+    const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+    let tx = list.find(x => x.id === id);
+    if (!tx) {
+      tx = emptyTpl(sheet); tx.id = id;
+      tr.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
+        const f = el.dataset.field;
+        tx[f] = (f==='amount'||f==='rate') ? Number(el.value) : el.value;
+      });
+      if (!hasMeaningful(tx)) return;
+      list.push(tx);
+    } else {
+      tx[field] = (field==='amount'||field==='rate') ? Number(target.value) : target.value;
+    }
+    mbSet(MB.TRANSACTIONS_KEY, list);
+    if (field==='amount' || field==='rate') updateKrwCell(tr);
+  });
+
   tbody.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     const el = e.target;
@@ -733,37 +757,44 @@ document.addEventListener('keydown', async e => {
     }
   }
 
-  if ((e.ctrlKey||e.metaKey) && e.key==='c') {
-    if (sel.r1<0 || !sel.sheet) return;
-    if (inInput && active.selectionStart!==active.selectionEnd) return;
-    e.preventDefault();
-    const tbody = document.getElementById(`tbody-${sel.sheet}`);
-    const minR=Math.min(sel.r1,sel.r2), maxR=Math.max(sel.r1,sel.r2);
-    const minC=Math.min(sel.c1,sel.c2), maxC=Math.max(sel.c1,sel.c2);
-    const tsv = Array.from({length:maxR-minR+1},(_,ri) => {
-      const tr = tbody.rows[minR+ri];
-      return Array.from({length:maxC-minC+1},(_,ci) => {
-        const td = tr?.cells[minC+ci];
-        if (!td) return '';
-        const inp = td.querySelector('input,select');
-        return inp ? inp.value : td.textContent.trim();
-      }).join('\t');
-    }).join('\n');
-    _copyBuffer = tsv;
-    try { await navigator.clipboard.writeText(tsv); } catch {}
-  }
-  if ((e.ctrlKey||e.metaKey) && e.key==='v') {
-    if (sel.r1<0 || !sel.sheet) return;
-    e.preventDefault();
-    // input 포커스 상태면 blur 처리 후 셀 붙여넣기 진행
-    if (inInput) active.blur();
-    // 내부 버퍼 우선 (시트 간 붙여넣기 보장), 없으면 클립보드
-    if (_copyBuffer) {
-      pasteData(_copyBuffer);
-    } else {
-      try { const text = await navigator.clipboard.readText(); pasteData(text); } catch {}
-    }
-  }
+});
+
+// ─── 엑셀·구글시트 호환 복사/붙여넣기 (시스템 클립보드, 권한 불필요) ───
+function _selTSV() {
+  const tbody = document.getElementById(`tbody-${sel.sheet}`);
+  const minR=Math.min(sel.r1,sel.r2), maxR=Math.max(sel.r1,sel.r2);
+  const minC=Math.min(sel.c1,sel.c2), maxC=Math.max(sel.c1,sel.c2);
+  return Array.from({length:maxR-minR+1},(_,ri) => {
+    const tr = tbody.rows[minR+ri];
+    return Array.from({length:maxC-minC+1},(_,ci) => {
+      const td = tr?.cells[minC+ci];
+      if (!td) return '';
+      const inp = td.querySelector('input,select');
+      return inp ? inp.value : td.textContent.trim();
+    }).join('\t');
+  }).join('\n');
+}
+document.addEventListener('copy', (e) => {
+  if (sel.r1 < 0 || !sel.sheet) return;
+  const active = document.activeElement;
+  const inInput = active.tagName==='INPUT' || active.tagName==='SELECT';
+  if (inInput && active.selectionStart !== active.selectionEnd) return; // 입력칸 텍스트 선택 시 기본 복사
+  const tsv = _selTSV();
+  (e.clipboardData || window.clipboardData).setData('text/plain', tsv);
+  _copyBuffer = tsv;
+  e.preventDefault();
+});
+document.addEventListener('paste', (e) => {
+  if (sel.r1 < 0 || !sel.sheet) return;
+  const active = document.activeElement;
+  const inInput = active.tagName==='INPUT' || active.tagName==='SELECT';
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  if (!text) return;
+  // 입력칸에서 탭·줄바꿈 없는 한 줄 값이면 일반(텍스트) 붙여넣기 허용
+  if (inInput && text.indexOf('\t') === -1 && text.indexOf('\n') === -1) return;
+  e.preventDefault();
+  if (inInput) active.blur();
+  pasteData(text);
 });
 
 function pasteData(text) {

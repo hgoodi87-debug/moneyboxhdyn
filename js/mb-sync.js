@@ -40,17 +40,33 @@
 
   let _applyingRemote = false;   // 원격 적용 중 재전송 방지
   const _lastPushed = {};        // 동일 값 중복 전송 방지
+  // 이 브라우저(세션) 고유 ID — 내가 올린 변경이 다시 내려와 내 입력을 덮어쓰는 것을 막음
+  const _clientId = 'c' + Math.random().toString(36).slice(2) + '_' + Date.now();
+  const _pushTimers = {};        // 키별 디바운스 타이머
+  const _pendingVal = {};        // 키별 보류 중 값
 
-  // ── 로컬 쓰기 → 클라우드 ──
+  // ── 로컬 쓰기 → 클라우드 (디바운스: 빠른 연속 입력을 한 번으로 모아 경합·유실 방지) ──
   window.mbCloudPush = function (key, value) {
     if (_applyingRemote) return;
     if (KEYS.indexOf(key) === -1) return;
+    _pendingVal[key] = value;
+    clearTimeout(_pushTimers[key]);
+    _pushTimers[key] = setTimeout(function () { _flushPush(key); }, 350);
+  };
+  function _flushPush(key) {
+    if (!(key in _pendingVal)) return;
+    const value = _pendingVal[key];
+    delete _pendingVal[key];
     const json = JSON.stringify(value);
     if (_lastPushed[key] === json) return;
     _lastPushed[key] = json;
-    col.doc(key).set({ v: value, at: firebase.firestore.FieldValue.serverTimestamp() })
+    col.doc(key).set({ v: value, by: _clientId, at: firebase.firestore.FieldValue.serverTimestamp() })
       .catch(e => console.warn('[mb-sync] 저장 실패', key, e));
-  };
+  }
+  function _flushAll() { Object.keys(_pendingVal).forEach(function (k) { clearTimeout(_pushTimers[k]); _flushPush(k); }); }
+  // 탭을 닫거나 숨길 때 보류 중인 저장을 즉시 반영 (데이터 유실 방지)
+  window.addEventListener('beforeunload', _flushAll);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') _flushAll(); });
 
   // ── 클라우드 변경 → 로컬 + 화면 ──
   function applyRemote(key, value) {
@@ -75,6 +91,7 @@
           if (!snap.exists) return;
           const d = snap.data();
           if (!d || !('v' in d)) return;
+          if (d.by === _clientId) return;  // 내가 올린 변경의 메아리는 무시 (내 입력 보존)
           applyRemote(key, d.v);
         },
         err => console.warn('[mb-sync] 수신 오류', key, err)
@@ -86,7 +103,7 @@
         if (!snap.exists) {
           const local = localStorage.getItem(key);
           if (local !== null) {
-            try { col.doc(key).set({ v: JSON.parse(local), at: firebase.firestore.FieldValue.serverTimestamp() }); }
+            try { col.doc(key).set({ v: JSON.parse(local), by: _clientId, at: firebase.firestore.FieldValue.serverTimestamp() }); }
             catch (e) { /* noop */ }
           }
         }
