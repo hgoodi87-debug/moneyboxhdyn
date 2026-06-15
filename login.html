@@ -61,6 +61,8 @@
       <h2 class="text-[#1A1A2E] text-xl font-bold mb-1">로그인</h2>
       <p class="text-[#6B7280] text-sm mb-6">이름과 비밀번호를 입력해주세요</p>
 
+      <div id="already-banner" style="display:none;margin-bottom:1.25rem;padding:.85rem 1rem;background:#FFF8EC;border:1px solid #F5A623;border-radius:.7rem"></div>
+
       <!-- 직원 빠른 선택 -->
       <div id="quick-select" class="mb-5">
         <p class="text-xs text-[#9CA3AF] mb-2 font-medium">빠른 선택</p>
@@ -106,13 +108,31 @@
   </div>
 
 <script>
-// 이미 로그인 상태면 대시보드로
+// 이미 로그인돼 있어도 자동으로 넘어가지 않고 로그인 화면을 보여줌
+// (이 링크를 공유하면 누구나 처음에 로그인창을 보게 됨)
 (function() {
   mbInit();
-  if (getCurrentUser()) {
-    window.location.href = 'index.html';
+  const u = getCurrentUser();
+  if (u) {
+    const b = document.getElementById('already-banner');
+    if (b) {
+      b.style.display = 'block';
+      b.innerHTML = `
+        <div style="font-size:.88rem;color:#92400E;margin-bottom:.6rem"><b>${u.name}</b>님으로 로그인되어 있어요.</div>
+        <div style="display:flex;gap:.5rem">
+          <button onclick="location.href='index.html'" style="flex:1;background:#F5A623;color:#fff;border:none;border-radius:.5rem;padding:.6rem;font-weight:700;cursor:pointer">계속하기 →</button>
+          <button onclick="switchAccount()" style="background:#fff;border:1px solid #E5E7EB;border-radius:.5rem;padding:.6rem .8rem;font-weight:600;cursor:pointer">다른 계정</button>
+        </div>`;
+    }
   }
 })();
+function switchAccount() {
+  try { localStorage.removeItem(MB.SESSION_KEY); } catch (e) {}
+  const b = document.getElementById('already-banner');
+  if (b) b.style.display = 'none';
+  const n = document.getElementById('login-name');
+  if (n) { n.value = ''; n.focus(); }
+}
 
 // 빠른 선택 버튼
 (function() {
