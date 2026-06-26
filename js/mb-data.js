@@ -416,21 +416,42 @@ function mbSeedLocal(key, value) {
 }
 // ─── 데이터 변경 시 페이지 자동 새로고침 (유기적 연동) ───
 //  · 다른 탭/다른 기기에서 데이터가 바뀌면(storage·mb-remote) 등록한 새로고침 함수를 호출
+//  · 이벤트가 누락돼도 4초마다 데이터 변경을 감지해 자동 새로고침(안전망)
 //  · 입력 중(포커스가 입력칸)이면 잠시 미뤄서 화면이 끊기지 않게
-let _mbRefreshFn = null, _mbRefreshTimer = null;
+let _mbRefreshFn = null, _mbRefreshTimer = null, _mbDataSig = '', _mbPollStarted = false;
+function _mbDataSignature() {
+  let s = '';
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('mb_') === 0 && k !== 'mb_session' && k !== 'mb_firebase_config') {
+        s += k + ':' + (localStorage.getItem(k) || '').length + ';';
+      }
+    }
+  } catch (e) {}
+  return s;
+}
+function _mbBusy() { const ae = document.activeElement; return !!(ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)); }
 function mbOnDataChange(fn) {
   _mbRefreshFn = fn;
+  _mbDataSig = _mbDataSignature();
   function run() {
-    const ae = document.activeElement;
-    if (ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) {
-      clearTimeout(_mbRefreshTimer); _mbRefreshTimer = setTimeout(run, 1500);
-      return;
-    }
+    if (_mbBusy()) { clearTimeout(_mbRefreshTimer); _mbRefreshTimer = setTimeout(run, 1500); return; }
+    _mbDataSig = _mbDataSignature();
     try { if (_mbRefreshFn) _mbRefreshFn(); } catch (e) { /* noop */ }
   }
   const trigger = () => { clearTimeout(_mbRefreshTimer); _mbRefreshTimer = setTimeout(run, 200); };
   window.addEventListener('storage', trigger);
   window.addEventListener('mb-remote', trigger);
+  // 안전망: 주기적으로 데이터 변경 감지 → 자동 새로고침 (이벤트 누락 대비)
+  if (!_mbPollStarted) {
+    _mbPollStarted = true;
+    setInterval(function () {
+      if (_mbBusy()) return;
+      const s = _mbDataSignature();
+      if (s !== _mbDataSig) { _mbDataSig = s; try { if (_mbRefreshFn) _mbRefreshFn(); } catch (e) {} }
+    }, 4000);
+  }
 }
 function mbInit() {
   if (!mbGet(MB.EMPLOYEES_KEY)) {

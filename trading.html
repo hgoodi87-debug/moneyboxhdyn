@@ -7,14 +7,14 @@
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=27">
+<link rel="stylesheet" href="css/mb.css?v=28">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=27"></script>
-<script src="js/mb-data.js?v=27"></script>
-<script src="js/mb-sync.js?v=27"></script>
+<script src="js/firebase-config.js?v=28"></script>
+<script src="js/mb-data.js?v=28"></script>
+<script src="js/mb-sync.js?v=28"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -375,7 +375,7 @@ function parseNum(v) { return Number(String(v == null ? '' : v).replace(/,/g, ''
 function fmtInput(v) {
   if (v === '' || v === null || v === undefined) return '';
   const s = String(v).replace(/,/g, '');
-  if (s === '' || isNaN(Number(s))) return '';
+  if (s === '' || isNaN(Number(s)) || Number(s) === 0) return ''; // 0/빈값은 빈칸으로 표시
   const dot = s.indexOf('.');
   const intPart = dot === -1 ? s : s.slice(0, dot);
   const decPart = dot === -1 ? '' : s.slice(dot);
@@ -478,6 +478,11 @@ function hasMeaningful(tx) {
 function bindEvents(sheet) {
   const tbody = document.getElementById(`tbody-${sheet}`);
 
+  // 편집 셀 진입 시 현재 상태 기억 (undo용)
+  tbody.addEventListener('focusin', (e) => {
+    if (e.target.matches && e.target.matches('input[data-field], select[data-field]')) _captureEditSnap();
+  });
+
   tbody.addEventListener('change', (e) => {
     const target = e.target;
     if (!target.matches('input, select')) return;
@@ -500,7 +505,7 @@ function bindEvents(sheet) {
     } else {
       tx[field] = (field==='amount'||field==='rate') ? parseNum(target.value) : target.value;
     }
-    pushUndo();
+    _commitEditSnap();
     mbSet(MB.TRANSACTIONS_KEY, list);
     if (field === 'tradeType' || isNew) {
       tr.classList.remove('empty','t-매입','t-매각','t-외화미수금','t-지급완료','t-');
@@ -517,6 +522,7 @@ function bindEvents(sheet) {
     const target = e.target;
     if (!target.matches('input')) return; // select은 change에서 처리됨
     if (target.classList.contains('num')) applyCommaFormat(target); // 천단위 쉼표 실시간
+    _commitEditSnap(); // 첫 입력 시 undo 스냅샷 확정
     const tr = target.closest('tr');
     const id = tr.dataset.id;
     const field = target.dataset.field;
@@ -609,6 +615,19 @@ function doUndo() {
   mbSet(MB.TRANSACTIONS_KEY, [...other, ...snapshot]);
   renderAll();
 }
+// 편집 셀 진입 시점 상태를 기억했다가, 실제 편집이 일어나면 undo 스택에 한 번만 올림
+let _editSnap = null, _editSnapUsed = false;
+function _captureEditSnap() {
+  _editSnap = JSON.parse(JSON.stringify(mbGetOrDefault(MB.TRANSACTIONS_KEY, []).filter(x => x.date === currentDate)));
+  _editSnapUsed = false;
+}
+function _commitEditSnap() {
+  if (_editSnapUsed) return;
+  if (!_editSnap) _captureEditSnap(); // focusin이 못 잡았으면 지금(저장 직전) 잡기
+  _undoStack.push(_editSnap);
+  if (_undoStack.length > UNDO_LIMIT) _undoStack.shift();
+  _editSnapUsed = true;
+}
 
 // ─── 셀 선택 / 복사 / 붙여넣기 ───
 const sel = { sheet:null, r1:-1, c1:-1, r2:-1, c2:-1, dragging:false };
@@ -696,10 +715,10 @@ document.addEventListener('keydown', async e => {
   const active = document.activeElement;
   const inInput = active.tagName==='INPUT' || active.tagName==='SELECT';
 
-  // ─── Ctrl+Z 실행취소 ───
+  // ─── Ctrl+Z 실행취소 (편집 중에도 시트 단위로 되돌림) ───
   if ((e.ctrlKey||e.metaKey) && e.key==='z') {
-    if (inInput) return; // 텍스트 편집 중엔 브라우저 기본 동작
     e.preventDefault();
+    if (inInput) active.blur(); // 현재 편집 확정 후 되돌림
     doUndo();
     return;
   }

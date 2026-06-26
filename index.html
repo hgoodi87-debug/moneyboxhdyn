@@ -7,14 +7,14 @@
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=27">
+<link rel="stylesheet" href="css/mb.css?v=28">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=27"></script>
-<script src="js/mb-data.js?v=27"></script>
-<script src="js/mb-sync.js?v=27"></script>
+<script src="js/firebase-config.js?v=28"></script>
+<script src="js/mb-data.js?v=28"></script>
+<script src="js/mb-sync.js?v=28"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
   .widget { background:#fff; border-radius:.875rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.06); display:flex; flex-direction:column; height:100%; overflow:hidden; }
@@ -115,7 +115,7 @@
             <button onclick="addHandover()" class="btn-add">등록</button>
           </div>
         </div>
-        <div class="widget-body" id="handovers-list"></div>
+        <div class="widget-body" id="handovers-list" style="overflow-y:auto"></div>
         <div class="page-ctrl">
           <button class="page-btn" id="ho-prev" onclick="pg('ho',-1)">◀</button>
           <span class="page-info" id="ho-pi"></span>
@@ -319,6 +319,7 @@ function deleteHandover(id) {
   mbRemove(MB.HANDOVERS_KEY, x => x.id===id);
   renderHandovers();
 }
+function _esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function renderHandovers() {
   const t   = today();
   const all = mbGetOrDefault(MB.HANDOVERS_KEY, []).sort((a,b) => a.targetDate.localeCompare(b.targetDate));
@@ -326,11 +327,11 @@ function renderHandovers() {
   document.getElementById('handovers-list').innerHTML = all.length === 0
     ? '<p class="text-xs text-[#9CA3AF] text-center py-4">전달사항 없음</p>'
     : all.slice(s, e).map(h => `
-      <div class="list-item ${h.targetDate < t ? 'faded':''}">
-        <input type="checkbox" ${h.done?'checked':''} onchange="toggleHandover('${h.id}')" class="w-3 h-3 accent-[#F5A623] shrink-0 cursor-pointer">
-        <span class="text-[10px] text-[#F5A623] font-bold shrink-0">${h.targetDate}</span>
-        <span class="text-xs truncate flex-1 ${h.done?'line-through text-[#9CA3AF]':'text-[#1A1A2E]'}">${h.content}</span>
-        <button onclick="deleteHandover('${h.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs shrink-0 ml-auto">✕</button>
+      <div class="${h.targetDate < t ? 'faded':''}" style="display:flex;align-items:flex-start;gap:6px;padding:6px 2px;border-bottom:1px solid #F3F4F6">
+        <span class="text-[10px] text-[#F5A623] font-bold shrink-0" style="margin-top:3px">${h.targetDate}</span>
+        <span class="text-xs flex-1 ${h.done?'line-through text-[#9CA3AF]':'text-[#1A1A2E]'}" style="white-space:normal;word-break:break-word;line-height:1.5">${_esc(h.content)}</span>
+        <button onclick="toggleHandover('${h.id}')" class="shrink-0 text-[10px] font-bold rounded" style="cursor:pointer;white-space:nowrap;margin-top:1px;padding:2px 7px;${h.done ? 'background:#F3F4F6;color:#6B7280' : 'background:#ECFDF5;color:#047857;border:1px solid #A7F3D0'}">${h.done?'취소':'완료'}</button>
+        <button onclick="deleteHandover('${h.id}')" class="shrink-0 text-[#D1D5DB] hover:text-[#EF4444] text-xs" style="margin-top:2px">✕</button>
       </div>`).join('');
 }
 
