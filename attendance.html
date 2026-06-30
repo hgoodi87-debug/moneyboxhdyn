@@ -540,7 +540,7 @@ function toggleAttEdit() {
   if (bulk) bulk.style.display = _attEditMode ? '' : 'none';
   renderAttEdit();
 }
-// 출퇴근/근무 엑셀 내보내기 (해당 월) — ① 월 근무표 그리드 ② 출퇴근 상세
+// 출퇴근 엑셀 내보내기 (해당 월) — 직원별 시트, 화면처럼 날짜·요일·출근·퇴근·근무시간 + 월 합계
 function exportAttendance() {
   if (typeof XLSX === 'undefined') { alert('엑셀 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도하세요.'); return; }
   const ym = document.getElementById('att-month').value || thisYearMonth();
@@ -554,51 +554,37 @@ function exportAttendance() {
   const leaves = mbGetOrDefault(MB.LEAVE_KEY, []);
   if (emps.length === 0) { alert('직원이 없습니다.'); return; }
 
-  // 배정 라벨 ("연남 오픈" / "휴무" / "연차" / "")  — null 안 나오게
-  const labelFor = (e, dateStr, wd) => {
-    const asg = (typeof assignedShiftFor === 'function') ? assignedShiftFor(e, dateStr, wd) : null;
-    const isLeave = (asg && asg.shift === '연차') || leaves.some(l => l.employeeId===e.id && l.date===dateStr && l.status==='승인');
-    let label = '';
-    if (isLeave) label = '연차';
-    else if (asg && asg.shift === '휴무') label = '휴무';
-    else if (asg) label = `${asg.branch||''} ${asg.shift}`.trim();
-    return { asg, label };
-  };
-
-  // ── 시트1: 월 근무표 (직원 × 일 그리드) ──
-  const head1 = ['직원','지점'];
-  for (let d = 1; d <= days; d++) head1.push(`${d}일(${dayNames[new Date(y,m-1,d).getDay()]})`);
-  const grid = [head1];
-  emps.forEach(e => {
-    const row = [e.name, e.branch];
-    for (let d = 1; d <= days; d++) {
-      const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
-      row.push(labelFor(e, dateStr, new Date(y,m-1,d).getDay()).label);
-    }
-    grid.push(row);
-  });
-  const ws1 = XLSX.utils.aoa_to_sheet(grid);
-  ws1['!cols'] = [{wch:9},{wch:6}].concat(Array.from({length:days}, () => ({wch:11})));
-
-  // ── 시트2: 출퇴근 상세 (직원·일별, 근무·출근·퇴근·근무시간) ──
-  const rows = [['직원','지점','날짜','요일','근무(배정)','출근','퇴근','근무시간(h)']];
-  emps.forEach(e => {
-    for (let d = 1; d <= days; d++) {
-      const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
-      const wd = new Date(y,m-1,d).getDay();
-      const { asg, label } = labelFor(e, dateStr, wd);
-      const a = att.find(x => x.date === dateStr && x.employeeId === e.id) || {};
-      if (!asg && !a.clockIn && !a.clockOut) continue; // 배정·기록 모두 없으면 제외
-      const hrs = (a.clockIn && a.clockOut) ? (adjustWorkMin(a.workMinutes||0)/60).toFixed(1) : '';
-      rows.push([e.name, e.branch, dateStr, dayNames[wd], label, a.clockIn||'', a.clockOut||'', hrs]);
-    }
-  });
-  const ws2 = XLSX.utils.aoa_to_sheet(rows);
-  ws2['!cols'] = [{wch:9},{wch:6},{wch:12},{wch:6},{wch:13},{wch:8},{wch:8},{wch:11}];
-
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, '월근무표');
-  XLSX.utils.book_append_sheet(wb, ws2, '출퇴근상세');
+  emps.forEach(e => {
+    let totalMin = 0;
+    const rows = [
+      [`${e.name} (${e.branch||''}) · ${ym} 출퇴근`],
+      ['날짜','요일','출근','퇴근','근무시간(h)']
+    ];
+    for (let d = 1; d <= days; d++) {
+      const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
+      const wd = new Date(y, m-1, d).getDay();
+      const a = att.find(x => x.date === dateStr && x.employeeId === e.id) || {};
+      const isLeave = leaves.some(l => l.employeeId===e.id && l.date===dateStr && l.status==='승인');
+      if (isLeave && !a.clockIn) { rows.push([`${d}일`, dayNames[wd], '연차', '연차', '']); continue; }
+      let hrs = '';
+      if (a.clockIn && a.clockOut) {
+        const wm = adjustWorkMin(a.workMinutes||0);
+        totalMin += wm;
+        hrs = (wm/60).toFixed(1);
+      }
+      rows.push([`${d}일`, dayNames[wd], a.clockIn||'', a.clockOut||'', hrs]);
+    }
+    rows.push([]);
+    rows.push(['', '', '', '월 합계', (totalMin/60).toFixed(1) + 'h']);
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:7},{wch:5},{wch:9},{wch:9},{wch:12}];
+    // 시트 이름 (엑셀 제한: 31자/특수문자 불가/중복 불가)
+    const base = (e.name || '직원').replace(/[\\\/\?\*\[\]:]/g,'').slice(0,28) || '직원';
+    let nm = base, i = 1;
+    while (wb.SheetNames.includes(nm)) { i++; nm = base.slice(0,27) + i; }
+    XLSX.utils.book_append_sheet(wb, ws, nm);
+  });
   XLSX.writeFile(wb, `출퇴근_${ym}.xlsx`);
 }
 // 근무표대로 출퇴근 일괄 등록 (선택 직원·해당 월) — 휴무/연차/미배정·미래일·이미입력일은 건너뜀
