@@ -43,8 +43,12 @@
 
   <div class="flex justify-between items-center mb-4" style="max-width:1100px;margin:0 auto">
     <div class="text-lg font-bold text-[#1A1A2E]">일일 업무 체크리스트</div>
-    <button id="edit-btn" onclick="toggleEdit()" class="hidden px-4 py-2 rounded-lg text-sm font-semibold"
-      style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;cursor:pointer">✏️ 편집</button>
+    <div class="flex gap-2">
+      <button id="viewall-btn" onclick="toggleViewAll()" class="hidden px-4 py-2 rounded-lg text-sm font-semibold"
+        style="background:#EEF2FF;color:#3730A3;border:1px solid #C7D2FE;cursor:pointer">전체 지점 보기</button>
+      <button id="edit-btn" onclick="toggleEdit()" class="hidden px-4 py-2 rounded-lg text-sm font-semibold"
+        style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;cursor:pointer">✏️ 편집</button>
+    </div>
   </div>
 
   <div id="board" class="grid gap-5" style="max-width:1100px;margin:0 auto"></div>
@@ -134,12 +138,13 @@ function getChecklist() {
 function saveChecklist(cl) { mbSet(MB.CHECKLIST_KEY, cl); }
 
 let editing = false;
+let adminViewAll = false; // 관리자 전체 지점 보기 토글 (기본: 내 근무만)
 
 // ─── 시프트 필터 ───
 function getShiftWindow(shift) {
   if (shift === '오픈') return { start: 9*60,  end: 18*60, label: '09:00~18:00' };
   if (shift === '마감') return { start: 12*60, end: 22*60, label: '12:00~22:00' };
-  if (shift === '풀')   return { start: 9*60,  end: 22*60, label: '09:00~22:00' };
+  if (shift === '풀')   return { start: 0,     end: 24*60, label: '종일 (전체)' };
   return null;
 }
 function parseBlockWindow(label) {
@@ -227,6 +232,7 @@ function toggleEdit() {
   document.getElementById('edit-btn').textContent = editing ? '✓ 편집 완료' : '✏️ 편집';
   renderAll();
 }
+function toggleViewAll() { adminViewAll = !adminViewAll; renderAll(); }
 
 // ─── 렌더 ───
 function buildNormalTable(branch, win) {
@@ -303,10 +309,15 @@ function renderAll() {
   const admin = isAdmin();
   const editBtn = document.getElementById('edit-btn');
   editBtn.classList.toggle('hidden', !admin);
+  const allBtn = document.getElementById('viewall-btn');
+  if (allBtn) {
+    allBtn.classList.toggle('hidden', !admin || editing);
+    allBtn.textContent = adminViewAll ? '내 근무만 보기' : '전체 지점 보기';
+  }
   const board = document.getElementById('board');
 
-  // ── 관리자 / 편집 모드: 양쪽 지점 전체 표시 ──
-  if (admin || editing) {
+  // ── 편집 모드 또는 (관리자) 전체 지점 보기 → 양쪽 지점 전체 표시 ──
+  if (editing || (admin && adminViewAll)) {
     board.className = 'grid gap-5 grid-cols-2';
     board.style.maxWidth = '1100px';
     let out = '';

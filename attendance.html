@@ -168,6 +168,7 @@
           <select id="att-emp" class="input-base ml-2" style="font-weight:600" onchange="_attEmp=this.value;renderAttEdit()"></select>
           <button id="att-edit-toggle" onclick="toggleAttEdit()" class="btn-primary ml-2">✏️ 수정</button>
           <button id="att-bulk-btn" onclick="bulkFillAttendance()" class="btn-ghost ml-1" style="display:none;background:#ECFDF5;color:#047857;font-weight:700">📋 근무표대로 일괄등록</button>
+          <button onclick="exportAttendance()" class="btn-ghost ml-1" style="background:#EFF6FF;color:#1D4ED8;font-weight:700">⬇ 엑셀 내보내기</button>
         </div>
         <p class="text-xs text-[#9CA3AF] text-center mb-3">정해진 시간보다 일찍 출근·늦게 퇴근 시 정시로 자동 보정됩니다 · <b>일괄등록</b>은 근무표(오픈 9–18 / 마감 12–21 / 풀 9–21)대로 채웁니다</p>
         <div id="att-edit-list"></div>
@@ -517,6 +518,41 @@ function toggleAttEdit() {
   if (bulk) bulk.style.display = _attEditMode ? '' : 'none';
   renderAttEdit();
 }
+// 출퇴근 엑셀 내보내기 (해당 월 · 전 직원, 근무·출근·퇴근·근무시간)
+function exportAttendance() {
+  if (typeof XLSX === 'undefined') { alert('엑셀 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도하세요.'); return; }
+  const ym = document.getElementById('att-month').value || thisYearMonth();
+  const [y, m] = ym.split('-').map(Number);
+  const days = new Date(y, m, 0).getDate();
+  const dayNames = ['일','월','화','수','목','금','토'];
+  const branchOrder = { '홍대': 0, '연남': 1 };
+  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch)
+    .sort((a,b) => (branchOrder[a.branch] ?? 9) - (branchOrder[b.branch] ?? 9) || (a.name||'').localeCompare(b.name||''));
+  const att = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
+  const leaves = mbGetOrDefault(MB.LEAVE_KEY, []);
+  const rows = [['직원','지점','날짜','요일','근무(배정)','출근','퇴근','근무시간(h)']];
+  let count = 0;
+  emps.forEach(e => {
+    for (let d = 1; d <= days; d++) {
+      const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
+      const wd = new Date(y, m-1, d).getDay();
+      const asg = (typeof assignedShiftFor === 'function') ? assignedShiftFor(e, dateStr, wd) : null;
+      const a = att.find(x => x.date === dateStr && x.employeeId === e.id) || {};
+      if (!asg && !a.clockIn && !a.clockOut) continue; // 배정·기록 모두 없으면 제외
+      const isLeave = (asg && asg.shift === '연차') || leaves.some(l => l.employeeId===e.id && l.date===dateStr && l.status==='승인');
+      const shiftLabel = isLeave ? '연차' : (asg ? `${asg.branch||''} ${asg.shift}`.trim() : '');
+      const hrs = (a.clockIn && a.clockOut) ? (adjustWorkMin(a.workMinutes||0)/60).toFixed(1) : '';
+      rows.push([e.name, e.branch, dateStr, dayNames[wd], shiftLabel, a.clockIn||'', a.clockOut||'', hrs]);
+      count++;
+    }
+  });
+  if (count === 0) { alert(`${ym} 에 출퇴근/배정 기록이 없습니다.`); return; }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:10},{wch:6},{wch:12},{wch:5},{wch:13},{wch:8},{wch:8},{wch:11}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, ym);
+  XLSX.writeFile(wb, `출퇴근_${ym}.xlsx`);
+}
 // 근무표대로 출퇴근 일괄 등록 (선택 직원·해당 월) — 휴무/연차/미배정·미래일·이미입력일은 건너뜀
 function bulkFillAttendance() {
   const ym = document.getElementById('att-month').value || thisYearMonth();
@@ -525,7 +561,7 @@ function bulkFillAttendance() {
   const [y, m] = ym.split('-').map(Number);
   const days = new Date(y, m, 0).getDate();
   const todayStr = today();
-  if (!confirm(`${e.name} 직원의 ${ym} 출퇴근을 근무표대로 일괄 등록할까요?\n\n· 오픈 9–18 / 마감 12–21 / 풀 9–21\n· 휴무·연차·미배정일은 건너뜁니다\n· 미래 날짜, 이미 입력된 날은 그대로 둡니다`)) return;
+  if (!confirm(`${e.name} 직원의 ${ym} 출퇴근을 근무표대로 일괄 등록할까요?\n\n· 오픈 9–18 / 마감 12–21 / 풀 9–21\n· 휴무·연차·미배정일은 건너뜁니다\n· 미래 날짜는 제외 · 출퇴근이 모두 있는 날은 그대로 (비어 있는 시간만 채움)`)) return;
   const list = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
   let filled = 0, skipped = 0;
   for (let d = 1; d <= days; d++) {
@@ -534,18 +570,20 @@ function bulkFillAttendance() {
     const wd = new Date(y, m-1, d).getDay();
     const asg = assignedShiftFor(e, dateStr, wd);
     if (!asg || !SHIFT_HOURS[asg.shift]) continue; // 휴무/연차/미배정
-    let rec = list.find(x => x.employeeId === e.id && x.date === dateStr);
-    if (rec && rec.clockIn) { skipped++; continue; } // 이미 입력된 날은 보존
     const h = SHIFT_HOURS[asg.shift];
-    const [ih, im] = h.start.split(':').map(Number);
-    const [oh, om] = h.end.split(':').map(Number);
-    const wm = Math.max(0, (oh*60+om) - (ih*60+im));
+    let rec = list.find(x => x.employeeId === e.id && x.date === dateStr);
+    if (rec && rec.clockIn && rec.clockOut) { skipped++; continue; } // 출·퇴근 모두 있으면 보존
     if (!rec) {
-      list.push({ id: uid(), employeeId: e.id, date: dateStr, clockIn: h.start, clockOut: h.end, branch: asg.branch || e.branch || null, shiftType: asg.shift, workMinutes: wm });
-    } else {
-      rec.clockIn = h.start; rec.clockOut = h.end; rec.shiftType = asg.shift; rec.workMinutes = wm;
-      if (asg.branch) rec.branch = asg.branch;
+      rec = { id: uid(), employeeId: e.id, date: dateStr, clockIn: '', clockOut: '', branch: null, shiftType: '', workMinutes: 0 };
+      list.push(rec);
     }
+    if (!rec.clockIn)  rec.clockIn  = h.start;   // 비어 있는 출근시간만 채움
+    if (!rec.clockOut) rec.clockOut = h.end;     // 비어 있는 퇴근시간만 채움 (← 핵심 수정)
+    rec.shiftType = asg.shift;
+    rec.branch = asg.branch || rec.branch || e.branch || null;
+    const [ih, im] = rec.clockIn.split(':').map(Number);
+    const [oh, om] = rec.clockOut.split(':').map(Number);
+    rec.workMinutes = Math.max(0, (oh*60+om) - (ih*60+im));
     filled++;
   }
   mbSet(MB.ATTENDANCE_KEY, list);

@@ -69,25 +69,20 @@
           <button onclick="resetTransfers()" class="text-[10px] text-[#9CA3AF] hover:text-[#EF4444] border border-[#E5E7EB] hover:border-[#EF4444] rounded px-1.5 py-0.5 font-normal">초기화</button>
         </div>
         <div class="widget-form">
-          <div style="display:flex;gap:4px;align-items:center">
-            <select id="tr-direction" class="input-base" style="flex-shrink:0;width:auto;font-size:.75rem;padding:.35rem .4rem">
-              <option value="연남→홍대">연남→홍대</option>
-              <option value="홍대→연남">홍대→연남</option>
-            </select>
-            <select id="tr-currency" class="input-base" style="flex-shrink:0;width:auto;font-size:.75rem;padding:.35rem .4rem"></select>
-            <input type="number" id="tr-amount" placeholder="수량" class="input-base" style="flex:1;min-width:0">
+          <div style="display:flex;gap:6px;align-items:center">
+            <select id="tr-currency" class="input-base" style="flex-shrink:0;width:84px;font-size:.8rem"></select>
+            <input type="text" id="tr-memo" placeholder="내용 입력 (자유롭게)" class="input-base" style="flex:1;min-width:0">
             <button onclick="addTransfer()" class="btn-add" style="flex-shrink:0">저장</button>
           </div>
         </div>
-        <div class="widget-body text-xs">
+        <div class="widget-body text-xs" style="overflow-y:auto">
           <table class="w-full">
             <thead class="text-[#6B7280] border-b sticky top-0 bg-white">
               <tr>
-                <th class="text-left py-1">방향</th>
-                <th class="text-center">권종</th>
-                <th class="text-right">수량</th>
-                <th class="text-right">시간</th>
-                <th></th>
+                <th class="text-center py-1" style="width:46px">통화</th>
+                <th class="text-left">내용</th>
+                <th class="text-right" style="width:38px">시간</th>
+                <th style="width:18px"></th>
               </tr>
             </thead>
             <tbody id="transfer-list"></tbody>
@@ -327,7 +322,7 @@ function renderHandovers() {
   document.getElementById('handovers-list').innerHTML = all.length === 0
     ? '<p class="text-xs text-[#9CA3AF] text-center py-4">전달사항 없음</p>'
     : all.slice(s, e).map(h => `
-      <div class="${h.targetDate < t ? 'faded':''}" style="display:flex;align-items:flex-start;gap:6px;padding:6px 2px;border-bottom:1px solid #F3F4F6">
+      <div style="display:flex;align-items:flex-start;gap:6px;padding:6px 2px;border-bottom:1px solid #F3F4F6">
         <span class="text-[10px] text-[#F5A623] font-bold shrink-0" style="margin-top:3px">${h.targetDate}</span>
         <span class="text-xs flex-1 ${h.done?'line-through text-[#9CA3AF]':'text-[#1A1A2E]'}" style="white-space:normal;word-break:break-word;line-height:1.5">${_esc(h.content)}</span>
         <button onclick="toggleHandover('${h.id}')" class="shrink-0 text-[10px] font-bold rounded" style="cursor:pointer;white-space:nowrap;margin-top:1px;padding:2px 7px;${h.done ? 'background:#F3F4F6;color:#6B7280' : 'background:#ECFDF5;color:#047857;border:1px solid #A7F3D0'}">${h.done?'취소':'완료'}</button>
@@ -429,37 +424,34 @@ function renderDailyTasks() {
 
 // ─── 지점간 이동 ───
 function addTransfer() {
-  const direction = document.getElementById('tr-direction').value;
-  const currency  = document.getElementById('tr-currency').value;
-  const amount    = Number(document.getElementById('tr-amount').value);
-  if (!amount) { alert('수량을 입력하세요.'); return; }
-  const transfer = { id:uid(), date:today(), direction, currency, amount, rate:0, krwAmount:0, note:'', createdBy:getCurrentUser().name, createdAt:nowTs() };
-  mbPush(MB.TRANSFERS_KEY, transfer);
-  mbPush(MB.TRANSACTIONS_KEY, { id:uid(), date:today(), category:'지점간', counterparty:direction, tradeType:'지점간', currency, amount, rate:0, krwAmount:0, fxAmount:amount, note:'', status:'완료', _transferId:transfer.id });
-  document.getElementById('tr-amount').value = '';
+  const currency = document.getElementById('tr-currency').value;
+  const memo     = document.getElementById('tr-memo').value.trim();
+  if (!memo) { alert('내용을 입력하세요.'); return; }
+  mbPush(MB.TRANSFERS_KEY, { id:uid(), date:today(), currency, memo, createdBy:getCurrentUser().name, createdAt:nowTs() });
+  document.getElementById('tr-memo').value = '';
   _pg.tr = 0;
   renderTransfers();
 }
 function deleteTransfer(id) {
-  if (!confirm('거래관리에서도 함께 삭제됩니다.')) return;
+  if (!confirm('삭제하시겠습니까?')) return;
   mbRemove(MB.TRANSFERS_KEY, x=>x.id===id);
-  mbRemove(MB.TRANSACTIONS_KEY, x=>x._transferId===id);
+  mbRemove(MB.TRANSACTIONS_KEY, x=>x._transferId===id); // 예전 기록(거래관리 연동분) 정리
   renderTransfers();
 }
 function renderTransfers() {
   const all = mbGetOrDefault(MB.TRANSFERS_KEY, []).filter(x=>x.date===today()).sort((a,b)=>b.createdAt-a.createdAt);
   const { s, e } = applyPg('tr', all.length, PG10);
   document.getElementById('transfer-list').innerHTML = all.length === 0
-    ? '<tr><td colspan="5" class="text-center text-[#9CA3AF] py-4 text-xs">오늘 이동 없음</td></tr>'
+    ? '<tr><td colspan="4" class="text-center text-[#9CA3AF] py-4 text-xs">오늘 이동 없음</td></tr>'
     : all.slice(s, e).map(t => {
         const ts = new Date(t.createdAt);
         const tf = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
+        const content = (t.memo != null && t.memo !== '') ? t.memo : (t.direction ? `${t.direction} ${fmtNum(t.amount)}` : '');
         return `<tr class="border-b">
-          <td class="py-1 text-xs ${t.direction==='연남→홍대'?'text-[#EF4444]':'text-[#3B82F6]'}">${t.direction}</td>
-          <td class="text-center text-xs">${t.currency}</td>
-          <td class="text-right text-xs font-medium">${fmtNum(t.amount)}</td>
-          <td class="text-right text-xs text-[#6B7280]">${tf}</td>
-          <td class="text-right w-5"><button onclick="deleteTransfer('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button></td>
+          <td class="py-1 text-xs font-medium text-center" style="white-space:nowrap;vertical-align:top">${_esc(t.currency||'')}</td>
+          <td class="text-xs text-[#374151]" style="white-space:normal;word-break:break-word;vertical-align:top;padding:4px 4px;line-height:1.45">${_esc(content)}</td>
+          <td class="text-right text-xs text-[#6B7280]" style="white-space:nowrap;vertical-align:top">${tf}</td>
+          <td class="text-right w-5" style="vertical-align:top"><button onclick="deleteTransfer('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button></td>
         </tr>`;
       }).join('');
 }
@@ -486,7 +478,7 @@ mbOnDataChange(dashAll);
   });
   bind(['ho-content', 'ho-date'],             addHandover);
   bind(['dt-content'],                        addDailyTask);
-  bind(['tr-amount'],                         addTransfer);
+  bind(['tr-memo'],                           addTransfer);
   bind(['mt-amount', 'mt-rate', 'mt-note'],   addMainTrade);
   bind(['tn-content'],                        addTradeNotice);
 })();
