@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="favicon.png?v=1">
+<link rel="apple-touch-icon" href="favicon.png?v=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 대시보드</title>
@@ -69,10 +71,12 @@
           <button onclick="resetTransfers()" class="text-[10px] text-[#9CA3AF] hover:text-[#EF4444] border border-[#E5E7EB] hover:border-[#EF4444] rounded px-1.5 py-0.5 font-normal">초기화</button>
         </div>
         <div class="widget-form">
-          <div style="display:flex;gap:6px;align-items:center">
-            <select id="tr-currency" class="input-base" style="flex-shrink:0;width:84px;font-size:.8rem"></select>
-            <input type="text" id="tr-memo" placeholder="내용 입력 (자유롭게)" class="input-base" style="flex:1;min-width:0">
-            <button onclick="addTransfer()" class="btn-add" style="flex-shrink:0">저장</button>
+          <div style="display:flex;gap:6px;align-items:flex-start">
+            <select id="tr-currency" class="input-base" style="flex-shrink:0;width:84px;font-size:.8rem;margin-top:1px"></select>
+            <textarea id="tr-memo" rows="1" placeholder="내용 입력 (여러 줄 붙여넣기 OK)" class="input-base"
+              style="flex:1;min-width:0;resize:none;font-family:inherit;line-height:1.45;max-height:160px;overflow-y:auto"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'"></textarea>
+            <button onclick="addTransfer()" class="btn-add" style="flex-shrink:0;margin-top:1px">저장</button>
           </div>
         </div>
         <div class="widget-body text-xs" style="overflow-y:auto">
@@ -428,7 +432,8 @@ function addTransfer() {
   const memo     = document.getElementById('tr-memo').value.trim();
   if (!memo) { alert('내용을 입력하세요.'); return; }
   mbPush(MB.TRANSFERS_KEY, { id:uid(), date:today(), currency, memo, createdBy:getCurrentUser().name, createdAt:nowTs() });
-  document.getElementById('tr-memo').value = '';
+  const ta = document.getElementById('tr-memo');
+  ta.value = ''; ta.style.height = 'auto';
   _pg.tr = 0;
   renderTransfers();
 }
@@ -449,7 +454,7 @@ function renderTransfers() {
         const content = (t.memo != null && t.memo !== '') ? t.memo : (t.direction ? `${t.direction} ${fmtNum(t.amount)}` : '');
         return `<tr class="border-b">
           <td class="py-1 text-xs font-medium text-center" style="white-space:nowrap;vertical-align:top">${_esc(t.currency||'')}</td>
-          <td class="text-xs text-[#374151]" style="white-space:normal;word-break:break-word;vertical-align:top;padding:4px 4px;line-height:1.45">${_esc(content)}</td>
+          <td class="text-xs text-[#374151]" style="white-space:pre-wrap;word-break:break-word;vertical-align:top;padding:4px 4px;line-height:1.45">${_esc(content)}</td>
           <td class="text-right text-xs text-[#6B7280]" style="white-space:nowrap;vertical-align:top">${tf}</td>
           <td class="text-right w-5" style="vertical-align:top"><button onclick="deleteTransfer('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button></td>
         </tr>`;

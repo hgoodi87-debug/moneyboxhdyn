@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="favicon.png?v=1">
+<link rel="apple-touch-icon" href="favicon.png?v=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 근태관리</title>
@@ -222,6 +224,26 @@
 
       <!-- 연차 관리 -->
       <div id="subtab-leave" class="hidden">
+
+        <!-- 연차 현황 (관리자 전용) -->
+        <div id="leave-status-wrap" class="mb-6" style="display:none">
+          <h4 class="font-bold mb-3 text-sm">📋 연차 현황 <span class="text-xs font-normal text-[#9CA3AF]">(입사일 기준 자동 계산)</span></h4>
+          <table class="w-full text-sm">
+            <thead class="bg-[#F5F7FA] text-[#6B7280]">
+              <tr>
+                <th class="py-2 px-3 text-left">직원</th>
+                <th class="py-2 px-3 text-left">지점</th>
+                <th class="py-2 px-3 text-center">입사일</th>
+                <th class="py-2 px-3 text-center">발생 연차</th>
+                <th class="py-2 px-3 text-center">사용 연차</th>
+                <th class="py-2 px-3 text-center">잔여</th>
+              </tr>
+            </thead>
+            <tbody id="leave-status-list"></tbody>
+          </table>
+          <p class="text-xs text-[#9CA3AF] mt-2">· <b>입사일</b>을 수정하면 발생 연차가 자동 재계산됩니다. · <b>사용 연차</b>는 관리자가 직접 입력하세요.</p>
+        </div>
+
         <div class="grid grid-cols-2 gap-6 mb-6">
           <div>
             <h4 class="font-bold mb-3 text-sm">연차 신청</h4>
@@ -518,7 +540,7 @@ function toggleAttEdit() {
   if (bulk) bulk.style.display = _attEditMode ? '' : 'none';
   renderAttEdit();
 }
-// 출퇴근 엑셀 내보내기 (해당 월 · 전 직원, 근무·출근·퇴근·근무시간)
+// 출퇴근/근무 엑셀 내보내기 (해당 월) — ① 월 근무표 그리드 ② 출퇴근 상세
 function exportAttendance() {
   if (typeof XLSX === 'undefined') { alert('엑셀 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도하세요.'); return; }
   const ym = document.getElementById('att-month').value || thisYearMonth();
@@ -530,27 +552,53 @@ function exportAttendance() {
     .sort((a,b) => (branchOrder[a.branch] ?? 9) - (branchOrder[b.branch] ?? 9) || (a.name||'').localeCompare(b.name||''));
   const att = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
   const leaves = mbGetOrDefault(MB.LEAVE_KEY, []);
+  if (emps.length === 0) { alert('직원이 없습니다.'); return; }
+
+  // 배정 라벨 ("연남 오픈" / "휴무" / "연차" / "")  — null 안 나오게
+  const labelFor = (e, dateStr, wd) => {
+    const asg = (typeof assignedShiftFor === 'function') ? assignedShiftFor(e, dateStr, wd) : null;
+    const isLeave = (asg && asg.shift === '연차') || leaves.some(l => l.employeeId===e.id && l.date===dateStr && l.status==='승인');
+    let label = '';
+    if (isLeave) label = '연차';
+    else if (asg && asg.shift === '휴무') label = '휴무';
+    else if (asg) label = `${asg.branch||''} ${asg.shift}`.trim();
+    return { asg, label };
+  };
+
+  // ── 시트1: 월 근무표 (직원 × 일 그리드) ──
+  const head1 = ['직원','지점'];
+  for (let d = 1; d <= days; d++) head1.push(`${d}일(${dayNames[new Date(y,m-1,d).getDay()]})`);
+  const grid = [head1];
+  emps.forEach(e => {
+    const row = [e.name, e.branch];
+    for (let d = 1; d <= days; d++) {
+      const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
+      row.push(labelFor(e, dateStr, new Date(y,m-1,d).getDay()).label);
+    }
+    grid.push(row);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(grid);
+  ws1['!cols'] = [{wch:9},{wch:6}].concat(Array.from({length:days}, () => ({wch:11})));
+
+  // ── 시트2: 출퇴근 상세 (직원·일별, 근무·출근·퇴근·근무시간) ──
   const rows = [['직원','지점','날짜','요일','근무(배정)','출근','퇴근','근무시간(h)']];
-  let count = 0;
   emps.forEach(e => {
     for (let d = 1; d <= days; d++) {
       const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
-      const wd = new Date(y, m-1, d).getDay();
-      const asg = (typeof assignedShiftFor === 'function') ? assignedShiftFor(e, dateStr, wd) : null;
+      const wd = new Date(y,m-1,d).getDay();
+      const { asg, label } = labelFor(e, dateStr, wd);
       const a = att.find(x => x.date === dateStr && x.employeeId === e.id) || {};
       if (!asg && !a.clockIn && !a.clockOut) continue; // 배정·기록 모두 없으면 제외
-      const isLeave = (asg && asg.shift === '연차') || leaves.some(l => l.employeeId===e.id && l.date===dateStr && l.status==='승인');
-      const shiftLabel = isLeave ? '연차' : (asg ? `${asg.branch||''} ${asg.shift}`.trim() : '');
       const hrs = (a.clockIn && a.clockOut) ? (adjustWorkMin(a.workMinutes||0)/60).toFixed(1) : '';
-      rows.push([e.name, e.branch, dateStr, dayNames[wd], shiftLabel, a.clockIn||'', a.clockOut||'', hrs]);
-      count++;
+      rows.push([e.name, e.branch, dateStr, dayNames[wd], label, a.clockIn||'', a.clockOut||'', hrs]);
     }
   });
-  if (count === 0) { alert(`${ym} 에 출퇴근/배정 기록이 없습니다.`); return; }
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:10},{wch:6},{wch:12},{wch:5},{wch:13},{wch:8},{wch:8},{wch:11}];
+  const ws2 = XLSX.utils.aoa_to_sheet(rows);
+  ws2['!cols'] = [{wch:9},{wch:6},{wch:12},{wch:6},{wch:13},{wch:8},{wch:8},{wch:11}];
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, ym);
+  XLSX.utils.book_append_sheet(wb, ws1, '월근무표');
+  XLSX.utils.book_append_sheet(wb, ws2, '출퇴근상세');
   XLSX.writeFile(wb, `출퇴근_${ym}.xlsx`);
 }
 // 근무표대로 출퇴근 일괄 등록 (선택 직원·해당 월) — 휴무/연차/미배정·미래일·이미입력일은 건너뜀
@@ -1030,7 +1078,50 @@ function setLeaveStatus(id, status) {
   mbUpdate(MB.LEAVE_KEY, x => x.id === id, x => x.status = status);
   renderLeaves();
 }
+// 연차 현황 (관리자): 입사일 수정 → 발생 연차 자동계산, 사용 연차 직접 입력
+function renderLeaveStatus() {
+  const wrap = document.getElementById('leave-status-wrap');
+  if (!wrap) return;
+  if (typeof isAdmin === 'function' && !isAdmin()) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const branchOrder = { '홍대':0, '연남':1 };
+  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, [])
+    .slice().sort((a,b) => (branchOrder[a.branch] ?? 9) - (branchOrder[b.branch] ?? 9) || (a.name||'').localeCompare(b.name||''));
+  const inStyle = 'border:1px solid #E5E7EB;border-radius:.4rem;padding:.25rem .4rem;font-size:.8rem;outline:none';
+  document.getElementById('leave-status-list').innerHTML = emps.length === 0
+    ? '<tr><td colspan="6" class="py-4 text-center text-[#9CA3AF]">직원 없음</td></tr>'
+    : emps.map(e => {
+        const total  = (typeof calcLeave === 'function' && e.joinDate) ? calcLeave(e.joinDate) : 0;
+        const used   = Number(e.usedLeave || 0);
+        const remain = total - used;
+        return `<tr class="border-b">
+          <td class="py-2 px-3 font-medium">${e.name}</td>
+          <td class="py-2 px-3 text-[#6B7280]">${e.branch||''}</td>
+          <td class="py-2 px-3 text-center"><input type="date" value="${e.joinDate||''}" onchange="updateEmpJoinDate('${e.id}', this.value)" style="${inStyle};width:140px"></td>
+          <td class="py-2 px-3 text-center font-bold text-[#1A1A2E]">${total}일</td>
+          <td class="py-2 px-3 text-center"><input type="number" min="0" value="${used}" onchange="updateEmpUsedLeave('${e.id}', this.value)" style="${inStyle};width:60px;text-align:center"></td>
+          <td class="py-2 px-3 text-center font-bold ${remain<0?'text-[#EF4444]':'text-[#10B981]'}">${remain}일</td>
+        </tr>`;
+      }).join('');
+}
+function updateEmpJoinDate(id, val) {
+  if (typeof isAdmin === 'function' && !isAdmin()) return;
+  const list = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
+  const e = list.find(x => x.id === id); if (!e) return;
+  e.joinDate = val;
+  mbSet(MB.EMPLOYEES_KEY, list);
+  renderLeaveStatus();
+}
+function updateEmpUsedLeave(id, val) {
+  if (typeof isAdmin === 'function' && !isAdmin()) return;
+  const list = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
+  const e = list.find(x => x.id === id); if (!e) return;
+  e.usedLeave = Math.max(0, Number(val) || 0);
+  mbSet(MB.EMPLOYEES_KEY, list);
+  renderLeaveStatus();
+}
 function renderLeaves() {
+  renderLeaveStatus();
   const list = mbGetOrDefault(MB.LEAVE_KEY, []);
   const me = getCurrentUser();
   const mine = list.filter(l => l.employeeId === me.id).sort((a,b) => b.date.localeCompare(a.date));
