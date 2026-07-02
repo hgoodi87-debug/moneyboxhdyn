@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=29">
-<link rel="apple-touch-icon" href="favicon.png?v=29">
+<link rel="icon" type="image/png" href="favicon.png?v=31">
+<link rel="apple-touch-icon" href="favicon.png?v=31">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=29">
+<link rel="stylesheet" href="css/mb.css?v=31">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=29"></script>
-<script src="js/mb-data.js?v=29"></script>
-<script src="js/mb-sync.js?v=29"></script>
+<script src="js/firebase-config.js?v=31"></script>
+<script src="js/mb-data.js?v=31"></script>
+<script src="js/mb-sync.js?v=31"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -92,11 +92,12 @@
   </div>
 
   <!-- 4개 시트 탭 + 표 중앙 정렬 wrapper -->
-  <div class="tr-tabs flex items-end mb-0" style="border-bottom:1px solid #E5E7EB;max-width:640px;width:100%">
+  <div class="tr-tabs flex items-end mb-0" style="border-bottom:1px solid #E5E7EB;max-width:640px;width:100%;overflow-x:auto">
     <button class="sheet-tab active" onclick="switchSheet(1)" id="tab-1">홍대 연남 지점간 거래</button>
     <button class="sheet-tab" onclick="switchSheet(2)" id="tab-2">외부거래1</button>
     <button class="sheet-tab" onclick="switchSheet(3)" id="tab-3">외부거래2</button>
     <button class="sheet-tab" onclick="switchSheet(4)" id="tab-4">연남 마감</button>
+    <button class="sheet-tab" onclick="switchSheet(6)" id="tab-6">은행</button>
     <button class="sheet-tab" onclick="switchSheet(5)" id="tab-5">인천공항</button>
   </div>
 
@@ -106,6 +107,7 @@
     <div id="sheet-2" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
     <div id="sheet-3" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
     <div id="sheet-4" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
+    <div id="sheet-6" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
     <div id="sheet-5" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
   </div>
   </div>
@@ -139,9 +141,9 @@ let currentSheet = 1;
 const TOTAL_ROWS = 20;
 const TYPES = ['','매각','매입','외화미수금'];
 const TYPES_EXT = ['','매각','매입','외화미수금','지급완료']; // 외부거래1,2 + 연남마감용
-const SHEET_NAMES = { 1:'홍대 연남 지점간 거래', 2:'외부거래1', 3:'외부거래2', 4:'연남 마감', 5:'인천공항' };
-const SHEET_EXT = [1, 2, 3, 4, 5]; // 지급완료 옵션 있는 시트
-const SHEETS = [1,2,3,4,5];
+const SHEET_NAMES = { 1:'홍대 연남 지점간 거래', 2:'외부거래1', 3:'외부거래2', 4:'연남 마감', 6:'은행', 5:'인천공항' };
+const SHEET_EXT = [1, 2, 3, 4, 5, 6]; // 지급완료 옵션 있는 시트
+const SHEETS = [1,2,3,4,6,5];
 const INCHEON = 5; // 인천공항: 원화수령 전까지 미수금 유지 (지급완료 눌러도 원화 안 사라짐)
 
 document.getElementById('trade-date').value = currentDate;
@@ -443,6 +445,15 @@ function toggleReceived(id) {
   renderSheet(INCHEON);
 }
 
+// 인천공항: 값이 입력되면 재렌더 없이 '원화수령' 버튼을 즉시 노출
+function ensureIncheonBtn(tr, id) {
+  if (!tr || Number(tr.dataset.sheet) !== INCHEON) return;
+  const cell = tr.cells[0];
+  if (cell && !cell.querySelector('.inc-btn')) {
+    cell.innerHTML = `<button type="button" class="inc-btn wait" onclick="toggleReceived('${id}')">원화수령</button>`;
+  }
+}
+
 function krwColor(tradeType) {
   if (tradeType === '매각') return '#2563EB';
   if (tradeType === '매입') return '#DC2626';
@@ -607,6 +618,7 @@ function bindEvents(sheet) {
     }
     _commitEditSnap();
     mbSet(MB.TRANSACTIONS_KEY, list);
+    if (sheet === INCHEON) ensureIncheonBtn(tr, id);
     if (field === 'tradeType' || isNew) {
       tr.classList.remove('empty','t-매입','t-매각','t-외화미수금','t-지급완료','t-');
       if (tx.tradeType) tr.classList.add('t-' + tx.tradeType);
@@ -641,6 +653,7 @@ function bindEvents(sheet) {
       tx[field] = (field==='amount'||field==='rate') ? parseNum(target.value) : target.value;
     }
     mbSet(MB.TRANSACTIONS_KEY, list);
+    if (sheet === INCHEON) ensureIncheonBtn(tr, id);
     if (field==='amount' || field==='rate') updateKrwCell(tr);
   });
 

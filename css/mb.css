@@ -10,6 +10,9 @@ header.fixed { position: fixed !important; top: 0; left: 0; right: 0; }
 
 #mb-burger { display:none; }
 
+/* 대시보드: 데스크톱 폭 유지 → 좁아지면 세로로 찌그러지지 말고 가로 스크롤 (모바일 미만은 세로 스택) */
+.dash-row { min-width: 1280px; max-width: 1600px; margin-left: auto; margin-right: auto; }
+
 /* ===== 반응형 (태블릿/모바일) ===== */
 @media (max-width: 860px) {
   /* 헤더: 네비를 햄버거 드롭다운으로 */
