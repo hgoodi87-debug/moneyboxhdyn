@@ -1,5 +1,5 @@
 /* 머니박스 공통 스타일 */
-body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; overflow-x: hidden; }
+body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; overflow-x: clip; }
 /* 상단 헤더는 항상 화면에 고정 (상하좌우 스크롤 무관) */
 header.fixed { position: fixed !important; top: 0; left: 0; right: 0; }
 

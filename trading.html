@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=1">
-<link rel="apple-touch-icon" href="favicon.png?v=1">
+<link rel="icon" type="image/png" href="favicon.png?v=29">
+<link rel="apple-touch-icon" href="favicon.png?v=29">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=28">
+<link rel="stylesheet" href="css/mb.css?v=29">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=28"></script>
-<script src="js/mb-data.js?v=28"></script>
-<script src="js/mb-sync.js?v=28"></script>
+<script src="js/firebase-config.js?v=29"></script>
+<script src="js/mb-data.js?v=29"></script>
+<script src="js/mb-sync.js?v=29"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -51,6 +51,11 @@
   .ss-table select.type-외화미수금 { color:#059669; font-weight:700; }
   .ss-table select.type-지급완료 { color:#7C3AED; font-weight:700; }
   .ss-table tr.t-지급완료 td { background:#F5F3FF; }
+  /* 인천공항: 원화수령 완료 행 */
+  .ss-table tr.inc-received td { background:#F3F4F6 !important; opacity:.6; }
+  .inc-btn { width:100%; border-radius:.35rem; padding:.22rem; font-size:.68rem; font-weight:700; cursor:pointer; line-height:1.2; }
+  .inc-btn.wait { background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; }
+  .inc-btn.done { background:#E5E7EB; color:#6B7280; border:1px solid #D1D5DB; }
   .ss-table tfoot td { padding:.45rem .4rem; font-size:.8rem; font-weight:700; border:1px solid #E5E7EB; }
   .ss-table tfoot tr.foot-buy td  { background:#FEF2F2; color:#991B1B; }
   .ss-table tfoot tr.foot-sell td { background:#EFF6FF; color:#1E40AF; }
@@ -92,6 +97,7 @@
     <button class="sheet-tab" onclick="switchSheet(2)" id="tab-2">외부거래1</button>
     <button class="sheet-tab" onclick="switchSheet(3)" id="tab-3">외부거래2</button>
     <button class="sheet-tab" onclick="switchSheet(4)" id="tab-4">연남 마감</button>
+    <button class="sheet-tab" onclick="switchSheet(5)" id="tab-5">인천공항</button>
   </div>
 
   <!-- 4개 표 (탭 전환) -->
@@ -100,6 +106,7 @@
     <div id="sheet-2" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
     <div id="sheet-3" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
     <div id="sheet-4" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
+    <div id="sheet-5" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
   </div>
   </div>
 </main>
@@ -132,9 +139,10 @@ let currentSheet = 1;
 const TOTAL_ROWS = 20;
 const TYPES = ['','매각','매입','외화미수금'];
 const TYPES_EXT = ['','매각','매입','외화미수금','지급완료']; // 외부거래1,2 + 연남마감용
-const SHEET_NAMES = { 1:'홍대 연남 지점간 거래', 2:'외부거래1', 3:'외부거래2', 4:'연남 마감' };
-const SHEET_EXT = [1, 2, 3, 4]; // 지급완료 옵션 있는 시트
-const SHEETS = [1,2,3,4];
+const SHEET_NAMES = { 1:'홍대 연남 지점간 거래', 2:'외부거래1', 3:'외부거래2', 4:'연남 마감', 5:'인천공항' };
+const SHEET_EXT = [1, 2, 3, 4, 5]; // 지급완료 옵션 있는 시트
+const SHEETS = [1,2,3,4,5];
+const INCHEON = 5; // 인천공항: 원화수령 전까지 미수금 유지 (지급완료 눌러도 원화 안 사라짐)
 
 document.getElementById('trade-date').value = currentDate;
 document.getElementById('trade-date').addEventListener('change', e => { currentDate = e.target.value; renderAll(); });
@@ -334,6 +342,7 @@ function emptyTpl(sheet) {
 }
 
 function buildTable(sheet) {
+  if (sheet === INCHEON) return buildIncheonTable(sheet);
   const sumBuyId = `sum-buy-${sheet}`, sumSellId = `sum-sell-${sheet}`, sumTotalId = `sum-total-${sheet}`;
   return `<table class="ss-table" id="ss-table-${sheet}">
     <colgroup>
@@ -359,6 +368,79 @@ function buildTable(sheet) {
       <tr class="foot-total"><td colspan="5" style="text-align:right">총계</td><td class="calc total-val" id="${sumTotalId}">0</td></tr>
     </tfoot>
   </table>`;
+}
+
+// ─── 인천공항 시트 (미수금 / 원화수령) ───
+function buildIncheonTable(sheet) {
+  const sumId = `sum-incheon-${sheet}`;
+  return `<table class="ss-table" id="ss-table-${sheet}">
+    <colgroup>
+      <col style="width:96px">
+      <col style="width:80px">
+      <col style="width:66px">
+      <col style="width:108px">
+      <col style="width:90px">
+      <col style="width:112px">
+    </colgroup>
+    <thead><tr>
+      <th>원화수령</th>
+      <th>거래종류</th>
+      <th>통화</th>
+      <th class="text-right">금액</th>
+      <th class="text-right">환율</th>
+      <th class="text-right">원화(미수)</th>
+    </tr></thead>
+    <tbody id="tbody-${sheet}"></tbody>
+    <tfoot>
+      <tr class="foot-total"><td colspan="5" style="text-align:right">받을 원화 합계 (미수금)</td><td class="calc total-val" id="${sumId}">0</td></tr>
+    </tfoot>
+  </table>`;
+}
+function incheonKrw(amount, rate) { return parseNum(amount) * parseNum(rate); }
+function buildIncheonRow(tx, isEmpty, sheet) {
+  const optType = TYPES_EXT.map(c => `<option value="${c}" ${tx.tradeType===c?'selected':''}>${c||'선택'}</option>`).join('');
+  const typeClass = tx.tradeType ? `type-${tx.tradeType}` : '';
+  const optCurr = MB.CURRENCIES.map(c => `<option value="${c}" ${tx.currency===c?'selected':''}>${c}</option>`).join('');
+  const received = !!tx.received;
+  const krwVal = isEmpty ? 0 : (Number(tx.amount||0) * Number(tx.rate||0));
+  const krwTxt = krwVal ? fmtNum(krwVal) : '';
+  const krwStyle = received ? 'color:#9CA3AF;text-decoration:line-through' : 'color:#047857';
+  const rowCls = (isEmpty ? 'empty' : `t-${tx.tradeType}`) + (received ? ' inc-received' : '');
+  const rowStyle = (!isEmpty && !tx.tradeType && !received) ? 'color:#9CA3AF' : '';
+  const btn = isEmpty ? '' : (received
+    ? `<button type="button" class="inc-btn done" onclick="toggleReceived('${tx.id}')">✓ 수령됨</button>`
+    : `<button type="button" class="inc-btn wait" onclick="toggleReceived('${tx.id}')">원화수령</button>`);
+  return `<tr data-id="${tx.id}" data-sheet="${sheet}" class="${rowCls}" style="${rowStyle}">
+    <td style="padding:2px 3px">${btn}</td>
+    <td><select data-field="tradeType" class="${typeClass}" onchange="this.className='type-'+this.value; updateKrwCell(this.closest('tr'));">${optType}</select></td>
+    <td><select data-field="currency">${optCurr}</select></td>
+    <td><input type="text" inputmode="numeric" class="num" value="${fmtInput(tx.amount)}" data-field="amount" placeholder="0"></td>
+    <td><input type="text" inputmode="decimal" class="num" value="${fmtInput(tx.rate)}" data-field="rate" placeholder="0"></td>
+    <td class="calc cell-krw" style="${krwStyle}">${krwTxt}</td>
+  </tr>`;
+}
+function updateIncheonSummary(sheet) {
+  const tbody = document.getElementById(`tbody-${sheet}`);
+  let total = 0;
+  if (tbody) {
+    Array.from(tbody.rows).forEach(tr => {
+      if (tr.classList.contains('inc-received')) return; // 수령완료는 미수금에서 제외
+      const amtEl = tr.querySelector('input[data-field="amount"]');
+      const rateEl = tr.querySelector('input[data-field="rate"]');
+      total += parseNum(amtEl?.value) * parseNum(rateEl?.value);
+    });
+  }
+  const el = document.getElementById(`sum-incheon-${sheet}`);
+  if (el) el.textContent = fmtNum(total);
+}
+function toggleReceived(id) {
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  const tx = list.find(x => x.id === id);
+  if (!tx) return; // 아직 데이터 없는 행은 무시
+  if (typeof pushUndo === 'function') pushUndo();
+  tx.received = !tx.received;
+  mbSet(MB.TRANSACTIONS_KEY, list);
+  renderSheet(INCHEON);
 }
 
 function krwColor(tradeType) {
@@ -403,6 +485,7 @@ function applyCommaFormat(el) {
 }
 
 function buildRow(tx, isEmpty, sheet) {
+  if (sheet === INCHEON) return buildIncheonRow(tx, isEmpty, sheet);
   const cls = isEmpty ? 'empty' : `t-${tx.tradeType}`;
   const typeList = SHEET_EXT.includes(sheet) ? TYPES_EXT : TYPES;
   const optType = typeList.map(c => `<option value="${c}" ${tx.tradeType===c?'selected':''}>${c||'선택'}</option>`).join('');
@@ -422,22 +505,35 @@ function buildRow(tx, isEmpty, sheet) {
 }
 
 function updateKrwCell(tr) {
-  const t    = tr.querySelector('select[data-field="tradeType"]')?.value || '';
+  const sheet = Number(tr.dataset.sheet) || currentSheet;
   const amt  = parseNum(tr.querySelector('input[data-field="amount"]')?.value);
   const rate = parseNum(tr.querySelector('input[data-field="rate"]')?.value);
   const c    = tr.querySelector('.cell-krw');
   if (!c) return;
+  if (sheet === INCHEON) {
+    // 인천공항: 거래종류와 무관하게 항상 원화(미수금) = 금액×환율 표시
+    const v = amt * rate;
+    c.textContent = v ? fmtNum(v) : '';
+    updateSummary(sheet);
+    return;
+  }
+  const t = tr.querySelector('select[data-field="tradeType"]')?.value || '';
   c.textContent  = krwDisplay(t, amt, rate);
   c.style.color  = krwColor(t);
-  const sheet = Number(tr.dataset.sheet) || currentSheet;
   updateSummary(sheet);
 }
 
 function renderSheet(sheet) {
   const list = rowsForSheet(sheet);
-  let html = list.map(tx => buildRow(tx, false, sheet)).join('');
-  const empties = Math.max(0, TOTAL_ROWS - list.length);
-  for (let i = 0; i < empties; i++) html += buildRow(emptyTpl(sheet), true, sheet);
+  // 입력한 위치(row)를 그대로 유지 — 위로 정리되지 않게 (빈 칸 허용)
+  const slots = new Array(TOTAL_ROWS).fill(null);
+  const overflow = [];
+  list.forEach(tx => {
+    if (Number.isInteger(tx.row) && tx.row >= 0 && tx.row < TOTAL_ROWS && slots[tx.row] === null) slots[tx.row] = tx;
+    else overflow.push(tx); // row 없는 기존 데이터/충돌은 빈 슬롯 순서대로
+  });
+  overflow.forEach(tx => { const i = slots.indexOf(null); if (i >= 0) slots[i] = tx; else slots.push(tx); });
+  const html = slots.map(tx => tx ? buildRow(tx, false, sheet) : buildRow(emptyTpl(sheet), true, sheet)).join('');
   document.getElementById(`tbody-${sheet}`).innerHTML = html;
   updateSummary(sheet);
 }
@@ -452,6 +548,7 @@ function renderAll() {
 }
 
 function updateSummary(sheet) {
+  if (sheet === INCHEON) return updateIncheonSummary(sheet);
   // DOM에서 직접 읽어 계산 (localStorage 저장 타이밍 문제 방지)
   const tbody = document.getElementById(`tbody-${sheet}`);
   let buy = 0, sell = 0;
@@ -497,6 +594,7 @@ function bindEvents(sheet) {
     if (isNew) {
       tx = emptyTpl(sheet);
       tx.id = id;
+      tx.row = Array.from(tbody.rows).indexOf(tr); // 입력한 위치 고정 (위로 안 올라오게)
       // 새 행: 변경된 필드 하나만 쓰지 않고 DOM의 현재 모든 필드 값을 읽어 저장
       tr.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
         const f = el.dataset.field;
@@ -532,6 +630,7 @@ function bindEvents(sheet) {
     let tx = list.find(x => x.id === id);
     if (!tx) {
       tx = emptyTpl(sheet); tx.id = id;
+      tx.row = Array.from(tbody.rows).indexOf(tr); // 입력한 위치 고정
       tr.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
         const f = el.dataset.field;
         tx[f] = (f==='amount'||f==='rate') ? parseNum(el.value) : el.value;
@@ -662,7 +761,7 @@ function bindSelEvents(sheet) {
     sel._pendingStart = {sheet, r, c};
     sel.dragging = true;
     // input/select가 아닌 영역은 셀 선택으로 즉시 처리
-    if (e.target.tagName!=='INPUT' && e.target.tagName!=='SELECT') {
+    if (e.target.tagName!=='INPUT' && e.target.tagName!=='SELECT' && e.target.tagName!=='BUTTON') {
       Object.assign(sel, {sheet, r1:r, c1:c, r2:r, c2:c});
       applySel(); e.preventDefault();
     }
@@ -872,7 +971,7 @@ function pasteData(text) {
       if (!inp) return;
       val = val.trim();
       inp.value = (field==='amount'||field==='rate') ? fmtInput(val) : val;
-      if (!tx && val) { tx = emptyTpl(sheet); tx.id = txId; list.push(tx); }
+      if (!tx && val) { tx = emptyTpl(sheet); tx.id = txId; tx.row = startR + ri; list.push(tx); }
       if (tx) {
         tx[field] = (field==='amount'||field==='rate') ? parseNum(val) : val;
         if (field==='tradeType') {
