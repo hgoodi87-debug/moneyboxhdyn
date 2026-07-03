@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=31">
-<link rel="apple-touch-icon" href="favicon.png?v=31">
+<link rel="icon" type="image/png" href="favicon.png?v=32">
+<link rel="apple-touch-icon" href="favicon.png?v=32">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=31">
+<link rel="stylesheet" href="css/mb.css?v=32">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=31"></script>
-<script src="js/mb-data.js?v=31"></script>
-<script src="js/mb-sync.js?v=31"></script>
+<script src="js/firebase-config.js?v=32"></script>
+<script src="js/mb-data.js?v=32"></script>
+<script src="js/mb-sync.js?v=32"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -53,9 +53,11 @@
   .ss-table tr.t-지급완료 td { background:#F5F3FF; }
   /* 인천공항: 원화수령 완료 행 */
   .ss-table tr.inc-received td { background:#F3F4F6 !important; opacity:.6; }
-  .inc-btn { width:100%; border-radius:.35rem; padding:.22rem; font-size:.68rem; font-weight:700; cursor:pointer; line-height:1.2; }
+  .inc-btn { width:100%; border-radius:.35rem; padding:.22rem; font-size:.68rem; font-weight:700; cursor:pointer; line-height:1.2; white-space:nowrap; overflow:hidden; }
   .inc-btn.wait { background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; }
   .inc-btn.done { background:#E5E7EB; color:#6B7280; border:1px solid #D1D5DB; }
+  .inc-del { flex:0 0 auto; width:18px; height:22px; border-radius:.3rem; border:1px solid #FCA5A5; background:#FEF2F2; color:#DC2626; font-size:.9rem; font-weight:700; line-height:1; cursor:pointer; padding:0; }
+  .inc-del:hover { background:#FEE2E2; }
   .ss-table tfoot td { padding:.45rem .4rem; font-size:.8rem; font-weight:700; border:1px solid #E5E7EB; }
   .ss-table tfoot tr.foot-buy td  { background:#FEF2F2; color:#991B1B; }
   .ss-table tfoot tr.foot-sell td { background:#EFF6FF; color:#1E40AF; }
@@ -334,8 +336,11 @@ function switchSheet(n) {
 }
 
 function rowsForSheet(sheet) {
-  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, [])
-    .filter(x => x.date === currentDate && (x.sheet||1) === sheet);
+  const all = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  // 인천공항: 날짜와 무관하게 모든 거래를 누적 표시 (완료 건은 수동 삭제)
+  const list = (sheet === INCHEON)
+    ? all.filter(x => (x.sheet||1) === INCHEON)
+    : all.filter(x => x.date === currentDate && (x.sheet||1) === sheet);
   list.sort((a,b) => (a.id||'').localeCompare(b.id||''));
   return list;
 }
@@ -375,7 +380,11 @@ function buildTable(sheet) {
 // ─── 인천공항 시트 (미수금 / 원화수령) ───
 function buildIncheonTable(sheet) {
   const sumId = `sum-incheon-${sheet}`;
-  return `<table class="ss-table" id="ss-table-${sheet}">
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+      <span style="font-size:.7rem;color:#6B7280;line-height:1.35">📌 인천공항은 <b>날짜와 무관하게 계속 누적</b>됩니다. 완료된 건은 각 행의 <b style="color:#DC2626">×</b> 또는 오른쪽 버튼으로 지우세요.</span>
+      <button type="button" onclick="deleteIncheonReceived()" style="flex:0 0 auto;font-size:.7rem;color:#DC2626;border:1px solid #FCA5A5;border-radius:.35rem;padding:.25rem .55rem;background:#FEF2F2;cursor:pointer;white-space:nowrap;font-weight:600">🗑 수령완료 삭제</button>
+    </div>
+    <table class="ss-table" id="ss-table-${sheet}">
     <colgroup>
       <col style="width:96px">
       <col style="width:80px">
@@ -409,9 +418,10 @@ function buildIncheonRow(tx, isEmpty, sheet) {
   const krwStyle = received ? 'color:#9CA3AF;text-decoration:line-through' : 'color:#047857';
   const rowCls = (isEmpty ? 'empty' : `t-${tx.tradeType}`) + (received ? ' inc-received' : '');
   const rowStyle = (!isEmpty && !tx.tradeType && !received) ? 'color:#9CA3AF' : '';
-  const btn = isEmpty ? '' : (received
-    ? `<button type="button" class="inc-btn done" onclick="toggleReceived('${tx.id}')">✓ 수령됨</button>`
-    : `<button type="button" class="inc-btn wait" onclick="toggleReceived('${tx.id}')">원화수령</button>`);
+  const mainBtn = received
+    ? `<button type="button" class="inc-btn done" onclick="toggleReceived('${tx.id}')" style="flex:1">✓ 수령됨</button>`
+    : `<button type="button" class="inc-btn wait" onclick="toggleReceived('${tx.id}')" style="flex:1">원화수령</button>`;
+  const btn = isEmpty ? '' : `<div style="display:flex;gap:2px;align-items:center">${mainBtn}<button type="button" class="inc-del" onclick="deleteIncheonRow('${tx.id}')" title="삭제">×</button></div>`;
   return `<tr data-id="${tx.id}" data-sheet="${sheet}" class="${rowCls}" style="${rowStyle}">
     <td style="padding:2px 3px">${btn}</td>
     <td><select data-field="tradeType" class="${typeClass}" onchange="this.className='type-'+this.value; updateKrwCell(this.closest('tr'));">${optType}</select></td>
@@ -450,8 +460,33 @@ function ensureIncheonBtn(tr, id) {
   if (!tr || Number(tr.dataset.sheet) !== INCHEON) return;
   const cell = tr.cells[0];
   if (cell && !cell.querySelector('.inc-btn')) {
-    cell.innerHTML = `<button type="button" class="inc-btn wait" onclick="toggleReceived('${id}')">원화수령</button>`;
+    cell.innerHTML = `<div style="display:flex;gap:2px;align-items:center">`
+      + `<button type="button" class="inc-btn wait" onclick="toggleReceived('${id}')" style="flex:1">원화수령</button>`
+      + `<button type="button" class="inc-del" onclick="deleteIncheonRow('${id}')" title="삭제">×</button></div>`;
   }
+}
+
+// 인천공항: 개별 행 삭제 (기록 로그에 남겨 30일 복구 가능)
+function deleteIncheonRow(id) {
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  const tx = list.find(x => x.id === id);
+  if (!tx) { renderSheet(INCHEON); return; }
+  if (!confirm('이 거래를 삭제할까요?\n(기록 로그에서 30일간 복구할 수 있어요)')) return;
+  if (typeof mbLogDelete === 'function')
+    mbLogDelete('인천공항 삭제', MB.TRANSACTIONS_KEY, [tx], t => `${t.currency||''} ${fmtNum(t.amount)} × ${t.rate}${t.received?' (수령완료)':''}`);
+  mbSet(MB.TRANSACTIONS_KEY, list.filter(x => x.id !== id));
+  renderSheet(INCHEON);
+}
+// 인천공항: 수령완료(수령됨) 건 일괄 삭제
+function deleteIncheonReceived() {
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  const received = list.filter(x => (x.sheet||1) === INCHEON && x.received);
+  if (!received.length) { alert('삭제할 수령완료 건이 없습니다.'); return; }
+  if (!confirm(`수령완료된 ${received.length}건을 모두 삭제할까요?\n(기록 로그에서 30일간 복구할 수 있어요)`)) return;
+  if (typeof mbLogDelete === 'function')
+    mbLogDelete('인천공항 삭제', MB.TRANSACTIONS_KEY, received, t => `${t.currency||''} ${fmtNum(t.amount)} × ${t.rate}`);
+  mbSet(MB.TRANSACTIONS_KEY, list.filter(x => !((x.sheet||1) === INCHEON && x.received)));
+  renderSheet(INCHEON);
 }
 
 function krwColor(tradeType) {
@@ -536,6 +571,15 @@ function updateKrwCell(tr) {
 
 function renderSheet(sheet) {
   const list = rowsForSheet(sheet);
+  if (sheet === INCHEON) {
+    // 날짜 무관 누적 원장: 모든 거래를 시간순으로 나열 + 입력용 빈 행 (최소 20행 유지)
+    const filled = list.map(tx => buildRow(tx, false, sheet));
+    const tail = Math.max(TOTAL_ROWS - filled.length, 5);
+    const empties = Array.from({ length: tail }, () => buildRow(emptyTpl(sheet), true, sheet));
+    document.getElementById(`tbody-${sheet}`).innerHTML = filled.concat(empties).join('');
+    updateSummary(sheet);
+    return;
+  }
   // 입력한 위치(row)를 그대로 유지 — 위로 정리되지 않게 (빈 칸 허용)
   const slots = new Array(TOTAL_ROWS).fill(null);
   const overflow = [];
@@ -864,15 +908,25 @@ document.addEventListener('keydown', async e => {
         focusCell(sel.sheet, sel.r1, sel.c1, true);
         return;
       }
-      // 셀 선택 상태에서 Delete/Backspace → 내용 지우기
+      // 셀 선택 상태에서 Delete/Backspace → 선택한 범위 전체 내용 지우기
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        const td = tbody.rows[sel.r1]?.cells[sel.c1];
-        const inp = td?.querySelector('input,select');
-        if (inp) {
-          if (inp.tagName === 'SELECT') inp.selectedIndex = 0; else inp.value = '';
-          inp.dispatchEvent(new Event('change', { bubbles: true }));
+        const minR = Math.min(sel.r1, sel.r2), maxR = Math.max(sel.r1, sel.r2);
+        const minC = Math.min(sel.c1, sel.c2), maxC = Math.max(sel.c1, sel.c2);
+        pushUndo();                             // 삭제 전 상태 1개만 저장 → Ctrl+Z 한 번에 복구
+        _editSnap = null; _editSnapUsed = true; // change 핸들러가 스냅샷을 중복으로 안 쌓게
+        for (let r = minR; r <= maxR; r++) {
+          const tr = tbody.rows[r];
+          if (!tr) continue;
+          for (let c = minC; c <= maxC; c++) {
+            const inp = tr.cells[c]?.querySelector('input,select');
+            if (!inp) continue; // 원화(자동계산) 열 등은 건너뜀
+            if (inp.tagName === 'SELECT') { if (inp.selectedIndex === 0) continue; inp.selectedIndex = 0; }
+            else { if (inp.value === '') continue; inp.value = ''; }
+            inp.dispatchEvent(new Event('change', { bubbles: true }));
+          }
         }
+        applySel(); // 지운 뒤에도 선택 표시 유지
         return;
       }
       // 셀 선택 상태에서 글자 입력 → 바로 편집 시작
