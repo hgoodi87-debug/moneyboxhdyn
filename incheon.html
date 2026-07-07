@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="favicon.png?v=39">
+<link rel="apple-touch-icon" href="favicon.png?v=39">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>MoneyBox 인천공항</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="css/mb.css?v=39">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js?v=39"></script>
+<script src="js/mb-data.js?v=39"></script>
+<script src="js/mb-sync.js?v=39"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+  .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .ss-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+  .ss-table th { background:#F5F7FA; color:#6B7280; font-weight:600; padding:.35rem .2rem; border:1px solid #E5E7EB; font-size:.72rem; white-space:nowrap; }
+  .ss-table td { border:1px solid #E5E7EB; padding:0; height:28px; vertical-align:middle; background:#fff; }
+  .ss-table tr.empty td { background:#FAFAFA; }
+  .ss-table input, .ss-table select {
+    width:100%; height:28px; border:none; background:transparent;
+    padding:0 .2rem; font-size:.78rem; outline:none; box-sizing:border-box; font-family:inherit;
+  }
+  .ss-table input:focus, .ss-table select:focus { background:#FFF8EC; box-shadow:inset 0 0 0 2px #F5A623; border-radius:2px; }
+  .ss-table input.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .ss-table .calc { text-align:right; padding:0 .25rem; font-weight:700; font-variant-numeric:tabular-nums; }
+  .ss-table select.type-매입 { color:#DC2626; font-weight:700; }
+  .ss-table select.type-매각 { color:#2563EB; font-weight:700; }
+  .ss-table select.type-외화미수금 { color:#059669; font-weight:700; }
+  .ss-table select.type-지급완료 { color:#7C3AED; font-weight:700; }
+  .ss-table tr.inc-received td { background:#F3F4F6 !important; opacity:.6; }
+  .inc-btn { width:100%; border-radius:.35rem; padding:.22rem; font-size:.68rem; font-weight:700; cursor:pointer; line-height:1.2; white-space:nowrap; overflow:hidden; }
+  .inc-btn.wait { background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; }
+  .inc-btn.done { background:#E5E7EB; color:#6B7280; border:1px solid #D1D5DB; }
+  .inc-del { flex:0 0 auto; width:18px; height:22px; border-radius:.3rem; border:1px solid #FCA5A5; background:#FEF2F2; color:#DC2626; font-size:.9rem; font-weight:700; line-height:1; cursor:pointer; padding:0; }
+  .inc-del:hover { background:#FEE2E2; }
+  .ss-table tfoot td { padding:.45rem .4rem; font-size:.8rem; font-weight:700; border:1px solid #E5E7EB; }
+  .ss-table tfoot tr.foot-total td { background:#1E2A3A; color:#fff; }
+  .ss-table tfoot tr.foot-total td.total-val { color:#F5A623; font-size:.95rem; }
+  @media (max-width: 640px) {
+    .card { padding:.35rem; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .ss-table { min-width:540px; font-size:.74rem; }
+    .ss-table th { font-size:.66rem; padding:.3rem 2px; }
+    .ss-table input, .ss-table select { font-size:.72rem; padding:0 3px; height:30px; }
+    .ss-table td { height:30px; }
+  }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<div id="mb-header"></div>
+
+<main class="pt-[92px] min-h-screen pb-8" style="padding-left:clamp(16px,10vw,240px);padding-right:clamp(16px,10vw,240px)">
+  <div style="display:flex;flex-direction:column;align-items:center">
+    <div style="max-width:640px;width:100%">
+
+      <div class="flex justify-between items-end mb-6">
+        <div>
+          <h2 class="text-xl font-bold text-[#1A1A2E]">✈️ 인천공항</h2>
+          <p class="text-xs text-[#6B7280] mt-0.5">받을 원화(미수금)를 관리합니다. 손님이 원화를 지급하면 <b>원화수령</b>을 눌러주세요.</p>
+        </div>
+        <span class="text-sm text-[#6B7280]">미수금 합계 <b id="inc-total" class="text-[#F5A623] text-base ml-1">0</b></span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        <span style="font-size:.72rem;color:#6B7280;line-height:1.35">📌 <b>날짜와 무관하게 계속 누적</b>됩니다. 완료된 건은 각 행의 <b style="color:#DC2626">×</b> 또는 오른쪽 버튼으로 지우세요.</span>
+        <button type="button" onclick="deleteReceived()" style="flex:0 0 auto;font-size:.72rem;color:#DC2626;border:1px solid #FCA5A5;border-radius:.35rem;padding:.28rem .6rem;background:#FEF2F2;cursor:pointer;white-space:nowrap;font-weight:600">🗑 수령완료 삭제</button>
+      </div>
+
+      <div class="card" style="border-radius:.75rem">
+        <table class="ss-table" id="inc-table">
+          <colgroup>
+            <col style="width:96px">
+            <col style="width:80px">
+            <col style="width:66px">
+            <col style="width:108px">
+            <col style="width:90px">
+            <col style="width:112px">
+          </colgroup>
+          <thead><tr>
+            <th>원화수령</th>
+            <th>거래종류</th>
+            <th>통화</th>
+            <th class="text-right">금액</th>
+            <th class="text-right">환율</th>
+            <th class="text-right">원화(미수)</th>
+          </tr></thead>
+          <tbody id="inc-tbody"></tbody>
+          <tfoot>
+            <tr class="foot-total"><td colspan="5" style="text-align:right">받을 원화 합계 (미수금)</td><td class="calc total-val" id="inc-foot">0</td></tr>
+          </tfoot>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+mbBoot('incheon.html');
+
+// 인천공항 데이터는 mb_transactions 의 sheet:5 로 저장 (거래관리 시절 데이터 그대로 유지)
+const KEY = MB.TRANSACTIONS_KEY;
+const SHEET = 5;
+const TYPES = ['','매각','매입','외화미수금','지급완료'];
+
+// ── 숫자 서식 (천단위 쉼표) ──
+function parseNum(v) { return Number(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
+function fmtInput(v) {
+  if (v === '' || v === null || v === undefined) return '';
+  const s = String(v).replace(/,/g, '');
+  if (s === '' || isNaN(Number(s)) || Number(s) === 0) return '';
+  const dot = s.indexOf('.');
+  const intPart = dot === -1 ? s : s.slice(0, dot);
+  const decPart = dot === -1 ? '' : s.slice(dot);
+  const n = Number(intPart);
+  return (isNaN(n) ? '' : n.toLocaleString('en-US')) + decPart;
+}
+function applyCommaFormat(el) {
+  const old = el.value;
+  const selStart = el.selectionStart != null ? el.selectionStart : old.length;
+  const keepCount = old.slice(0, selStart).replace(/[^\d.]/g, '').length;
+  const cleaned = old.replace(/[^\d.]/g, '');
+  const firstDot = cleaned.indexOf('.');
+  let intPart, decPart;
+  if (firstDot === -1) { intPart = cleaned; decPart = ''; }
+  else { intPart = cleaned.slice(0, firstDot); decPart = '.' + cleaned.slice(firstDot + 1).replace(/\./g, ''); }
+  const newVal = (intPart === '' ? '' : Number(intPart).toLocaleString('en-US')) + decPart;
+  if (newVal === old) return;
+  el.value = newVal;
+  let pos = 0, cnt = 0;
+  while (pos < newVal.length && cnt < keepCount) { if (/[\d.]/.test(newVal[pos])) cnt++; pos++; }
+  if (el.setSelectionRange) { try { el.setSelectionRange(pos, pos); } catch (e) {} }
+}
+
+function newId() { return (typeof uid === 'function') ? uid() : ('id_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)); }
+function rows() {
+  return mbGetOrDefault(KEY, [])
+    .filter(x => (x.sheet || 1) === SHEET)
+    .sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+}
+function emptyTpl() {
+  return { id: newId(), date: today(), sheet: SHEET, category: '거래처', counterparty: '', tradeType: '', currency: 'KRW', amount: '', rate: '', status: '완료', note: '', received: false };
+}
+function hasMeaningful(tx) { return Number(tx.amount) > 0; }
+
+function buildRow(tx, isEmpty) {
+  const optType = TYPES.map(c => `<option value="${c}" ${tx.tradeType === c ? 'selected' : ''}>${c || '선택'}</option>`).join('');
+  const typeClass = tx.tradeType ? `type-${tx.tradeType}` : '';
+  const optCurr = MB.CURRENCIES.map(c => `<option value="${c}" ${tx.currency === c ? 'selected' : ''}>${c}</option>`).join('');
+  const received = !!tx.received;
+  const krwVal = isEmpty ? 0 : (Number(tx.amount || 0) * Number(tx.rate || 0));
+  const krwTxt = krwVal ? fmtNum(krwVal) : '';
+  const krwStyle = received ? 'color:#9CA3AF;text-decoration:line-through' : 'color:#047857';
+  const rowCls = (isEmpty ? 'empty' : '') + (received ? ' inc-received' : '');
+  const mainBtn = received
+    ? `<button type="button" class="inc-btn done" onclick="toggleReceived('${tx.id}')" style="flex:1">✓ 수령됨</button>`
+    : `<button type="button" class="inc-btn wait" onclick="toggleReceived('${tx.id}')" style="flex:1">원화수령</button>`;
+  const btn = isEmpty ? '' : `<div style="display:flex;gap:2px;align-items:center">${mainBtn}<button type="button" class="inc-del" onclick="deleteRow('${tx.id}')" title="삭제">×</button></div>`;
+  return `<tr data-id="${tx.id}" class="${rowCls}">
+    <td style="padding:2px 3px">${btn}</td>
+    <td><select data-field="tradeType" class="${typeClass}" onchange="this.className='type-'+this.value; updateKrwCell(this.closest('tr'));">${optType}</select></td>
+    <td><select data-field="currency">${optCurr}</select></td>
+    <td><input type="text" inputmode="numeric" class="num" value="${fmtInput(tx.amount)}" data-field="amount" placeholder="0"></td>
+    <td><input type="text" inputmode="decimal" class="num" value="${fmtInput(tx.rate)}" data-field="rate" placeholder="0"></td>
+    <td class="calc cell-krw" style="${krwStyle}">${krwTxt}</td>
+  </tr>`;
+}
+
+function render() {
+  const list = rows();
+  const filled = list.map(tx => buildRow(tx, false));
+  const tail = Math.max(6, 15 - filled.length); // 최소 15행 유지, 넘치면 여유 6행
+  const empties = Array.from({ length: tail }, () => buildRow(emptyTpl(), true));
+  document.getElementById('inc-tbody').innerHTML = filled.concat(empties).join('');
+  updateTotal();
+}
+
+function updateTotal() {
+  const tbody = document.getElementById('inc-tbody');
+  let total = 0;
+  if (tbody) {
+    Array.from(tbody.rows).forEach(tr => {
+      if (tr.classList.contains('inc-received')) return; // 수령완료는 미수금에서 제외
+      const a = tr.querySelector('input[data-field="amount"]');
+      const r = tr.querySelector('input[data-field="rate"]');
+      total += parseNum(a && a.value) * parseNum(r && r.value);
+    });
+  }
+  const t1 = document.getElementById('inc-total'); if (t1) t1.textContent = fmtNum(total);
+  const t2 = document.getElementById('inc-foot'); if (t2) t2.textContent = fmtNum(total);
+}
+function updateKrwCell(tr) {
+  const a = parseNum(tr.querySelector('input[data-field="amount"]') && tr.querySelector('input[data-field="amount"]').value);
+  const r = parseNum(tr.querySelector('input[data-field="rate"]') && tr.querySelector('input[data-field="rate"]').value);
+  const c = tr.querySelector('.cell-krw');
+  if (c) { const v = a * r; c.textContent = v ? fmtNum(v) : ''; }
+  updateTotal();
+}
+// 값 입력 시 재렌더 없이 '원화수령'/삭제 버튼 즉시 노출
+function ensureBtn(tr, id) {
+  const cell = tr.cells[0];
+  if (cell && !cell.querySelector('.inc-btn')) {
+    cell.innerHTML = `<div style="display:flex;gap:2px;align-items:center">`
+      + `<button type="button" class="inc-btn wait" onclick="toggleReceived('${id}')" style="flex:1">원화수령</button>`
+      + `<button type="button" class="inc-del" onclick="deleteRow('${id}')" title="삭제">×</button></div>`;
+  }
+}
+
+// ── 편집 저장 (타이핑 즉시 저장, 데이터 유실 없음) ──
+function onEdit(target) {
+  const tr = target.closest('tr'); if (!tr) return;
+  const id = tr.dataset.id;
+  const field = target.dataset.field;
+  const list = mbGetOrDefault(KEY, []);
+  let tx = list.find(x => x.id === id);
+  if (!tx) {
+    tx = emptyTpl(); tx.id = id;
+    tr.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
+      const f = el.dataset.field;
+      tx[f] = (f === 'amount' || f === 'rate') ? parseNum(el.value) : el.value;
+    });
+    if (!hasMeaningful(tx)) return; // 아직 의미있는 값 없으면 저장 안 함
+    list.push(tx);
+  } else {
+    tx[field] = (field === 'amount' || field === 'rate') ? parseNum(target.value) : target.value;
+  }
+  mbSet(KEY, list);
+  ensureBtn(tr, id);
+  updateKrwCell(tr);
+}
+
+function bind() {
+  const tb = document.getElementById('inc-tbody');
+  tb.addEventListener('input', e => {
+    if (!e.target.matches('input')) return;
+    if (e.target.classList.contains('num')) applyCommaFormat(e.target);
+    onEdit(e.target);
+  });
+  tb.addEventListener('change', e => {
+    if (!e.target.matches('input, select')) return;
+    onEdit(e.target);
+  });
+}
+
+function toggleReceived(id) {
+  const list = mbGetOrDefault(KEY, []);
+  const tx = list.find(x => x.id === id);
+  if (!tx) return;
+  tx.received = !tx.received;
+  mbSet(KEY, list);
+  render();
+}
+function deleteRow(id) {
+  const list = mbGetOrDefault(KEY, []);
+  const tx = list.find(x => x.id === id);
+  if (!tx) { render(); return; }
+  if (!confirm('이 거래를 삭제할까요?\n(기록 로그에서 30일간 복구할 수 있어요)')) return;
+  if (typeof mbLogDelete === 'function')
+    mbLogDelete('인천공항 삭제', KEY, [tx], t => `${t.currency || ''} ${fmtNum(t.amount)} × ${t.rate}${t.received ? ' (수령완료)' : ''}`);
+  mbSet(KEY, list.filter(x => x.id !== id));
+  render();
+}
+function deleteReceived() {
+  const list = mbGetOrDefault(KEY, []);
+  const rec = list.filter(x => (x.sheet || 1) === SHEET && x.received);
+  if (!rec.length) { alert('삭제할 수령완료 건이 없습니다.'); return; }
+  if (!confirm(`수령완료된 ${rec.length}건을 모두 삭제할까요?\n(기록 로그에서 30일간 복구할 수 있어요)`)) return;
+  if (typeof mbLogDelete === 'function')
+    mbLogDelete('인천공항 삭제', KEY, rec, t => `${t.currency || ''} ${fmtNum(t.amount)} × ${t.rate}`);
+  mbSet(KEY, list.filter(x => !((x.sheet || 1) === SHEET && x.received)));
+  render();
+}
+
+render();
+bind();
+mbOnDataChange(render);
+</script>
+</body>
+</html>

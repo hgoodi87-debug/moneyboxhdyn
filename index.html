@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=32">
-<link rel="apple-touch-icon" href="favicon.png?v=32">
+<link rel="icon" type="image/png" href="favicon.png?v=39">
+<link rel="apple-touch-icon" href="favicon.png?v=39">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=32">
+<link rel="stylesheet" href="css/mb.css?v=39">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=32"></script>
-<script src="js/mb-data.js?v=32"></script>
-<script src="js/mb-sync.js?v=32"></script>
+<script src="js/firebase-config.js?v=39"></script>
+<script src="js/mb-data.js?v=39"></script>
+<script src="js/mb-sync.js?v=39"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
   .widget { background:#fff; border-radius:.875rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.06); display:flex; flex-direction:column; height:100%; overflow:hidden; }
@@ -50,8 +50,8 @@
 
 <div id="mb-header"></div>
 
-<main class="pt-[60px] pb-6" style="overflow-x:auto;padding-left:16px;padding-right:16px">
-  <div class="pt-5 flex gap-4 dash-row">
+<main class="pt-[92px] pb-6" style="overflow-x:auto;padding-left:16px;padding-right:16px">
+  <div class="flex gap-4 dash-row">
 
     <!-- 왼쪽 컬럼 -->
     <div class="dash-col" style="flex:1;display:flex;flex-direction:column;gap:16px">
@@ -72,8 +72,7 @@
         </div>
         <div class="widget-form">
           <div style="display:flex;gap:6px;align-items:flex-start">
-            <select id="tr-currency" class="input-base" style="flex-shrink:0;width:84px;font-size:.8rem;margin-top:1px"></select>
-            <textarea id="tr-memo" rows="1" placeholder="내용 입력 (여러 줄 붙여넣기 OK)" class="input-base"
+            <textarea id="tr-memo" rows="1" placeholder="메모 입력 (여러 줄 OK)" class="input-base"
               style="flex:1;min-width:0;resize:none;font-family:inherit;line-height:1.45;max-height:160px;overflow-y:auto"
               oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'"></textarea>
             <button onclick="addTransfer()" class="btn-add" style="flex-shrink:0;margin-top:1px">저장</button>
@@ -81,14 +80,6 @@
         </div>
         <div class="widget-body text-xs" style="overflow-y:auto">
           <table class="w-full">
-            <thead class="text-[#6B7280] border-b sticky top-0 bg-white">
-              <tr>
-                <th class="text-center py-1" style="width:46px">통화</th>
-                <th class="text-left">내용</th>
-                <th class="text-right" style="width:38px">시간</th>
-                <th style="width:18px"></th>
-              </tr>
-            </thead>
             <tbody id="transfer-list"></tbody>
           </table>
         </div>
@@ -220,7 +211,6 @@
 mbBoot('index.html');
 
 document.getElementById('mt-currency').innerHTML = MB.CURRENCIES.map(c=>`<option value="${c}">${c}</option>`).join('');
-document.getElementById('tr-currency').innerHTML = MB.CURRENCIES.map(c=>`<option value="${c}">${c}</option>`).join('');
 document.getElementById('ho-date').value = today();
 
 // 시간 선택: 정시/30분 only
@@ -428,10 +418,9 @@ function renderDailyTasks() {
 
 // ─── 지점간 이동 ───
 function addTransfer() {
-  const currency = document.getElementById('tr-currency').value;
-  const memo     = document.getElementById('tr-memo').value.trim();
+  const memo = document.getElementById('tr-memo').value.trim();
   if (!memo) { alert('내용을 입력하세요.'); return; }
-  mbPush(MB.TRANSFERS_KEY, { id:uid(), date:today(), currency, memo, createdBy:getCurrentUser().name, createdAt:nowTs() });
+  mbPush(MB.TRANSFERS_KEY, { id:uid(), date:today(), memo, createdBy:getCurrentUser().name, createdAt:nowTs() });
   const ta = document.getElementById('tr-memo');
   ta.value = ''; ta.style.height = 'auto';
   _pg.tr = 0;
@@ -447,18 +436,33 @@ function renderTransfers() {
   const all = mbGetOrDefault(MB.TRANSFERS_KEY, []).filter(x=>x.date===today()).sort((a,b)=>b.createdAt-a.createdAt);
   const { s, e } = applyPg('tr', all.length, PG10);
   document.getElementById('transfer-list').innerHTML = all.length === 0
-    ? '<tr><td colspan="4" class="text-center text-[#9CA3AF] py-4 text-xs">오늘 이동 없음</td></tr>'
+    ? '<tr><td colspan="2" class="text-center text-[#9CA3AF] py-4 text-xs">오늘 이동 없음</td></tr>'
     : all.slice(s, e).map(t => {
-        const ts = new Date(t.createdAt);
-        const tf = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
         const content = (t.memo != null && t.memo !== '') ? t.memo : (t.direction ? `${t.direction} ${fmtNum(t.amount)}` : '');
         return `<tr class="border-b">
-          <td class="py-1 text-xs font-medium text-center" style="white-space:nowrap;vertical-align:top">${_esc(t.currency||'')}</td>
-          <td class="text-xs text-[#374151]" style="white-space:pre-wrap;word-break:break-word;vertical-align:top;padding:4px 4px;line-height:1.45">${_esc(content)}</td>
-          <td class="text-right text-xs text-[#6B7280]" style="white-space:nowrap;vertical-align:top">${tf}</td>
-          <td class="text-right w-5" style="vertical-align:top"><button onclick="deleteTransfer('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button></td>
+          <td style="padding:3px 3px;vertical-align:top">
+            <textarea class="tr-edit" onchange="updateTransfer('${t.id}', this.value)"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,140)+'px'"
+              style="width:100%;border:none;background:transparent;resize:none;font-size:.75rem;color:#374151;line-height:1.45;outline:none;font-family:inherit;overflow:hidden;padding:1px 2px;word-break:break-word">${_esc(content)}</textarea>
+          </td>
+          <td class="text-right" style="width:18px;vertical-align:top"><button onclick="deleteTransfer('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button></td>
         </tr>`;
       }).join('');
+  document.querySelectorAll('#transfer-list .tr-edit').forEach(ta => {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
+  });
+}
+// 메모 인라인 수정 (내용을 비우면 삭제)
+function updateTransfer(id, memo) {
+  const list = mbGetOrDefault(MB.TRANSFERS_KEY, []);
+  const idx = list.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  const v = (memo || '').trim();
+  if ((list[idx].memo || '') === v) return;          // 변경 없음
+  if (v === '') { list.splice(idx, 1); mbSet(MB.TRANSFERS_KEY, list); renderTransfers(); return; }
+  list[idx].memo = v;
+  mbSet(MB.TRANSFERS_KEY, list);                      // DOM에 이미 반영돼 재렌더 불필요
 }
 
 function dashAll() {

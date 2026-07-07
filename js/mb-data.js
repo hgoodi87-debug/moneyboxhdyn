@@ -40,10 +40,11 @@ const MB = {
   NAV: [
     { href: 'index.html',      label: '대시보드' },
     { href: 'attendance.html', label: '근태관리' },
-    { href: 'trading.html',    label: '거래관리' },
     { href: 'tasks.html',      label: '업무관리' },
-    { href: 'atm.html',        label: '무인기관리' },
+    { href: 'trading.html',    label: '거래관리' },
+    { href: 'incheon.html',    label: '인천공항' },
     { href: 'storage.html',    label: '보관함관리' },
+    { href: 'atm.html',        label: '무인기관리' },
     { href: 'archive.html',    label: '자료실' },
   ],
   ADMIN_NAV: [
@@ -52,7 +53,7 @@ const MB = {
     { href: 'accounts.html', label: '🔑 로그인 관리' },
   ],
 
-  CURRENCIES: ['KRW','USD','JPY','EUR','CNY','HKD','SGD','THB','VND','TWD','AUD','CAD','GBP','PHP','IDR','MYR'],
+  CURRENCIES: ['KRW','USD','JPY','EUR','CNY','RUB','HKD','SGD','THB','VND','TWD','AUD','CAD','GBP','PHP','IDR','MYR'],
 };
 
 // ─── 기본 헬퍼 ───────────────────────────────────────────────
@@ -381,6 +382,7 @@ function renderSidebar(activePage) {
   }
   document.querySelectorAll('.nav-link').forEach(a => {
     const href = a.getAttribute('href');
+    if (href == null) return; // 드롭다운 버튼(B2B 등)은 인라인 활성표시 유지
     a.classList.toggle('active', href === activePage);
   });
   const td = document.getElementById('today-date');
@@ -396,6 +398,13 @@ function toggleAdminMenu(e) {
   if (!m) return;
   m.style.display = (m.style.display === 'block') ? 'none' : 'block';
 }
+// 상단 네비 드롭다운(B2B 등) 토글
+function toggleNavGroup(e, id) {
+  if (e) e.stopPropagation();
+  const m = document.getElementById(id);
+  if (!m) return;
+  m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+}
 function setupAdminMenu() {
   const wrap = document.getElementById('admin-menu-wrap');
   if (!wrap) return;
@@ -404,6 +413,8 @@ function setupAdminMenu() {
     document.addEventListener('click', () => {
       const m = document.getElementById('admin-menu');
       if (m) m.style.display = 'none';
+      const b = document.getElementById('b2b-menu');
+      if (b) b.style.display = 'none';
     });
     window._adminMenuBound = true;
   }
@@ -514,9 +525,19 @@ function calcLeave(joinDate) {
 // ─── 부트스트랩 ──────────────────────────────────────────────
 // ─── 공통 헤더 생성 ──────────────────────────────────────────
 function mbRenderHeader(active) {
-  const nav = MB.NAV.map(n =>
-    `<a href="${n.href}" class="nav-link${n.href === active ? ' active' : ''}">${n.label}</a>`
-  ).join('\n      ');
+  const nav = MB.NAV.map(n => {
+    if (n.children) {
+      const grpActive = n.children.some(c => c.href === active) ? ' active' : '';
+      const items = n.children.map(c =>
+        `<a href="${c.href}" class="nav-dropdown-item">${c.label}</a>`
+      ).join('');
+      return `<div class="nav-group" style="position:relative">`
+        + `<button type="button" class="nav-link nav-group-btn${grpActive}" onclick="toggleNavGroup(event,'b2b-menu')">${n.label} ▾</button>`
+        + `<div id="b2b-menu" class="nav-dropdown" style="display:none">${items}</div>`
+        + `</div>`;
+    }
+    return `<a href="${n.href}" class="nav-link${n.href === active ? ' active' : ''}">${n.label}</a>`;
+  }).join('\n      ');
   const adminItems = MB.ADMIN_NAV.map((n, i) =>
     `<a href="${n.href}" style="display:block;padding:.65rem 1rem;font-size:.88rem;color:#1E2A3A;text-decoration:none;white-space:nowrap;${i > 0 ? 'border-top:1px solid #F1F1F3' : ''}">${n.label}</a>`
   ).join('\n          ');

@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=32">
-<link rel="apple-touch-icon" href="favicon.png?v=32">
+<link rel="icon" type="image/png" href="favicon.png?v=39">
+<link rel="apple-touch-icon" href="favicon.png?v=39">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 근태관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=32">
+<link rel="stylesheet" href="css/mb.css?v=39">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=32"></script>
-<script src="js/mb-data.js?v=32"></script>
-<script src="js/mb-sync.js?v=32"></script>
+<script src="js/firebase-config.js?v=39"></script>
+<script src="js/mb-data.js?v=39"></script>
+<script src="js/mb-sync.js?v=39"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -79,7 +79,7 @@
 
 <div id="mb-header"></div>
 
-<main class="pt-[60px] min-h-screen pb-6 px-44">
+<main class="pt-[92px] min-h-screen pb-6 px-44">
   <div class="card">
     <!-- 메인 탭 -->
     <div class="flex border-b mb-5">
@@ -172,7 +172,7 @@
           <button id="att-bulk-btn" onclick="bulkFillAttendance()" class="btn-ghost ml-1" style="display:none;background:#ECFDF5;color:#047857;font-weight:700">📋 근무표대로 일괄등록</button>
           <button onclick="exportAttendance()" class="btn-ghost ml-1" style="background:#EFF6FF;color:#1D4ED8;font-weight:700">⬇ 엑셀 내보내기</button>
         </div>
-        <p class="text-xs text-[#9CA3AF] text-center mb-3">정해진 시간보다 일찍 출근·늦게 퇴근 시 정시로 자동 보정됩니다 · <b>일괄등록</b>은 근무표(오픈 9–18 / 마감 12–21 / 풀 9–21)대로 채웁니다</p>
+        <p class="text-xs text-[#9CA3AF] text-center mb-3">출퇴근 수정은 입력한 시간이 <b>그대로 저장</b>됩니다 (예외 상황 직접 입력 가능) · <b>일괄등록</b>은 근무표(오픈 9–18 / 마감 12–21 / 풀 9–21)대로 채웁니다</p>
         <div id="att-edit-list"></div>
       </div>
 
@@ -708,10 +708,8 @@ function renderAttEdit() {
 function saveAttDay(empId, date, d) {
   const ci = document.getElementById(`ai-${empId}-${d}`).value;
   const co = document.getElementById(`ao-${empId}-${d}`).value;
-  const shift = (typeof mbShiftFor === 'function') ? mbShiftFor(empId, date) : null;
-  const clamped = (typeof mbClampClock === 'function')
-    ? mbClampClock(shift, ci || null, co || null)
-    : { clockIn: ci || null, clockOut: co || null };
+  // 출퇴근 수정: 관리자가 예외 상황을 직접 입력하므로 정시 clamp 없이 입력값 그대로 저장
+  const clamped = { clockIn: ci || null, clockOut: co || null };
   const list = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
   const emp = mbGetOrDefault(MB.EMPLOYEES_KEY, []).find(e => e.id === empId);
   let rec = list.find(x => x.employeeId === empId && x.date === date);
