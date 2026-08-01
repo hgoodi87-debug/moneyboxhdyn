@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=48">
-<link rel="apple-touch-icon" href="favicon.png?v=48">
+<link rel="icon" type="image/png" href="favicon.png?v=49">
+<link rel="apple-touch-icon" href="favicon.png?v=49">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 업무관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=48">
+<link rel="stylesheet" href="css/mb.css?v=49">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=48"></script>
-<script src="js/mb-data.js?v=48"></script>
-<script src="js/mb-sync.js?v=48"></script>
+<script src="js/firebase-config.js?v=49"></script>
+<script src="js/mb-data.js?v=49"></script>
+<script src="js/mb-sync.js?v=49"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .input-base { border:1px solid #E5E7EB; border-radius:.5rem; padding:.4rem .6rem; font-size:.85rem; outline:none; }
@@ -143,9 +143,11 @@ let editing = false;
 let adminViewAll = false; // 관리자 전체 지점 보기 토글 (기본: 내 근무만)
 
 // ─── 시프트 필터 ───
-function getShiftWindow(shift) {
+function getShiftWindow(shift, branch) {
   if (shift === '오픈') return { start: 9*60,  end: 18*60, label: '09:00~18:00' };
-  if (shift === '마감') return { start: 12*60, end: 22*60, label: '12:00~22:00' };
+  if (shift === '마감') return (branch === '홍대')
+    ? { start: 9*60,  end: 22*60, label: '09:00~22:00' }   // 홍대 마감은 9시 시작
+    : { start: 12*60, end: 22*60, label: '12:00~22:00' };
   if (shift === '풀')   return { start: 0,     end: 24*60, label: '종일 (전체)' };
   return null;
 }
@@ -204,8 +206,8 @@ function refreshTaskGate() {
   if (!asg || asg.shift === '휴무' || asg.shift === '연차') {
     ok = true; // 근무 배정 없음/휴무·연차 → 체크 요건 없음
   } else {
-    const win = getShiftWindow(asg.shift);
     const branch = asg.branch || user.branch;
+    const win = getShiftWindow(asg.shift, branch);
     const blocks = filterBlocksByShift(getTemplate()[branch] || [], win);
     // 시프트에 해당하는 블록의 모든 업무를 체크해야 퇴근 가능
     ok = blocks.length > 0
@@ -360,8 +362,8 @@ function renderAll() {
     return;
   }
 
-  const win = getShiftWindow(asg.shift);
   const branch = asg.branch || user.branch;
+  const win = getShiftWindow(asg.shift, branch);
   const r = buildNormalTable(branch, win);
   board.innerHTML = `<div class="chk-card">
     <div class="chk-title">${branch}점 ${asg.shift} 체크리스트

@@ -262,6 +262,11 @@ const SHIFT_HOURS = {
   '마감': { start: '12:00', end: '21:00' },
   '풀':   { start: '09:00', end: '21:00' },
 };
+// 지점별 시프트 시간 — 홍대 마감은 9시 시작, 나머지는 공통
+function mbShiftHours(shift, branch) {
+  if (shift === '마감' && branch === '홍대') return { start: '09:00', end: '21:00' };
+  return SHIFT_HOURS[shift] || null;
+}
 function _hmToMin(t) { if (!t) return null; const [h,m] = t.split(':').map(Number); return h*60 + m; }
 // 직원의 요일별 고정 근무 템플릿 (구버전 필드 자동 변환)
 function mbWeekTemplate(e) {
@@ -291,8 +296,8 @@ function mbShiftFor(employeeId, date) {
   return a ? a.shift : null;
 }
 // 일찍 출근/늦게 퇴근을 정해진 근무시간으로 보정
-function mbClampClock(shift, clockIn, clockOut) {
-  const h = SHIFT_HOURS[shift];
+function mbClampClock(shift, clockIn, clockOut, branch) {
+  const h = mbShiftHours(shift, branch);
   if (!h) return { clockIn: clockIn || null, clockOut: clockOut || null };
   let ci = clockIn || null, co = clockOut || null;
   if (ci && _hmToMin(ci) < _hmToMin(h.start)) ci = h.start;
@@ -304,12 +309,14 @@ function handleClockInOut() {
   const user = getCurrentUser();
   if (!user) { showUserSelectModal(); return; }
   const todayStr = today();
-  const shift = mbShiftFor(user.id, todayStr);
+  const asg0 = mbAssignmentFor(user.id, todayStr);
+  const shift = asg0 ? asg0.shift : null;
+  const shiftBranch = asg0 ? (asg0.branch || user.branch) : user.branch;
   const records = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
   const rec = records.find(r => r.employeeId === user.id && r.date === todayStr);
 
   if (!rec) {
-    const ci = mbClampClock(shift, nowTime(), null).clockIn;
+    const ci = mbClampClock(shift, nowTime(), null, shiftBranch).clockIn;
     records.push({
       id: uid(), employeeId: user.id, date: todayStr,
       clockIn: ci, clockOut: null,
@@ -322,7 +329,7 @@ function handleClockInOut() {
       alert('퇴근할 수 없습니다.\n사유: ' + gate.reason);
       return;
     }
-    const c = mbClampClock(shift, rec.clockIn, nowTime());
+    const c = mbClampClock(shift, rec.clockIn, nowTime(), shiftBranch);
     rec.clockIn = c.clockIn;
     rec.clockOut = c.clockOut;
     rec.workMinutes = Math.max(0, _hmToMin(rec.clockOut) - _hmToMin(rec.clockIn));

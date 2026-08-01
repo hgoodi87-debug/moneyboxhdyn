@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=48">
-<link rel="apple-touch-icon" href="favicon.png?v=48">
+<link rel="icon" type="image/png" href="favicon.png?v=49">
+<link rel="apple-touch-icon" href="favicon.png?v=49">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 근태관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=48">
+<link rel="stylesheet" href="css/mb.css?v=49">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=48"></script>
-<script src="js/mb-data.js?v=48"></script>
-<script src="js/mb-sync.js?v=48"></script>
+<script src="js/firebase-config.js?v=49"></script>
+<script src="js/mb-data.js?v=49"></script>
+<script src="js/mb-sync.js?v=49"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -607,8 +607,9 @@ function bulkFillAttendance() {
     if (dateStr > todayStr) break; // 미래 날짜는 등록 안 함
     const wd = new Date(y, m-1, d).getDay();
     const asg = assignedShiftFor(e, dateStr, wd);
-    if (!asg || !SHIFT_HOURS[asg.shift]) continue; // 휴무/연차/미배정
-    const h = SHIFT_HOURS[asg.shift];
+    if (!asg) continue;
+    const h = mbShiftHours(asg.shift, asg.branch); // 홍대 마감은 9시 시작
+    if (!h) continue; // 휴무/연차/미배정
     let rec = list.find(x => x.employeeId === e.id && x.date === dateStr);
     if (rec && rec.clockIn && rec.clockOut) { skipped++; continue; } // 출·퇴근 모두 있으면 보존
     if (!rec) {
