@@ -29,28 +29,59 @@
   .inc-tbl th { background:#F5F7FA; color:#6B7280; font-weight:600; font-size:.72rem; padding:.55rem .5rem; border-bottom:2px solid #E5E7EB; text-align:right; white-space:nowrap; }
   .inc-tbl th.l { text-align:left; }
   .inc-tbl th.c { text-align:center; }
+  .inc-tbl th.due { color:#B45309; }
   .inc-tbl td { padding:.5rem .5rem; border-bottom:1px solid #F1F1F3; text-align:right; font-variant-numeric:tabular-nums; vertical-align:middle; }
   .inc-tbl td.c-cur { text-align:left; font-weight:700; color:#1A1A2E; }
   .inc-tbl td.c-st { text-align:center; }
   .inc-tbl td.c-act { text-align:center; white-space:nowrap; }
-  .inc-tbl tr.done td { background:#FAFAFA; color:#9CA3AF; }
-  .inc-tbl tr.done td.c-cur { color:#9CA3AF; }
+  .inc-tbl td.c-due { font-weight:800; color:#B45309; }
+  /* 본사 원화 수령완료(정산완료) 행 — 받아야 할 금액에서 빠짐 */
+  .inc-tbl tr.settled td { background:#F3F4F6; color:#9CA3AF; }
+  .inc-tbl tr.settled td.c-cur { color:#9CA3AF; }
   .badge { display:inline-block; padding:.12rem .5rem; border-radius:.5rem; font-size:.68rem; font-weight:700; white-space:nowrap; }
-  .badge.st-done { background:#E5E7EB; color:#6B7280; }
-  .badge.st-part { background:#FEF3C7; color:#92400E; }
-  .badge.st-none { background:#FEE2E2; color:#B91C1C; }
+  .badge.st-done { background:#DCFCE7; color:#166534; }   /* 전액지급 */
+  .badge.st-part { background:#FEF3C7; color:#92400E; }   /* 부분지급 */
+  .badge.st-none { background:#FEE2E2; color:#B91C1C; }   /* 미지급 */
+  .badge.st-recv { background:#DBEAFE; color:#1E40AF; }   /* 원화 수령완료 */
   .b-done { background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; border-radius:.4rem; padding:.28rem .55rem; font-size:.7rem; font-weight:700; cursor:pointer; white-space:nowrap; }
   .b-done:hover { background:#D1FAE5; }
-  .b-edit { background:#EFF6FF; color:#1D4ED8; border:1px solid #BFDBFE; border-radius:.4rem; padding:.28rem .5rem; font-size:.7rem; font-weight:600; cursor:pointer; margin-left:3px; }
-  .b-edit:hover { background:#DBEAFE; }
+  .b-edit { background:#FFFBEB; color:#B45309; border:1px solid #FDE68A; border-radius:.4rem; padding:.28rem .5rem; font-size:.7rem; font-weight:600; cursor:pointer; margin-left:3px; white-space:nowrap; }
+  .b-edit:hover { background:#FEF3C7; }
+  .b-recv { background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE; border-radius:.4rem; padding:.28rem .55rem; font-size:.7rem; font-weight:700; cursor:pointer; margin-left:3px; white-space:nowrap; }
+  .b-recv:hover { background:#E0E7FF; }
+  .b-undo { background:#F3F4F6; color:#6B7280; border:1px solid #E5E7EB; border-radius:.4rem; padding:.28rem .5rem; font-size:.7rem; font-weight:600; cursor:pointer; margin-left:3px; white-space:nowrap; }
+  .b-undo:hover { background:#E5E7EB; }
   .b-del { background:#FEF2F2; color:#DC2626; border:1px solid #FCA5A5; border-radius:.4rem; padding:.28rem .45rem; font-size:.85rem; font-weight:700; cursor:pointer; margin-left:3px; line-height:1; }
   .b-del:hover { background:#FEE2E2; }
   .inc-tbl tfoot td { padding:.65rem .5rem; font-weight:700; border-top:2px solid #E5E7EB; background:#1E2A3A; color:#fff; text-align:right; font-variant-numeric:tabular-nums; }
   .inc-tbl tfoot td.lbl { text-align:center; color:#CBD5E1; font-weight:600; }
   .inc-tbl tfoot td.remain { color:#F5A623; font-size:.95rem; }
-  @media (max-width: 760px) {
+  .due-amt { font-weight:800; color:#B45309; font-size:.92rem; white-space:nowrap; }
+  tr.settled .due-amt { color:#9CA3AF; text-decoration:line-through; }
+  /* 한 줄 유지 — 지급/수령 칸 내용은 인라인으로만 배치 */
+  .inc-tbl td.c-recv { text-align:center; white-space:nowrap; }
+  /* 지급여부: 다른 숫자열과 동일하게 오른쪽 정렬로 통일 (헤더·뱃지·숫자) + 여백 넉넉히 */
+  .inc-tbl th.pay-h { text-align:right; padding-right:1.1rem; }
+  .inc-tbl td.c-pay { text-align:right; white-space:nowrap; padding:.7rem 1.1rem; vertical-align:middle; }
+  .pay-amt { display:inline-block; width:92px; text-align:right; font-weight:700; margin-left:10px; vertical-align:middle; }
+  .inc-tbl td.c-pay button { padding:.18rem .45rem; font-size:.68rem; margin-left:3px; vertical-align:middle; }
+  .chk-recv { display:inline-flex; align-items:center; gap:5px; cursor:pointer; font-size:.72rem; color:#6B7280; user-select:none; }
+  .chk-recv input { width:16px; height:16px; cursor:pointer; accent-color:#4338CA; margin:0; }
+  tr.settled .chk-recv { color:#4338CA; font-weight:700; }
+  .e-in { width:88px; border:1.5px solid #F5A623; border-radius:.4rem; padding:.28rem .4rem; font-size:.8rem; text-align:right; outline:none; font-variant-numeric:tabular-nums; }
+  .c-pay .e-in { width:80px; }
+  .pay-lab { font-size:.7rem; color:#9CA3AF; margin-right:4px; }
+  tr.editing td { background:#FFFDF5; }
+  .b-edit2 { background:#FFFBEB; color:#B45309; border:1px solid #FDE68A; border-radius:.4rem; padding:.22rem .55rem; font-size:.7rem; font-weight:700; cursor:pointer; }
+  .b-edit2:hover { background:#FEF3C7; }
+  .b-edit2:disabled { opacity:.4; cursor:default; }
+  .b-save { background:#F5A623; color:#fff; border:none; border-radius:.4rem; padding:.24rem .55rem; font-size:.7rem; font-weight:700; cursor:pointer; }
+  .b-save:hover { background:#E0951F; }
+  .b-cancel { background:#F3F4F6; color:#6B7280; border:1px solid #E5E7EB; border-radius:.4rem; padding:.24rem .5rem; font-size:.7rem; font-weight:600; cursor:pointer; margin-left:4px; }
+  .b-cancel:hover { background:#E5E7EB; }
+  @media (max-width: 820px) {
     .tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-    .inc-tbl { min-width:700px; }
+    .inc-tbl { min-width:760px; }
   }
 </style>
 </head>
@@ -60,16 +91,16 @@
 
 <main class="pt-[92px] min-h-screen pb-8" style="padding-left:clamp(16px,8vw,180px);padding-right:clamp(16px,8vw,180px)">
   <div style="display:flex;flex-direction:column;align-items:center">
-    <div style="max-width:940px;width:100%">
+    <div style="max-width:980px;width:100%">
 
-      <!-- 제목 + 줘야 할 금액 요약 -->
+      <!-- 제목 + 본사에서 받아야 할 금액 요약 -->
       <div class="flex justify-between items-end mb-6" style="gap:12px;flex-wrap:wrap">
         <div>
           <h2 class="text-xl font-bold text-[#1A1A2E]">✈️ 인천공항</h2>
-          <p class="text-xs text-[#6B7280] mt-0.5">인천공항팀에 <b>지급할 외화</b>를 기록합니다. 일부만 주고 나머지는 나중에 줄 때, 앞으로 줘야 할 금액을 관리합니다.</p>
+          <p class="text-xs text-[#6B7280] mt-0.5">인천공항팀에 <b>외화를 지급</b>하고, 본사에서 <b>원화를 받는</b> 내역입니다. 외화를 부분만 지급해도 <b>본사에서 받을 금액은 줄지 않습니다</b> (신청액 × 환율 기준).</p>
         </div>
         <div class="text-right">
-          <div class="text-xs text-[#6B7280]">줘야 할 금액 (원화 환산)</div>
+          <div class="text-xs text-[#6B7280]">본사에서 받아야 할 금액 (원화)</div>
           <div id="inc-remain" class="text-2xl font-extrabold text-[#F5A623] leading-tight">0원</div>
         </div>
       </div>
@@ -79,9 +110,9 @@
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
           <div class="fld"><label>권종</label><select id="f-cur" style="width:110px"></select></div>
           <div class="fld"><label>환율</label><input id="f-rate" type="text" inputmode="decimal" placeholder="0" style="width:110px;text-align:right"></div>
-          <div class="fld"><label>금액 (외화)</label><input id="f-amt" type="text" inputmode="numeric" placeholder="0" style="width:130px;text-align:right"></div>
-          <div class="fld" style="text-align:right"><label>원화 환산 (자동)</label>
-            <div id="f-krw" style="font-size:1.05rem;font-weight:800;color:#1E2A3A;padding:.4rem 0;min-width:120px">0원</div>
+          <div class="fld"><label>신청 금액 (외화)</label><input id="f-amt" type="text" inputmode="numeric" placeholder="0" style="width:130px;text-align:right"></div>
+          <div class="fld" style="text-align:right"><label>본사 받아야 할 금액 (자동)</label>
+            <div id="f-krw" style="font-size:1.05rem;font-weight:800;color:#B45309;padding:.4rem 0;min-width:120px">0원</div>
           </div>
           <button class="btn-add" onclick="addTxn()">+ 추가</button>
         </div>
@@ -90,26 +121,26 @@
       <!-- 표 -->
       <div class="card">
         <div class="flex justify-between items-center mb-2">
-          <span class="text-sm font-bold text-[#374151]">지급 목록</span>
-          <button type="button" onclick="deleteCompleted()" style="font-size:.72rem;color:#6B7280;border:1px solid #E5E7EB;border-radius:.4rem;padding:.25rem .6rem;background:#fff;cursor:pointer">✓ 완료건 정리</button>
+          <span class="text-sm font-bold text-[#374151]">신청 목록</span>
+          <button type="button" onclick="deleteCompleted()" style="font-size:.72rem;color:#6B7280;border:1px solid #E5E7EB;border-radius:.4rem;padding:.25rem .6rem;background:#fff;cursor:pointer">✓ 정산완료건 정리</button>
         </div>
         <div class="tbl-wrap">
           <table class="inc-tbl">
             <thead><tr>
               <th class="l">권종</th>
+              <th>외화금액</th>
               <th>환율</th>
-              <th>금액 (외화)</th>
-              <th>지급 (외화)</th>
-              <th>남은 (외화)</th>
-              <th>남은 원화</th>
-              <th class="c">상태</th>
-              <th class="c">관리</th>
+              <th class="pay-h">지급여부</th>
+              <th class="due">원화</th>
+              <th class="c">수령여부</th>
+              <th class="c">수정</th>
+              <th class="c">삭제</th>
             </tr></thead>
             <tbody id="inc-tbody"></tbody>
             <tfoot><tr>
-              <td class="lbl" colspan="5">합 계 (원화 환산)</td>
+              <td class="lbl" colspan="4">본사에서 받아야 할 금액 합계 <span style="font-size:.68rem;color:#94A3B8">(아직 못 받은 금액)</span></td>
               <td id="foot-remain" class="remain">0</td>
-              <td colspan="2" class="lbl" style="font-size:.7rem">← 줘야 할 잔액</td>
+              <td colspan="3"></td>
             </tr></tfoot>
           </table>
         </div>
@@ -123,8 +154,11 @@
 mbBoot('incheon.html');
 
 // 인천공항 데이터는 mb_transactions 의 sheet:5 로 저장 (기존 데이터 그대로 유지)
-// 우리가 팀에 '외화를 지급'하는 개념. givenFx(지급한 외화 금액)로 관리.
-// 옛 방식 received(불리언)/recvKrw 는 자동 변환(전액지급/미지급)해서 읽음.
+// 두 흐름을 분리해서 관리한다.
+//   ① givenFx : 우리가 인천공항팀에 '지급한 외화'(누적)  → 미지급/부분지급/전액지급
+//   ② settled : 본사에서 '원화를 받았는지'(정산완료)      → 받아야 할 금액에서 빠짐
+// 핵심: 본사에서 받아야 할 금액 = 신청액(amount) × 환율(rate). 외화를 부분만 지급해도 줄지 않는다.
+// 옛 방식 received(불리언)/recvKrw 는 지급외화(givenFx)로 자동 변환해서 읽음.
 const KEY = MB.TRANSACTIONS_KEY;
 const SHEET = 5;
 
@@ -135,24 +169,30 @@ function records() {
     .filter(x => (x.sheet || 1) === SHEET)
     .map(x => {
       const amount = num(x.amount), rate = num(x.rate);
+      // ① 우리가 인천공항팀에 지급한 외화(누적)
       let given;
       if (typeof x.givenFx === 'number') given = x.givenFx;
-      else if (typeof x.recvKrw === 'number' && rate) given = x.recvKrw / rate; // 옛(원화)값 → 외화 환산
+      else if (typeof x.recvKrw === 'number' && rate) given = x.recvKrw / rate; // 아주 옛 데이터(원화값) → 외화 환산
       else given = x.received ? amount : 0;
       given = Math.max(0, Math.min(given, amount));
       const remainFx = amount - given;
+      // ② 본사에서 받아야 할 원화 = 신청액 전체 × 환율 (부분지급과 무관)
+      const dueKrw = Math.round(amount * rate);
+      const settled = !!x.settled;                 // 본사에서 원화를 받았으면 true
       return {
-        id: x.id, currency: x.currency || '', rate, amount, given, remainFx,
-        remainKrw: Math.round(remainFx * rate), krwTotal: Math.round(amount * rate)
+        id: x.id, currency: x.currency || '', rate, amount,
+        given, remainFx, dueKrw, settled,
+        outKrw: settled ? 0 : dueKrw                // 아직 못 받은 금액
       };
     })
     .sort((a, b) => (a.id || '').localeCompare(b.id || ''));
 }
 
-function statusOf(r) {
+// 우리 → 인천공항팀 : 외화 지급 상태
+function payStatus(r) {
   if (r.amount <= 0) return { label: '—', cls: '' };
   if (r.given <= 0) return { label: '미지급', cls: 'st-none' };
-  if (r.given >= r.amount) return { label: '완료', cls: 'st-done' };
+  if (r.given >= r.amount) return { label: '전액지급', cls: 'st-done' };
   return { label: '부분지급', cls: 'st-part' };
 }
 // 콤마 + 소수점 전부 표시 (반올림·생략 없이) — 환율·외화 금액에 사용
@@ -170,30 +210,37 @@ function render() {
   const list = records();
   const tbody = document.getElementById('inc-tbody');
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#9CA3AF;padding:2rem">기록 없음 — 위에서 권종·환율·금액(외화)을 입력해 추가하세요</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#9CA3AF;padding:2rem">기록 없음 — 위에서 권종·환율·외화금액을 입력해 추가하세요</td></tr>';
   } else {
     tbody.innerHTML = list.map(r => {
-      const st = statusOf(r);
-      const done = r.amount > 0 && r.remainFx <= 0;
-      return `<tr class="${done ? 'done' : ''}">
+      const st = payStatus(r);
+      if (r.id === editId) {
+        return `<tr class="editing">
+          <td class="c-cur">${r.currency}</td>
+          <td><input id="e-amt" class="e-in" type="text" inputmode="numeric" value="${r.amount}" oninput="liveDue()"></td>
+          <td><input id="e-rate" class="e-in" type="text" inputmode="decimal" value="${r.rate}" oninput="liveDue()"></td>
+          <td class="c-pay"><span class="pay-lab">지급</span><input id="e-given" class="e-in" type="text" inputmode="numeric" value="${r.given}"></td>
+          <td class="c-due"><span id="e-due" class="due-amt">${fmtNum(r.dueKrw)}</span></td>
+          <td class="c-recv"><label class="chk-recv"><input type="checkbox" ${r.settled ? 'checked' : ''} disabled>${r.settled ? '수령완료' : '미수령'}</label></td>
+          <td class="c-act" style="white-space:nowrap"><button class="b-save" onclick="saveEdit('${r.id}')">저장</button><button class="b-cancel" onclick="cancelEdit()">취소</button></td>
+          <td class="c-act"></td>
+        </tr>`;
+      }
+      return `<tr class="${r.settled ? 'settled' : ''}">
         <td class="c-cur">${r.currency}</td>
-        <td>${r.rate ? fmtFx(r.rate) : ''}</td>
         <td style="font-weight:700">${fmtFx(r.amount)}</td>
-        <td style="color:${r.given ? '#2563EB' : '#9CA3AF'}">${r.given ? fmtFx(r.given) : '-'}</td>
-        <td style="color:${r.remainFx > 0 ? '#DC2626' : '#9CA3AF'};font-weight:700">${fmtFx(r.remainFx)}</td>
-        <td style="color:${r.remainKrw > 0 ? '#B45309' : '#9CA3AF'}">${fmtNum(r.remainKrw)}</td>
-        <td class="c-st"><span class="badge ${st.cls}">${st.label}</span></td>
-        <td class="c-act">
-          ${done ? '' : `<button class="b-done" onclick="markGiven('${r.id}')">✓ 지급완료</button>`}
-          <button class="b-edit" onclick="editGiven('${r.id}')">수정</button>
-          <button class="b-del" onclick="deleteTxn('${r.id}')" title="삭제">×</button>
-        </td>
+        <td>${r.rate ? fmtFx(r.rate) : ''}</td>
+        <td class="c-pay"><span class="badge ${st.cls}">${st.label}</span><span class="pay-amt" style="color:${r.settled ? '#9CA3AF' : '#2563EB'}">${r.given ? fmtFx(r.given) : ''}</span></td>
+        <td class="c-due"><span class="due-amt">${fmtNum(r.dueKrw)}</span></td>
+        <td class="c-recv"><label class="chk-recv"><input type="checkbox" ${r.settled ? 'checked' : ''} onchange="toggleSettled('${r.id}', this.checked)">${r.settled ? '수령완료' : '미수령'}</label></td>
+        <td class="c-act"><button class="b-edit2" onclick="startEdit('${r.id}')" ${r.settled ? 'disabled' : ''}>수정</button></td>
+        <td class="c-act"><button class="b-del" onclick="deleteTxn('${r.id}')" title="삭제">×</button></td>
       </tr>`;
     }).join('');
   }
-  const totRemainKrw = list.reduce((s, r) => s + r.remainKrw, 0);
-  document.getElementById('foot-remain').textContent = fmtNum(totRemainKrw);
-  document.getElementById('inc-remain').textContent = fmtNum(totRemainKrw) + '원';
+  const totOutKrw = list.reduce((s, r) => s + r.outKrw, 0);
+  document.getElementById('foot-remain').textContent = fmtNum(totOutKrw);
+  document.getElementById('inc-remain').textContent = fmtNum(totOutKrw) + '원';
 }
 
 // ── 입력 폼 ──
@@ -205,9 +252,9 @@ function addTxn() {
   const currency = document.getElementById('f-cur').value;
   const rate = num(document.getElementById('f-rate').value);
   const amount = num(document.getElementById('f-amt').value);
-  if (!amount || !rate) { alert('환율과 금액(외화)을 입력하세요.'); return; }
+  if (!amount || !rate) { alert('환율과 신청금액(외화)을 입력하세요.'); return; }
   const list = mbGetOrDefault(KEY, []);
-  list.push({ id: uid(), date: today(), sheet: SHEET, currency, rate, amount, givenFx: 0, received: false });
+  list.push({ id: uid(), date: today(), sheet: SHEET, currency, rate, amount, givenFx: 0, received: false, settled: false });
   mbSet(KEY, list);
   document.getElementById('f-rate').value = '';
   document.getElementById('f-amt').value = '';
@@ -216,35 +263,51 @@ function addTxn() {
   document.getElementById('f-rate').focus();
 }
 
-// ── 지급한 외화 갱신 (부분지급/수정/지급완료 공통) ──
-function setGiven(id, givenFx) {
+// ── ① 지급여부 · 행 전체 일괄수정 (인라인 편집) ──
+// 수정 버튼을 누르면 그 행의 외화금액·환율·지급액이 입력칸으로 바뀌고, 저장 시 한 번에 반영.
+let editId = null;
+function startEdit(id) {
+  editId = id;
+  render();
+  const f = document.getElementById('e-amt');
+  if (f) { f.focus(); f.select(); }
+}
+function cancelEdit() { editId = null; render(); }
+function liveDue() {
+  const due = document.getElementById('e-due');
+  if (!due) return;
+  const amt = num(document.getElementById('e-amt').value);
+  const rate = num(document.getElementById('e-rate').value);
+  due.textContent = fmtNum(Math.round(amt * rate));
+}
+function saveEdit(id) {
+  const amount = num(document.getElementById('e-amt').value);
+  const rate = num(document.getElementById('e-rate').value);
+  const given = num(document.getElementById('e-given').value);
+  if (!amount || !rate) { alert('외화금액과 환율을 입력하세요.'); return; }
+  const list = mbGetOrDefault(KEY, []);
+  const tx = list.find(x => x.id === id);
+  if (!tx) { editId = null; render(); return; }
+  tx.amount = amount;
+  tx.rate = rate;
+  tx.givenFx = Math.max(0, Math.min(given, amount));
+  tx.received = tx.givenFx >= amount;   // 옛 방식 호환(외화 전액지급 여부)
+  delete tx.recvKrw;                     // 옛 원화값 정리
+  mbSet(KEY, list);
+  editId = null;
+  render();
+}
+
+// ── ② 본사 원화 수령(정산) 토글 ──
+function toggleSettled(id, val) {
   const list = mbGetOrDefault(KEY, []);
   const tx = list.find(x => x.id === id);
   if (!tx) return;
-  const amount = num(tx.amount);
-  tx.givenFx = Math.max(0, Math.min(num(givenFx), amount));
-  tx.received = tx.givenFx >= amount;   // 옛 방식 호환
-  delete tx.recvKrw;                     // 옛 원화값 정리
+  tx.settled = !!val;
   mbSet(KEY, list);
   render();
 }
-function markGiven(id) {
-  const tx = mbGetOrDefault(KEY, []).find(x => x.id === id);
-  if (tx) setGiven(id, num(tx.amount));   // 전액 지급
-}
-function editGiven(id) {
-  const r = records().find(x => x.id === id);
-  if (!r) return;
-  const c = r.currency;
-  const input = prompt(
-    `지급한 외화(누적 총액)를 입력하세요.\n\n`
-    + `총 금액 : ${fmtFx(r.amount)} ${c}\n`
-    + `현재 지급 : ${fmtFx(r.given)} ${c}\n`
-    + `남은 금액 : ${fmtFx(r.remainFx)} ${c}`,
-    r.given);
-  if (input === null) return;             // 취소
-  setGiven(id, num(input));
-}
+
 function deleteTxn(id) {
   const list = mbGetOrDefault(KEY, []);
   const tx = list.find(x => x.id === id);
@@ -257,9 +320,9 @@ function deleteTxn(id) {
 }
 function deleteCompleted() {
   const all = mbGetOrDefault(KEY, []);
-  const done = records().filter(r => r.amount > 0 && r.remainFx <= 0).map(r => r.id);
-  if (!done.length) { alert('정리할 완료건이 없습니다.'); return; }
-  if (!confirm(`전액 지급 완료된 ${done.length}건을 목록에서 지울까요?\n(기록 로그에서 30일간 복구 가능)`)) return;
+  const done = records().filter(r => r.settled).map(r => r.id);
+  if (!done.length) { alert('정리할 정산완료건이 없습니다.\n(본사에서 원화를 받은 건을 "원화 받음"으로 표시하면 여기서 정리할 수 있어요)'); return; }
+  if (!confirm(`본사 원화 수령(정산) 완료된 ${done.length}건을 목록에서 지울까요?\n(기록 로그에서 30일간 복구 가능)`)) return;
   const removed = all.filter(x => done.includes(x.id));
   if (typeof mbLogDelete === 'function')
     mbLogDelete('인천공항 삭제', KEY, removed, t => `${t.currency || ''} ${fmtNum(t.amount)} × ${t.rate}`);
