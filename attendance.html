@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=46">
-<link rel="apple-touch-icon" href="favicon.png?v=46">
+<link rel="icon" type="image/png" href="favicon.png?v=48">
+<link rel="apple-touch-icon" href="favicon.png?v=48">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 근태관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=46">
+<link rel="stylesheet" href="css/mb.css?v=48">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=46"></script>
-<script src="js/mb-data.js?v=46"></script>
-<script src="js/mb-sync.js?v=46"></script>
+<script src="js/firebase-config.js?v=48"></script>
+<script src="js/mb-data.js?v=48"></script>
+<script src="js/mb-sync.js?v=48"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -39,6 +39,10 @@
   .att-tbl td.att-d { font-weight:600; color:#374151; }
   .att-time { width:74px; border:1px solid #E5E7EB; border-radius:.3rem; padding:.15rem .2rem; font-size:.72rem; text-align:center; outline:none; }
   .att-time:focus { border-color:#F5A623; }
+  .att-sel { display:inline-flex; align-items:center; gap:1px; }
+  .att-sel select { border:1px solid #E5E7EB; border-radius:.3rem; padding:.12rem 0; font-size:.72rem; outline:none; text-align:center; background:#fff; cursor:pointer; }
+  .att-sel select:focus { border-color:#F5A623; }
+  .att-sel b { color:#9CA3AF; font-weight:400; }
   /* Calendar (명확한 칸 달력) */
   .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:1px; background:#E5E7EB; border:1px solid #E5E7EB; border-radius:10px; overflow:hidden; }
   .cal-day-header { text-align:center; font-size:.72rem; font-weight:700; color:#6B7280; padding:.5rem 0; background:#F9FAFB; }
@@ -668,8 +672,8 @@ function renderAttEdit() {
     const isToday = dateStr === todayStr;
     let inCell, outCell;
     if (editing) {
-      inCell  = `<input type="time" id="ai-${e.id}-${d}" value="${a.clockIn||''}" onchange="saveAttDay('${e.id}','${dateStr}',${d})" class="att-time">`;
-      outCell = `<input type="time" id="ao-${e.id}-${d}" value="${a.clockOut||''}" onchange="saveAttDay('${e.id}','${dateStr}',${d})" class="att-time">`;
+      inCell  = timeSel('ai', a.clockIn, e.id, dateStr, d);
+      outCell = timeSel('ao', a.clockOut, e.id, dateStr, d);
     } else if (isLeave) {
       inCell = outCell = '<span style="color:#6D28D9;font-weight:600">연차</span>';
     } else {
@@ -705,10 +709,29 @@ function renderAttEdit() {
     <div class="att-cols" style="display:flex;gap:10px;padding:10px;align-items:flex-start;justify-content:center">${tables}</div>
   </div>`;
 }
+// 시(00-23) + 분(00/30) 선택칸 생성 — 출퇴근 수정용 (분은 00·30 두 가지만)
+function timeSel(base, val, empId, date, d) {
+  let h = '', m = '';
+  if (val && /^\d{1,2}:\d{1,2}$/.test(val)) {
+    let [hh, mm] = val.split(':').map(Number);
+    let rm = Math.round(mm / 30) * 30, rh = hh;
+    if (rm === 60) { rm = 0; rh = (hh + 1) % 24; }
+    h = String(rh).padStart(2, '0'); m = String(rm).padStart(2, '0');
+  }
+  const oc = `onchange="saveAttDay('${empId}','${date}',${d})"`;
+  let hopts = '<option value="">--</option>';
+  for (let i = 0; i < 24; i++) { const p = String(i).padStart(2, '0'); hopts += `<option value="${p}"${h === p ? ' selected' : ''}>${p}</option>`; }
+  const mopts = `<option value="">--</option><option value="00"${m === '00' ? ' selected' : ''}>00</option><option value="30"${m === '30' ? ' selected' : ''}>30</option>`;
+  return `<span class="att-sel"><select id="${base}h-${empId}-${d}" ${oc}>${hopts}</select><b>:</b><select id="${base}m-${empId}-${d}" ${oc}>${mopts}</select></span>`;
+}
 function saveAttDay(empId, date, d) {
-  const ci = document.getElementById(`ai-${empId}-${d}`).value;
-  const co = document.getElementById(`ao-${empId}-${d}`).value;
-  // 출퇴근 수정: 관리자가 예외 상황을 직접 입력하므로 정시 clamp 없이 입력값 그대로 저장
+  // 시:분(00/30) 선택칸에서 읽어 조합 (시만 고르면 분은 00)
+  const cih = document.getElementById(`aih-${empId}-${d}`).value;
+  const cim = document.getElementById(`aim-${empId}-${d}`).value;
+  const coh = document.getElementById(`aoh-${empId}-${d}`).value;
+  const com = document.getElementById(`aom-${empId}-${d}`).value;
+  const ci = cih ? `${cih}:${cim || '00'}` : '';
+  const co = coh ? `${coh}:${com || '00'}` : '';
   const clamped = { clockIn: ci || null, clockOut: co || null };
   const list = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
   const emp = mbGetOrDefault(MB.EMPLOYEES_KEY, []).find(e => e.id === empId);
