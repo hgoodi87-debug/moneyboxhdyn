@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=49">
-<link rel="apple-touch-icon" href="favicon.png?v=49">
+<link rel="icon" type="image/png" href="favicon.png?v=50">
+<link rel="apple-touch-icon" href="favicon.png?v=50">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 근태관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=49">
+<link rel="stylesheet" href="css/mb.css?v=50">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=49"></script>
-<script src="js/mb-data.js?v=49"></script>
-<script src="js/mb-sync.js?v=49"></script>
+<script src="js/firebase-config.js?v=50"></script>
+<script src="js/mb-data.js?v=50"></script>
+<script src="js/mb-sync.js?v=50"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -150,7 +150,7 @@
                 <tbody id="my-month-tbody"></tbody>
               </table>
             </div>
-            <p class="text-xs text-[#9CA3AF] mt-2">* 9시간 초과 근무 시 점심시간 1시간 제외</p>
+            <p class="text-xs text-[#9CA3AF] mt-2">* 9시간 이상 근무 시 점심시간 1시간 제외</p>
           </div>
         </div>
       </div>
@@ -462,7 +462,7 @@ function renderDayDetail() {
 }
 
 // ─── 오늘 출퇴근 + 일별 근무 ───
-function adjustWorkMin(min) { return min > 540 ? min - 60 : min; }
+function adjustWorkMin(min) { return min >= 540 ? min - 60 : min; }
 function renderTodayStatus() {
   const u = getCurrentUser();
   if (!u) return;
@@ -472,7 +472,7 @@ function renderTodayStatus() {
   let summary = '미출근';
   if (att?.workMinutes) {
     const adj = adjustWorkMin(att.workMinutes);
-    summary = `근무 ${(adj/60).toFixed(1)}h${att.workMinutes > 540 ? ' · 점심 1h 제외' : ''}`;
+    summary = `근무 ${(adj/60).toFixed(1)}h${att.workMinutes >= 540 ? ' · 점심 1h 제외' : ''}`;
   } else if (att?.clockIn) {
     summary = '근무 중';
   }
@@ -501,7 +501,7 @@ function renderMyMonthTable() {
       clockOut = a.clockOut || '-';
       if (a.workMinutes) {
         const adjusted = adjustWorkMin(a.workMinutes);
-        workH = `${(adjusted/60).toFixed(1)}h${a.workMinutes > 540 ? '*' : ''}`;
+        workH = `${(adjusted/60).toFixed(1)}h${a.workMinutes >= 540 ? '*' : ''}`;
         totalMin += adjusted;
       }
     }
