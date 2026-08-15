@@ -68,29 +68,26 @@
         </div>
       </div>
 
-      <!-- 지점간 이동 -->
+      <!-- 당일거래 전달사항 (지점간 이동과 위치 교체 — 넓은 자리로) -->
       <div class="widget" style="height:560px">
         <div class="widget-title flex items-center justify-between">
-          <span>지점간 이동</span>
-          <button onclick="resetTransfers()" class="text-[10px] text-[#9CA3AF] hover:text-[#EF4444] border border-[#E5E7EB] hover:border-[#EF4444] rounded px-1.5 py-0.5 font-normal">초기화</button>
-        </div>
-        <div class="widget-form">
-          <div style="display:flex;gap:6px;align-items:flex-start">
-            <textarea id="tr-memo" rows="1" placeholder="메모 입력 (여러 줄 OK)" class="input-base"
-              style="flex:1;min-width:0;resize:none;font-family:inherit;line-height:1.45;max-height:160px;overflow-y:auto"
-              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'"></textarea>
-            <button onclick="addTransfer()" class="btn-add" style="flex-shrink:0;margin-top:1px">저장</button>
+          <span>당일거래 전달사항</span>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-[#10B981] font-normal">● 실시간</span>
+            <button onclick="resetTradeNotices()" class="text-[10px] text-[#9CA3AF] hover:text-[#EF4444] border border-[#E5E7EB] hover:border-[#EF4444] rounded px-1.5 py-0.5 font-normal">초기화</button>
           </div>
         </div>
-        <div class="widget-body text-xs" style="overflow-y:auto">
-          <table class="w-full">
-            <tbody id="transfer-list"></tbody>
-          </table>
+        <div class="widget-form">
+          <div class="flex gap-2">
+            <textarea id="tn-content" rows="1" class="input-base resize-none flex-1" placeholder="실시간 전달..."></textarea>
+            <button onclick="addTradeNotice()" class="btn-add">등록</button>
+          </div>
         </div>
+        <div class="widget-body" id="trade-notices-list"></div>
         <div class="page-ctrl">
-          <button class="page-btn" id="tr-prev" onclick="pg('tr',-1)">◀</button>
-          <span class="page-info" id="tr-pi"></span>
-          <button class="page-btn" id="tr-next" onclick="pg('tr',1)">▶</button>
+          <button class="page-btn" id="tn-prev" onclick="pg('tn',-1)">◀</button>
+          <span class="page-info" id="tn-pi"></span>
+          <button class="page-btn" id="tn-next" onclick="pg('tn',1)">▶</button>
         </div>
       </div>
 
@@ -183,26 +180,29 @@
         </div>
       </div>
 
-      <!-- 당일거래 전달사항 -->
+      <!-- 지점간 이동 (당일거래 전달사항과 위치 교체 — 좁은 자리로) -->
       <div class="widget" style="flex:1">
         <div class="widget-title flex items-center justify-between">
-          <span>당일거래 전달사항</span>
-          <div class="flex items-center gap-2">
-            <span class="text-[10px] text-[#10B981] font-normal">● 실시간</span>
-            <button onclick="resetTradeNotices()" class="text-[10px] text-[#9CA3AF] hover:text-[#EF4444] border border-[#E5E7EB] hover:border-[#EF4444] rounded px-1.5 py-0.5 font-normal">초기화</button>
-          </div>
+          <span>지점간 이동</span>
+          <button onclick="resetTransfers()" class="text-[10px] text-[#9CA3AF] hover:text-[#EF4444] border border-[#E5E7EB] hover:border-[#EF4444] rounded px-1.5 py-0.5 font-normal">초기화</button>
         </div>
         <div class="widget-form">
-          <div class="flex gap-2">
-            <textarea id="tn-content" rows="1" class="input-base resize-none flex-1" placeholder="실시간 전달..."></textarea>
-            <button onclick="addTradeNotice()" class="btn-add">등록</button>
+          <div style="display:flex;gap:6px;align-items:flex-start">
+            <textarea id="tr-memo" rows="1" placeholder="메모 입력 (여러 줄 OK)" class="input-base"
+              style="flex:1;min-width:0;resize:none;font-family:inherit;line-height:1.45;max-height:160px;overflow-y:auto"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'"></textarea>
+            <button onclick="addTransfer()" class="btn-add" style="flex-shrink:0;margin-top:1px">저장</button>
           </div>
         </div>
-        <div class="widget-body" id="trade-notices-list"></div>
+        <div class="widget-body text-xs" style="overflow-y:auto">
+          <table class="w-full">
+            <tbody id="transfer-list"></tbody>
+          </table>
+        </div>
         <div class="page-ctrl">
-          <button class="page-btn" id="tn-prev" onclick="pg('tn',-1)">◀</button>
-          <span class="page-info" id="tn-pi"></span>
-          <button class="page-btn" id="tn-next" onclick="pg('tn',1)">▶</button>
+          <button class="page-btn" id="tr-prev" onclick="pg('tr',-1)">◀</button>
+          <span class="page-info" id="tr-pi"></span>
+          <button class="page-btn" id="tr-next" onclick="pg('tr',1)">▶</button>
         </div>
       </div>
 
