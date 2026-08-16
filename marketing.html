@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="favicon.png?v=50">
+<link rel="apple-touch-icon" href="favicon.png?v=50">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>MoneyBox 마케팅</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="css/mb.css?v=50">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js?v=50"></script>
+<script src="js/mb-data.js?v=50"></script>
+<script src="js/mb-sync.js?v=50"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+  .card { background:#fff; border-radius:.9rem; padding:1.15rem 1.35rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .sec-title { font-size:1rem; font-weight:800; color:#1A1A2E; }
+  .btn-add { background:#F5A623; color:#fff; border:none; border-radius:.55rem; padding:.55rem 1.05rem; font-size:.88rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .btn-add:hover { background:#E0951F; }
+  .input-base { border:1.5px solid #E5E7EB; border-radius:.55rem; padding:.5rem .65rem; font-size:.9rem; outline:none; background:#fff; }
+  .input-base:focus { border-color:#F5A623; }
+
+  /* ── 금주 마케팅 플랜 ── */
+  .plan-row { display:flex; align-items:center; gap:9px; padding:.5rem .15rem; border-bottom:1px solid #F3F4F6; }
+  .plan-row input[type=checkbox] { width:17px; height:17px; accent-color:#10B981; cursor:pointer; flex-shrink:0; }
+  .plan-txt { flex:1; font-size:.9rem; color:#1A1A2E; word-break:break-word; line-height:1.5; }
+  .plan-txt.done { text-decoration:line-through; color:#9CA3AF; }
+  .x-plan { color:#D1D5DB; font-size:.8rem; cursor:pointer; background:none; border:none; flex-shrink:0; }
+  .x-plan:hover { color:#EF4444; }
+
+  /* ── 유입수 분석 표 ── */
+  .wk-nav { display:flex; align-items:center; gap:10px; }
+  .wk-btn { border:1px solid #E5E7EB; background:#fff; border-radius:.45rem; width:30px; height:30px; cursor:pointer; font-size:.85rem; color:#374151; }
+  .wk-btn:hover { background:#F5F7FA; }
+  .wk-label { font-weight:800; color:#1A1A2E; font-size:.95rem; min-width:150px; text-align:center; }
+  .wk-diff { font-size:.78rem; color:#6B7280; }
+
+  .tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .mk-tbl { width:100%; border-collapse:collapse; font-size:.82rem; min-width:620px; }
+  .mk-tbl th { background:#F5F7FA; color:#6B7280; font-weight:700; font-size:.72rem; padding:.5rem .3rem; border-bottom:2px solid #E5E7EB; text-align:center; white-space:nowrap; }
+  .mk-tbl th.l { text-align:left; padding-left:.6rem; }
+  .mk-tbl th.rt-h { color:#B45309; }
+  .mk-tbl th.today-h { background:#FEF3C7; color:#92400E; }
+  .mk-tbl .dnum { font-size:.66rem; color:#9CA3AF; font-weight:600; }
+  .mk-tbl td { padding:.32rem .3rem; border-bottom:1px solid #F1F1F3; text-align:center; font-variant-numeric:tabular-nums; }
+  .mk-tbl td.c-cur { text-align:left; font-weight:700; color:#1A1A2E; white-space:nowrap; padding-left:.6rem; }
+  .mk-tbl td.rt { font-weight:800; color:#B45309; }
+  .cell-in { width:46px; text-align:center; border:1.5px solid #E5E7EB; border-radius:.4rem; padding:.28rem .15rem; font-size:.82rem; outline:none; background:#fff; }
+  .cell-in:focus { border-color:#F5A623; background:#FFFBEB; }
+  .cell-in::-webkit-inner-spin-button, .cell-in::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+  .cell-in { -moz-appearance:textfield; }
+  .x-cur { color:#D1D5DB; font-size:.72rem; cursor:pointer; background:none; border:none; margin-left:3px; }
+  .x-cur:hover { color:#EF4444; }
+  .mk-tbl tfoot td { padding:.5rem .3rem; font-weight:800; border-top:2px solid #E5E7EB; background:#1E2A3A; color:#fff; text-align:center; font-variant-numeric:tabular-nums; }
+  .mk-tbl tfoot td.l { text-align:left; color:#CBD5E1; padding-left:.6rem; }
+  .mk-tbl tfoot td.grand { color:#F5A623; font-size:.9rem; }
+
+  /* ── 권종별 비교 막대 ── */
+  .cmp-total-box { text-align:right; }
+  .cmp-total-num { font-size:1.5rem; font-weight:900; color:#F5A623; line-height:1.1; }
+  .bar-row { display:flex; align-items:center; gap:9px; margin:5px 0; }
+  .bar-lab { width:46px; font-weight:700; font-size:.78rem; color:#1A1A2E; flex-shrink:0; text-align:right; }
+  .bar-track { flex:1; background:#F1F5F9; border-radius:.4rem; height:18px; overflow:hidden; }
+  .bar-fill { height:100%; background:linear-gradient(90deg,#F5A623,#FBBF24); border-radius:.4rem; min-width:2px; }
+  .bar-val { width:86px; text-align:right; font-size:.8rem; font-weight:800; color:#374151; flex-shrink:0; }
+  .bar-pct { color:#9CA3AF; font-weight:600; font-size:.7rem; }
+  .bar-delta { width:56px; text-align:right; font-size:.73rem; font-weight:800; flex-shrink:0; }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<div id="mb-header"></div>
+
+<main class="pt-[92px] min-h-screen pb-8" style="padding-left:clamp(16px,8vw,180px);padding-right:clamp(16px,8vw,180px)">
+  <div style="display:flex;flex-direction:column;align-items:center">
+    <div style="max-width:980px;width:100%">
+
+      <!-- 제목 -->
+      <div class="mb-5">
+        <h2 class="text-xl font-bold text-[#1A1A2E]">마케팅</h2>
+        <p class="text-xs text-[#6B7280] mt-0.5">이번 주 마케팅 플랜과 권종별 유입수를 관리합니다.</p>
+      </div>
+
+      <!-- 섹션 A: 금주 마케팅 플랜 -->
+      <div class="card mb-4">
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="sec-title">금주 마케팅 플랜</span>
+          <span id="plan-week" class="text-xs text-[#9CA3AF] font-semibold"></span>
+        </div>
+        <div class="flex gap-2 mb-2">
+          <input id="plan-input" type="text" class="input-base" style="flex:1" placeholder="이번 주 마케팅 플랜을 입력하세요...">
+          <button class="btn-add" onclick="addPlan()">등록</button>
+        </div>
+        <div id="plan-list"></div>
+      </div>
+
+      <!-- 섹션 B: 마케팅 유입수 분석 (권종별) -->
+      <div class="card">
+        <div class="flex items-center justify-between mb-3" style="gap:12px;flex-wrap:wrap">
+          <span class="sec-title">마케팅 유입수 분석 <span class="text-xs font-semibold text-[#9CA3AF]">(권종별 · 일별)</span></span>
+          <div class="wk-nav">
+            <button class="wk-btn" onclick="wkNav(-1)" title="지난주">◀</button>
+            <span id="wk-label" class="wk-label">-</span>
+            <button class="wk-btn" onclick="wkNav(1)" title="다음주">▶</button>
+          </div>
+        </div>
+
+        <div class="tbl-wrap mb-3">
+          <table class="mk-tbl">
+            <thead id="inflow-head"></thead>
+            <tbody id="inflow-body"></tbody>
+            <tfoot id="inflow-foot"></tfoot>
+          </table>
+        </div>
+
+        <div class="flex items-center gap-2 mb-4">
+          <select id="add-cur" class="input-base" style="font-size:.82rem;padding:.35rem .5rem" onchange="addCurrRow()"></select>
+          <span class="text-xs text-[#9CA3AF]">권종 행 추가 · 각 칸에 유입수를 입력하면 자동 저장됩니다</span>
+        </div>
+
+        <!-- 권종별 비교 -->
+        <div style="border-top:1px solid #F1F1F3;padding-top:1rem">
+          <div class="flex items-end justify-between mb-2" style="gap:12px;flex-wrap:wrap">
+            <span class="text-sm font-bold text-[#374151]">권종별 주간 비교</span>
+            <div class="cmp-total-box">
+              <div class="text-[11px] text-[#6B7280]">이번 주 총 유입수</div>
+              <div><span id="cmp-total" class="cmp-total-num">0</span><span class="text-xs text-[#6B7280] font-bold"> 명</span></div>
+              <div id="wk-diff" class="wk-diff"></div>
+            </div>
+          </div>
+          <div id="cmp-bars"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+mbBoot('marketing.html');
+
+const PLANS_KEY  = MB.MARKETING_PLANS_KEY;
+const INFLOW_KEY = MB.MARKETING_INFLOW_KEY;
+const DEFAULT_CURR = ['USD', 'JPY', 'CNY', 'TWD', 'HKD'];
+const DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일'];
+
+function num(v) { return Number(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ── 날짜 헬퍼 ──
+function _pad(n) { return String(n).padStart(2, '0'); }
+function ymd(dt) { return `${dt.getFullYear()}-${_pad(dt.getMonth() + 1)}-${_pad(dt.getDate())}`; }
+function parseD(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function addDays(s, n) { const dt = parseD(s); dt.setDate(dt.getDate() + n); return ymd(dt); }
+function mondayOf(s) { const dt = parseD(s); const day = dt.getDay(); dt.setDate(dt.getDate() + (day === 0 ? -6 : 1 - day)); return ymd(dt); }
+function weekDates(mon) { return Array.from({ length: 7 }, (_, i) => addDays(mon, i)); }
+function mdLabel(s) { const [, m, d] = s.split('-'); return `${Number(m)}/${Number(d)}`; }
+
+// ─────────── 섹션 A: 금주 마케팅 플랜 ───────────
+function mkWeek() { return mondayOf(today()); }
+function addPlan() {
+  const el = document.getElementById('plan-input');
+  const text = el.value.trim();
+  if (!text) return;
+  mbPush(PLANS_KEY, { id: uid(), text, done: false, week: mkWeek(), createdBy: (getCurrentUser() ? getCurrentUser().name : ''), createdAt: nowTs() });
+  el.value = '';
+  renderPlans();
+}
+function togglePlan(id) { mbUpdate(PLANS_KEY, x => x.id === id, x => x.done = !x.done); renderPlans(); }
+function delPlan(id) { if (!confirm('삭제할까요?')) return; mbRemove(PLANS_KEY, x => x.id === id); renderPlans(); }
+function renderPlans() {
+  const wk = mkWeek();
+  const all = mbGetOrDefault(PLANS_KEY, []).filter(p => p.week === wk);
+  document.getElementById('plan-week').textContent = `${mdLabel(wk)} ~ ${mdLabel(addDays(wk, 6))}`;
+  document.getElementById('plan-list').innerHTML = all.length
+    ? all.map(p => `<div class="plan-row">
+        <input type="checkbox" ${p.done ? 'checked' : ''} onchange="togglePlan('${p.id}')">
+        <span class="plan-txt ${p.done ? 'done' : ''}">${esc(p.text)}</span>
+        <button class="x-plan" onclick="delPlan('${p.id}')" title="삭제">✕</button>
+      </div>`).join('')
+    : '<p style="color:#9CA3AF;font-size:.85rem;text-align:center;padding:1.4rem">이번 주 플랜이 없습니다 — 위에 입력해 추가하세요</p>';
+}
+
+// ─────────── 섹션 B: 마케팅 유입수 분석 ───────────
+let _wk = 0;                                  // 0 = 이번 주
+let _sessCurr = [];                            // 이번 세션에 추가한 권종(값 입력 전 임시)
+function viewMonday() { return addDays(mondayOf(today()), _wk * 7); }
+function wkNav(d) { _wk += d; renderInflow(); }
+function inflowRecords() { return mbGetOrDefault(INFLOW_KEY, []); }
+
+function shownCurr() {
+  const withData = inflowRecords().map(r => r.currency);
+  const set = new Set([...DEFAULT_CURR, ...withData, ..._sessCurr]);
+  return MB.CURRENCIES.filter(c => set.has(c));   // 권종 표준 순서 유지
+}
+function getCount(date, cur) {
+  const r = inflowRecords().find(x => x.date === date && x.currency === cur);
+  return r ? (Number(r.count) || 0) : 0;
+}
+function setCount(date, cur, val) {
+  const n = Math.max(0, Math.floor(num(val)));
+  const list = mbGetOrDefault(INFLOW_KEY, []);
+  const idx = list.findIndex(x => x.date === date && x.currency === cur);
+  if (n <= 0) { if (idx >= 0) { list.splice(idx, 1); mbSet(INFLOW_KEY, list); } }
+  else if (idx >= 0) { list[idx].count = n; mbSet(INFLOW_KEY, list); }
+  else { list.push({ id: uid(), date, currency: cur, count: n }); mbSet(INFLOW_KEY, list); }
+  renderInflow();
+}
+function addCurrRow() {
+  const sel = document.getElementById('add-cur');
+  const c = sel.value;
+  if (c && !shownCurr().includes(c)) { _sessCurr.push(c); renderInflow(); }
+  sel.value = '';
+}
+function removeCurrRow(cur) {
+  const recs = inflowRecords().filter(r => r.currency === cur);
+  if (recs.length && !confirm(`${cur} 행에 입력된 유입수(${recs.length}건)도 함께 삭제됩니다. 계속할까요?`)) return;
+  _sessCurr = _sessCurr.filter(c => c !== cur);
+  if (recs.length) mbSet(INFLOW_KEY, inflowRecords().filter(r => r.currency !== cur));
+  renderInflow();
+}
+
+function renderInflow() {
+  const mon = viewMonday();
+  const dates = weekDates(mon);
+  const curs = shownCurr();
+  const t = today();
+
+  document.getElementById('wk-label').textContent = `${mdLabel(mon)}(월) ~ ${mdLabel(dates[6])}(일)`;
+
+  // 헤더
+  const headCells = dates.map((d, i) => {
+    const cls = d === t ? ' class="today-h"' : '';
+    return `<th${cls}>${DAY_NAMES[i]}<br><span class="dnum">${mdLabel(d)}</span></th>`;
+  }).join('');
+  document.getElementById('inflow-head').innerHTML = `<tr><th class="l">권종</th>${headCells}<th class="rt-h">주간합계</th></tr>`;
+
+  // 본문 + 합계
+  const rowTot = {};
+  const colTot = dates.map(() => 0);
+  let grand = 0;
+  const rows = curs.map(cur => {
+    let rt = 0;
+    const cells = dates.map((d, i) => {
+      const v = getCount(d, cur); rt += v; colTot[i] += v;
+      const bg = d === t ? 'background:#FFFBEB' : '';
+      return `<td style="${bg}"><input type="number" min="0" class="cell-in" value="${v || ''}" onchange="setCount('${d}','${cur}',this.value)"></td>`;
+    }).join('');
+    rowTot[cur] = rt; grand += rt;
+    return `<tr><td class="c-cur">${cur}<button class="x-cur" onclick="removeCurrRow('${cur}')" title="행 삭제">✕</button></td>${cells}<td class="rt">${fmtNum(rt)}</td></tr>`;
+  }).join('');
+  document.getElementById('inflow-body').innerHTML = rows ||
+    `<tr><td colspan="9" style="text-align:center;color:#9CA3AF;padding:1.6rem">아래에서 권종을 추가해 유입수를 입력하세요</td></tr>`;
+
+  // 일별합계
+  document.getElementById('inflow-foot').innerHTML =
+    `<tr><td class="l">일별합계</td>${colTot.map(v => `<td>${fmtNum(v)}</td>`).join('')}<td class="grand">${fmtNum(grand)}</td></tr>`;
+
+  renderCompare(curs, rowTot, grand, mon);
+}
+
+function renderCompare(curs, rowTot, grand, mon) {
+  const recs = inflowRecords();
+  const lastDates = weekDates(addDays(mon, -7));
+  const lastByCur = {};
+  recs.forEach(r => { if (lastDates.includes(r.date)) lastByCur[r.currency] = (lastByCur[r.currency] || 0) + (Number(r.count) || 0); });
+  const lastTot = Object.values(lastByCur).reduce((s, v) => s + v, 0);
+
+  // 권종별 막대 (많은 순) + 각 권종 지난주 대비 증감
+  const arr = curs.map(c => ({ c, v: rowTot[c] || 0, last: lastByCur[c] || 0 }))
+    .filter(x => x.v > 0 || x.last > 0).sort((a, b) => b.v - a.v);
+  const max = arr.length ? Math.max(...arr.map(x => x.v)) : 0;
+  document.getElementById('cmp-bars').innerHTML = arr.length
+    ? arr.map(x => {
+        const pct = grand ? Math.round(x.v / grand * 100) : 0;
+        const w = max ? Math.round(x.v / max * 100) : 0;
+        const d = x.v - x.last;
+        const dc = d > 0 ? '#16A34A' : (d < 0 ? '#DC2626' : '#9CA3AF');
+        const ds = d > 0 ? '▲' : (d < 0 ? '▼' : '—');
+        return `<div class="bar-row"><span class="bar-lab">${x.c}</span><div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div><span class="bar-val">${fmtNum(x.v)}<span class="bar-pct"> ${pct}%</span></span><span class="bar-delta" style="color:${dc}">${ds}${fmtNum(Math.abs(d))}</span></div>`;
+      }).join('')
+    : '<p style="color:#9CA3AF;font-size:.82rem;text-align:center;padding:.8rem">입력된 유입수가 없습니다</p>';
+
+  document.getElementById('cmp-total').textContent = fmtNum(grand);
+
+  // 지난주 대비 총합 증감 (명 + %)
+  const diffEl = document.getElementById('wk-diff');
+  if (lastTot === 0 && grand === 0) { diffEl.textContent = ''; return; }
+  const diff = grand - lastTot;
+  const sign = diff > 0 ? '▲' : (diff < 0 ? '▼' : '—');
+  const col = diff > 0 ? '#16A34A' : (diff < 0 ? '#DC2626' : '#6B7280');
+  const pctTxt = lastTot > 0 ? ` (${diff >= 0 ? '+' : ''}${Math.round(diff / lastTot * 100)}%)` : '';
+  diffEl.innerHTML = `지난주 ${fmtNum(lastTot)}명 · <span style="color:${col};font-weight:800">${sign}${fmtNum(Math.abs(diff))}명${pctTxt}</span>`;
+}
+
+// ── 초기화 ──
+document.getElementById('add-cur').innerHTML = '<option value="">＋ 권종 추가</option>' +
+  MB.CURRENCIES.map(c => `<option value="${c}">${c}</option>`).join('');
+document.getElementById('plan-input').addEventListener('keydown', e => { if (e.key === 'Enter') addPlan(); });
+renderPlans();
+renderInflow();
+mbOnDataChange(() => { renderPlans(); renderInflow(); });
+</script>
+</body>
+</html>

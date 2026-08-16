@@ -34,6 +34,8 @@ const MB = {
   CREDENTIALS_KEY: 'mb_credentials',
   AUDIT_LOG_KEY: 'mb_audit_log',
   ATM_MEMO_KEY: 'mb_atm_memo',
+  MARKETING_PLANS_KEY: 'mb_marketing_plans',
+  MARKETING_INFLOW_KEY: 'mb_marketing_inflow',
   LOG_RETENTION_DAYS: 30,
 
   // 공통 헤더 네비게이션
@@ -46,6 +48,7 @@ const MB = {
     { href: 'storage.html',    label: '보관함관리' },
     { href: 'atm.html',        label: '무인기관리' },
     { href: 'archive.html',    label: '자료실' },
+    { href: 'marketing.html',  label: '마케팅' },
   ],
   ADMIN_NAV: [
     { href: 'calc.html',     label: '🧮 계산기' },
