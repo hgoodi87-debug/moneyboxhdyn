@@ -71,7 +71,7 @@
   .bar-pct { color:#9CA3AF; font-weight:600; font-size:.7rem; }
   .bar-delta { width:56px; text-align:right; font-size:.73rem; font-weight:800; flex-shrink:0; }
 
-  /* ── 분기별 마케팅 플랜 ── */
+  /* ── 월별 마케팅 플랜 ── */
   .q-week { border:1px solid #EEF0F3; border-radius:.6rem; padding:.6rem .75rem; margin-bottom:.55rem; }
   .q-week.q-cur { border-color:#F5A623; background:#FFFDF5; }
   .q-wk-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:.4rem; }
@@ -154,14 +154,14 @@
         </div>
       </div>
 
-      <!-- 섹션 C: 분기별 마케팅 플랜 -->
+      <!-- 섹션 C: 월별 마케팅 플랜 -->
       <div class="card mt-4">
         <div class="flex items-center justify-between mb-3" style="gap:12px;flex-wrap:wrap">
-          <span class="sec-title">분기별 마케팅 플랜 <span class="text-xs font-semibold text-[#9CA3AF]">(주별 입력 → 해당 주가 되면 위 금주 플랜에 자동 표시)</span></span>
+          <span class="sec-title">월별 마케팅 플랜 <span class="text-xs font-semibold text-[#9CA3AF]">(◀▶로 달 이동 · 주별 입력 → 해당 주가 되면 위 금주 플랜에 자동 표시)</span></span>
           <div class="wk-nav">
-            <button class="wk-btn" onclick="qNav(-1)" title="지난 분기">◀</button>
+            <button class="wk-btn" onclick="mNav(-1)" title="지난 달">◀</button>
             <span id="q-label" class="wk-label">-</span>
-            <button class="wk-btn" onclick="qNav(1)" title="다음 분기">▶</button>
+            <button class="wk-btn" onclick="mNav(1)" title="다음 달">▶</button>
           </div>
         </div>
         <div id="q-list"></div>
@@ -216,26 +216,25 @@ function renderPlans() {
     : '<p style="color:#9CA3AF;font-size:.85rem;text-align:center;padding:1.4rem">이번 주 플랜이 없습니다 — 위에 입력해 추가하세요</p>';
 }
 
-function refreshPlans() { renderPlans(); renderQuarter(); }
+function refreshPlans() { renderPlans(); renderMonth(); }
 
-// ─────────── 섹션 C: 분기별 마케팅 플랜 (주별 입력 → 해당 주가 되면 금주 플랜으로) ───────────
-let _qOff = 0;   // 0 = 이번 분기
-function curQuarter() {
-  const b = parseD(mondayOf(today()));
-  let y = b.getFullYear(), q = Math.floor(b.getMonth() / 3) + _qOff;
-  while (q < 0) { q += 4; y -= 1; }
-  while (q > 3) { q -= 4; y += 1; }
-  return { y, q };
+// ─────────── 섹션 C: 월별 마케팅 플랜 (◀▶로 달 이동, 주별 입력 → 해당 주가 되면 금주 플랜으로) ───────────
+let _mOff = 0;   // 0 = 이번 달
+function curMonth() {
+  const b = parseD(today());
+  let y = b.getFullYear(), m = b.getMonth() + _mOff;
+  while (m < 0) { m += 12; y -= 1; }
+  while (m > 11) { m -= 12; y += 1; }
+  return { y, m };
 }
-function qNav(d) { _qOff += d; renderQuarter(); }
-function quarterWeeks(y, q) {          // 그 분기(3개월)에 월요일이 속하는 주들의 월요일 목록
-  const sm = q * 3;                    // 분기 시작 월(0-based)
-  let mon = mondayOf(ymd(new Date(y, sm, 1)));
+function mNav(d) { _mOff += d; renderMonth(); }
+function monthWeeks(y, m) {            // 그 달에 월요일이 속하는 주들의 월요일 목록
+  let mon = mondayOf(ymd(new Date(y, m, 1)));
   const weeks = []; let guard = 0;
-  while (guard++ < 25) {
+  while (guard++ < 8) {
     const md = parseD(mon), mi = md.getMonth(), yi = md.getFullYear();
-    if (yi > y || (yi === y && mi > sm + 2)) break;
-    if (yi === y && mi >= sm) weeks.push(mon);
+    if (yi > y || (yi === y && mi > m)) break;
+    if (yi === y && mi === m) weeks.push(mon);
     mon = addDays(mon, 7);
   }
   return weeks;
@@ -248,13 +247,13 @@ function addQuarterPlan(week, btn) {
   input.value = '';
   refreshPlans();
 }
-function renderQuarter() {
-  const { y, q } = curQuarter();
-  document.getElementById('q-label').textContent = `${y}년 ${q + 1}분기`;
+function renderMonth() {
+  const { y, m } = curMonth();
+  document.getElementById('q-label').textContent = `${y}년 ${m + 1}월`;
   const curMon = mondayOf(today());
   const byWeek = {};
   mbGetOrDefault(PLANS_KEY, []).forEach(p => { (byWeek[p.week] = byWeek[p.week] || []).push(p); });
-  document.getElementById('q-list').innerHTML = quarterWeeks(y, q).map(mon => {
+  document.getElementById('q-list').innerHTML = monthWeeks(y, m).map(mon => {
     const md = parseD(mon);
     const label = `${md.getMonth() + 1}월 ${Math.ceil(md.getDate() / 7)}주차`;
     const range = `${mdLabel(mon)}~${mdLabel(addDays(mon, 6))}`;
