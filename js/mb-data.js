@@ -47,8 +47,8 @@ const MB = {
     { href: 'incheon.html',    label: '인천공항' },
     { href: 'storage.html',    label: '보관함관리' },
     { href: 'atm.html',        label: '무인기관리' },
-    { href: 'archive.html',    label: '자료실' },
     { href: 'marketing.html',  label: '마케팅' },
+    { href: 'archive.html',    label: '자료실' },
   ],
   ADMIN_NAV: [
     { href: 'calc.html',     label: '🧮 계산기' },
