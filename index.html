@@ -83,12 +83,7 @@
             <button onclick="addTradeNotice()" class="btn-add">등록</button>
           </div>
         </div>
-        <div class="widget-body" id="trade-notices-list"></div>
-        <div class="page-ctrl">
-          <button class="page-btn" id="tn-prev" onclick="pg('tn',-1)">◀</button>
-          <span class="page-info" id="tn-pi"></span>
-          <button class="page-btn" id="tn-next" onclick="pg('tn',1)">▶</button>
-        </div>
+        <div class="widget-body" id="trade-notices-list" style="overflow-y:auto"></div>
       </div>
 
     </div>
@@ -380,11 +375,9 @@ function deleteTradeNotice(id) {
 }
 function renderTradeNotices() {
   const all  = mbGetOrDefault(MB.TRADE_NOTICES_KEY, []).sort((a,b) => b.createdAt - a.createdAt);
-  const { s, e } = applyPg('tn', all.length, PG5);
-  const pill = { '홍대':'bg-red-50 text-red-700','연남':'bg-green-50 text-green-700','전체':'bg-amber-50 text-amber-700' };
   document.getElementById('trade-notices-list').innerHTML = all.length === 0
     ? '<p class="text-xs text-[#9CA3AF] text-center py-4">전달 없음</p>'
-    : all.slice(s, e).map(n => {
+    : all.map(n => {
         const ts = new Date(n.createdAt);
         const tf = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
         return `<div class="list-item" style="padding:.5rem .75rem;gap:.625rem">
