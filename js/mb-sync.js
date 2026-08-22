@@ -29,7 +29,7 @@
     'mb_task_template_v2', 'mb_atm_refill', 'mb_atm_settle', 'mb_atm_issues',
     'mb_atm_gate', 'mb_atm_memo', 'mb_storage_sales', 'mb_storage_price',
     'mb_storage_monthly', 'mb_archive', 'mb_credentials', 'mb_audit_log',
-    'mb_marketing_plans', 'mb_marketing_inflow'
+    'mb_marketing_plans', 'mb_marketing_inflow', 'mb_weekly_reports'
   ];
 
   let app;

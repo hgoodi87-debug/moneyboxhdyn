@@ -36,6 +36,7 @@ const MB = {
   ATM_MEMO_KEY: 'mb_atm_memo',
   MARKETING_PLANS_KEY: 'mb_marketing_plans',
   MARKETING_INFLOW_KEY: 'mb_marketing_inflow',
+  WEEKLY_REPORTS_KEY: 'mb_weekly_reports',
   LOG_RETENTION_DAYS: 30,
 
   // 공통 헤더 네비게이션
@@ -54,6 +55,7 @@ const MB = {
     { href: 'calc.html',     label: '🧮 계산기' },
     { href: 'log.html',      label: '🗂 기록 로그' },
     { href: 'accounts.html', label: '🔑 로그인 관리' },
+    { href: 'report.html',   label: '📄 주간보고서' },
   ],
 
   CURRENCIES: ['KRW','USD','JPY','EUR','CHF','CNY','RUB','HKD','SGD','THB','VND','TWD','AUD','CAD','GBP','PHP','IDR','MYR'],

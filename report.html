@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="favicon.png?v=54">
+<link rel="apple-touch-icon" href="favicon.png?v=54">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>MoneyBox 주간보고서</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="css/mb.css?v=54">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js?v=54"></script>
+<script src="js/mb-data.js?v=54"></script>
+<script src="js/mb-sync.js?v=54"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+
+  /* ── 툴바 (인쇄 시 숨김) ── */
+  .toolbar { position:sticky; top:60px; z-index:20; background:#fff; border-bottom:1px solid #E5E7EB;
+             padding:.6rem .9rem; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+  .btn { border:none; border-radius:.5rem; padding:.5rem 1rem; font-size:.85rem; font-weight:600; cursor:pointer; }
+  .btn-primary { background:#F5A623; color:#fff; }
+  .btn-dark { background:#1E2A3A; color:#fff; }
+  .btn-ghost { background:#F1F1F3; color:#374151; }
+  .btn-sm { padding:.28rem .6rem; font-size:.75rem; border-radius:.4rem; }
+
+  /* ── 보고서 용지 ──
+     화면에서는 폭을 최대한 넓게 써서 세로 길이를 줄인다.
+     인쇄할 때는 아래 @media print 에서 A4 규격으로 되돌린다. */
+  .sheet { width:min(1600px, 99vw); min-height:0; margin:.6rem auto; background:#fff; padding:1rem .9rem;
+           box-shadow:0 2px 12px rgba(0,0,0,.1); color:#1A1A2E; }
+
+  .rp-title { text-align:center; font-size:1.5rem; font-weight:800; letter-spacing:.35em; margin-bottom:.25rem; }
+  .rp-sub { text-align:center; font-size:.72rem; color:#6B7280; letter-spacing:.05em;
+            border-bottom:2px solid #1E2A3A; padding-bottom:.55rem; margin-bottom:.9rem; }
+
+  .meta { display:flex; border:1px solid #D6DAE0; margin-bottom:1rem; }
+  .meta > div { flex:1; display:flex; }
+  .meta-l { background:#F5F7FA; font-size:.75rem; font-weight:700; color:#374151;
+            padding:.45rem .7rem; display:flex; align-items:center; white-space:nowrap; border-right:1px solid #D6DAE0; }
+  .meta-v { flex:1; padding:.3rem .55rem; display:flex; align-items:center; font-size:.82rem; }
+  .meta > div + div { border-left:1px solid #D6DAE0; }
+
+  .sec-tag { display:inline-block; background:#1E2A3A; color:#fff; font-size:.62rem; font-weight:700;
+             letter-spacing:.12em; padding:.16rem .5rem; border-radius:.25rem; }
+  .sec-h { font-size:.98rem; font-weight:700; margin:.35rem 0 .45rem; }
+  .sec { margin-bottom:1.1rem; }
+  .sub-h { font-size:.84rem; font-weight:700; margin:.75rem 0 .35rem; color:#374151; }
+
+  table.rp { width:100%; border-collapse:collapse; font-size:.78rem; table-layout:fixed; }
+  table.rp th { background:#F5F7FA; color:#374151; font-weight:700; padding:.4rem;
+                border:1px solid #D6DAE0; text-align:center; font-size:.72rem; }
+  table.rp td { border:1px solid #D6DAE0; padding:.22rem .35rem; height:1.75rem; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td.ctr { text-align:center; }
+  tr.total-row td { background:#F5F7FA; font-weight:700; }
+  .up { color:#DC2626; } .down { color:#2563EB; }
+  .calc-cell { background:#FCFCFD; }
+
+  /* 입력 필드 — 화면에선 옅은 배경, 인쇄 시 투명 */
+  .fin { width:100%; border:none; background:#FFFBF2; border-radius:.2rem; padding:.14rem .3rem;
+         font-size:.78rem; font-family:inherit; color:#1A1A2E; outline:none; }
+  .fin:focus { background:#FEF3C7; }
+  .fin.num { text-align:right; font-variant-numeric:tabular-nums; }
+  textarea.fin { resize:none; overflow:hidden; line-height:1.45; min-height:1.4rem; }
+
+  .sign-box { display:flex; margin-top:1.3rem; border:1px solid #D6DAE0; }
+  .sign-box > div { flex:1; text-align:center; }
+  .sign-box > div + div { border-left:1px solid #D6DAE0; }
+  .sign-t { font-size:.7rem; font-weight:700; background:#F5F7FA; padding:.35rem; border-bottom:1px solid #D6DAE0; }
+  /* 이름은 위쪽에 적고, 아래 남는 공간은 서명·도장 자리로 비워둔다 */
+  .sign-b { height:18mm; padding:.3rem .45rem; }
+  .sign-in { text-align:center; font-weight:600; }
+
+  .pg-foot { display:flex; justify-content:space-between; align-items:center;
+             font-size:.66rem; color:#9CA3AF; margin-top:.9rem; border-top:1px solid #E5E7EB; padding-top:.3rem; }
+
+  .hint { font-size:.68rem; color:#9CA3AF; font-weight:400; margin-left:.35rem; }
+
+  /* ── 인쇄: A4 2장 ── */
+  @page { size:A4; margin:11mm; }
+  @media print {
+    body { background:#fff !important; }
+    #mb-header, .toolbar, .no-print { display:none !important; }
+    main { padding:0 !important; }
+    .sheet { width:auto !important; min-height:0; margin:0; padding:0; box-shadow:none; }
+    .page-break { page-break-before:always; }
+    .fin { background:transparent !important; }
+    input[type="date"]::-webkit-calendar-picker-indicator { display:none; }   /* 인쇄물에 달력 아이콘 제거 */
+    table.rp { page-break-inside:auto; }
+    tr { page-break-inside:avoid; }
+
+    /* 원본 양식과 동일하게 A4 2장에 담기도록 압축 (화면 보기는 그대로) */
+    .rp-title { font-size:1.3rem; margin-bottom:.2rem; }
+    .rp-sub { padding-bottom:.4rem; margin-bottom:.7rem; }
+    .meta { margin-bottom:.75rem; }
+    .meta-l, .meta-v { padding-top:.25rem; padding-bottom:.25rem; }
+    .sec { margin-bottom:.7rem; }
+    .sec-h { font-size:.9rem; margin:.25rem 0 .3rem; }
+    .sub-h { font-size:.78rem; margin:.5rem 0 .25rem; }
+    table.rp { font-size:.7rem; }
+    table.rp th { padding:.22rem .3rem; font-size:.66rem; }
+    table.rp td { padding:.14rem .3rem; height:1.32rem; }
+    .fin, textarea.fin { font-size:.7rem; padding:.05rem .2rem; }
+    .sign-box { margin-top:.8rem; }
+    .sign-b { height:13mm; }
+    .pg-foot { margin-top:.5rem; padding-top:.25rem; }
+  }
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<div id="mb-header"></div>
+
+<!-- 관리자 전용 차단 -->
+<div id="deny-wrap" style="display:none;max-width:420px;margin:120px auto 0;background:#fff;border-radius:1rem;padding:2.5rem;box-shadow:0 8px 24px rgba(0,0,0,.08);text-align:center">
+  <div style="font-size:2rem;margin-bottom:1rem">🔒</div>
+  <div style="font-weight:700;font-size:1.05rem;color:#1E2A3A;margin-bottom:.5rem">시니어 이상 전용 메뉴</div>
+  <p style="font-size:.875rem;color:#6B7280;margin-bottom:1.5rem">주간보고서는 시니어 이상만 사용할 수 있습니다.</p>
+  <a href="index.html" style="display:inline-block;background:#1E2A3A;color:#fff;border-radius:.5rem;padding:.6rem 1.5rem;font-size:.875rem;font-weight:600;text-decoration:none">대시보드로</a>
+</div>
+
+<div id="rp-body" style="display:none">
+
+  <div class="toolbar no-print">
+    <button class="btn btn-ghost" onclick="wkNav(-1)">‹ 이전주</button>
+    <span id="wk-label" style="font-weight:700;font-size:.9rem;min-width:225px;text-align:center"></span>
+    <button class="btn btn-ghost" onclick="wkNav(1)">다음주 ›</button>
+    <button class="btn btn-ghost" onclick="goThisWeek()">이번주</button>
+    <span style="flex:1"></span>
+    <span id="save-state" style="font-size:.75rem;color:#9CA3AF"></span>
+    <button class="btn btn-dark" onclick="saveReport(true)">💾 저장</button>
+    <button class="btn btn-primary" onclick="window.print()">🖨 PDF로 저장 / 인쇄</button>
+  </div>
+
+  <main class="pt-[6px] pb-10">
+    <div class="sheet">
+
+      <div class="rp-title">주간보고서</div>
+      <div class="rp-sub">환전 실적 · 마케팅 · 운영 &nbsp;|&nbsp; WEEKLY BUSINESS REPORT</div>
+
+      <div class="meta">
+        <div><span class="meta-l">보고 기간</span>
+          <span class="meta-v" style="gap:.35rem">
+            <input class="fin" type="date" id="m-from" style="flex:1">
+            <span style="color:#9CA3AF">~</span>
+            <input class="fin" type="date" id="m-to" style="flex:1">
+            <button class="btn btn-ghost btn-sm no-print" onclick="resetPeriod()"
+                    title="선택한 주의 월~일로 되돌립니다">주간</button>
+          </span>
+        </div>
+        <div><span class="meta-l">작성자</span><span class="meta-v"><input class="fin" id="m-author" placeholder="작성자"></span></div>
+      </div>
+
+      <!-- ─────────── SECTION 1 ─────────── -->
+      <div class="sec">
+        <span class="sec-tag">SECTION 1</span>
+        <div class="sec-h">통화별 매입 · 매출 <span class="hint">합계 · 증감액 · 증감률은 자동 계산</span></div>
+        <table class="rp">
+          <colgroup><col style="width:9%"><col><col><col><col><col><col style="width:10%"></colgroup>
+          <thead><tr><th>통화</th><th>매입액</th><th>매출액</th><th>전주 매입액</th><th>전주 매출액</th><th>증감액</th><th>증감률</th></tr></thead>
+          <tbody id="s2-body"></tbody>
+        </table>
+      </div>
+
+      <!-- ─────────── SECTION 2 ─────────── -->
+      <div class="sec">
+        <span class="sec-tag">SECTION 2</span>
+        <div class="sec-h">일자별 근무자</div>
+        <table class="rp">
+          <colgroup><col style="width:7%"><col style="width:11%"><col><col><col><col></colgroup>
+          <thead><tr><th>요일</th><th>날짜</th><th>홍대 (오픈)</th><th>홍대 (마감)</th><th>연남 (오픈)</th><th>연남 (마감)</th></tr></thead>
+          <tbody id="s3-body"></tbody>
+        </table>
+
+        <div class="sub-h">2-1. 금주 직원별 특이사항</div>
+        <table class="rp">
+          <colgroup><col style="width:14%"><col style="width:12%"><col><col style="width:6%"></colgroup>
+          <thead><tr><th>직원</th><th>지점</th><th>내용</th><th class="no-print">삭제</th></tr></thead>
+          <tbody id="s3n-body"></tbody>
+        </table>
+        <button class="btn btn-ghost btn-sm no-print" style="margin-top:.35rem" onclick="addNote('s3notes')">+ 행 추가</button>
+      </div>
+
+      <div class="pg-foot"><span>주간보고서</span><span>— 1 —</span></div>
+
+      <!-- ─────────── SECTION 3 (2페이지) ─────────── -->
+      <div class="sec page-break" style="padding-top:.2rem">
+        <span class="sec-tag">SECTION 3</span>
+        <div class="sec-h">마케팅 유입 현황 <span class="hint">합계 · 증감 · 증감률은 자동 계산</span></div>
+        <table class="rp">
+          <colgroup><col style="width:22%"><col style="width:12%"><col style="width:13%"><col style="width:11%"><col style="width:10%"><col></colgroup>
+          <thead><tr><th>유입 채널</th><th>유입수</th><th>전주 유입수</th><th>증감</th><th>증감률</th><th>비고</th></tr></thead>
+          <tbody id="s4-body"></tbody>
+        </table>
+      </div>
+
+      <!-- ─────────── SECTION 4 ─────────── -->
+      <div class="sec">
+        <span class="sec-tag">SECTION 4</span>
+        <div class="sec-h">다음주 계획</div>
+
+        <div class="sub-h">4-1. 다음주 근무 스케줄</div>
+        <table class="rp">
+          <colgroup><col style="width:7%"><col style="width:11%"><col><col><col><col></colgroup>
+          <thead><tr><th>요일</th><th>날짜</th><th>홍대 (오픈)</th><th>홍대 (마감)</th><th>연남 (오픈)</th><th>연남 (마감)</th></tr></thead>
+          <tbody id="s51-body"></tbody>
+        </table>
+
+        <div class="sub-h">4-2. 다음주 업무 계획</div>
+        <table class="rp">
+          <colgroup><col style="width:6%"><col><col style="width:14%"><col style="width:14%"><col style="width:6%"></colgroup>
+          <thead><tr><th>No</th><th>업무 내용</th><th>담당자</th><th>기한</th><th class="no-print">삭제</th></tr></thead>
+          <tbody id="s52-body"></tbody>
+        </table>
+        <button class="btn btn-ghost btn-sm no-print" style="margin-top:.35rem" onclick="addTask()">+ 행 추가</button>
+
+        <div class="sub-h">4-3. 다음주 직원별 특이사항</div>
+        <table class="rp">
+          <colgroup><col style="width:14%"><col style="width:12%"><col><col style="width:6%"></colgroup>
+          <thead><tr><th>직원</th><th>지점</th><th>내용 (휴무 · 교대 · 근태 · 기타)</th><th class="no-print">삭제</th></tr></thead>
+          <tbody id="s53-body"></tbody>
+        </table>
+        <button class="btn btn-ghost btn-sm no-print" style="margin-top:.35rem" onclick="addNote('s5notes')">+ 행 추가</button>
+      </div>
+
+      <div class="sign-box">
+        <div><div class="sign-t">작성</div><div class="sign-b"><input class="fin sign-in" id="sg-write"   placeholder="이름"></div></div>
+        <div><div class="sign-t">검토</div><div class="sign-b"><input class="fin sign-in" id="sg-review"  placeholder="이름"></div></div>
+        <div><div class="sign-t">승인</div><div class="sign-b"><input class="fin sign-in" id="sg-approve" placeholder="이름"></div></div>
+      </div>
+
+      <div class="pg-foot"><span>주간보고서</span><span>— 2 —</span></div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+mbBoot('report.html');
+
+// ─────────────────────────────────────────────────────────────
+//  주간보고서 — 전부 직접 입력하는 서식.
+//  거래·근무 데이터를 끌어오지 않는다. 자동으로 나오는 값은
+//  입력한 숫자에서 바로 나오는 계산값(합계·증감·증감률)뿐이다.
+//  작성 내용은 주차별로 저장되고 기기 간에 공유된다.
+// ─────────────────────────────────────────────────────────────
+const RP_KEY = MB.WEEKLY_REPORTS_KEY;
+const RP_CURRENCIES = ['USD','JPY','HKD','CNY','TWD'];
+const BRANCHES = ['홍대','연남'];
+const SHIFTS   = ['오픈','마감'];
+const SLOTS    = ['홍대|오픈','홍대|마감','연남|오픈','연남|마감'];
+const CHANNELS = ['샤오홍슈 (小红书)','쓰레드 (Threads)','디엔핑 (大众点评)','X (트위터)','페이스북','인스타그램'];
+
+// ─── 날짜 헬퍼 (주 시작 = 월요일) ────────────────────────────
+function _pad(n) { return String(n).padStart(2,'0'); }
+function ymd(dt) { return `${dt.getFullYear()}-${_pad(dt.getMonth()+1)}-${_pad(dt.getDate())}`; }
+function parseD(s) { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+function addDays(s, n) { const dt = parseD(s); dt.setDate(dt.getDate()+n); return ymd(dt); }
+function mondayOf(s) { const dt = parseD(s); const day = dt.getDay(); dt.setDate(dt.getDate() + (day===0 ? -6 : 1-day)); return ymd(dt); }
+function weekDates(mon) { return Array.from({length:7}, (_,i) => addDays(mon,i)); }
+function dowLabel(s) { return ['일','월','화','수','목','금','토'][parseD(s).getDay()]; }
+function isWeekend(s) { const d = parseD(s).getDay(); return d === 0 || d === 6; }
+function dotLabel(s) { const [y,m,d] = s.split('-'); return `${y}.${m}.${d}`; }
+function mdLabel(s) { const [,m,d] = s.split('-'); return `${Number(m)}/${Number(d)}`; }
+function num(v) { return Number(String(v==null?'':v).replace(/,/g,'')) || 0; }
+function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// 입력값 표시용: 숫자면 천단위 쉼표, 비었으면 빈칸 유지
+function shown(v) { const s = String(v==null?'':v).trim(); if (s === '') return ''; const n = num(s); return isNaN(n) ? s : n.toLocaleString('ko-KR'); }
+
+// ─── 상태 ────────────────────────────────────────────────────
+let _wk = 0;                       // 0 = 이번 주
+let _rp = null;
+function weekStart() { return addDays(mondayOf(today()), _wk * 7); }
+
+function blankReport(ws) {
+  const r = {
+    weekStart: ws,                       // 보고서 식별용 주차 (툴바 이동 기준)
+    periodFrom: ws,                      // 보고 기간 — 직접 수정 가능
+    periodTo: addDays(ws, 6),
+    author: getCurrentUser()?.name || '',
+    s2: {},
+    s3sched: Array.from({length:7}, () => ({})),
+    s3notes: [ {emp:'',branch:'',text:''} ],
+    s4: { cur:{}, prev:{}, note:{} },
+    s51sched: Array.from({length:7}, () => ({})),
+    s5tasks: Array.from({length:5}, () => ({task:'',owner:'',due:''})),
+    s5notes: [ {emp:'',branch:'',text:''} ],
+    sign: { write:'', review:'', approve:'' },     // 결재란 — 작성 · 검토 · 승인
+  };
+  RP_CURRENCIES.forEach(c => r.s2[c] = { buy:'', sell:'', pbuy:'', psell:'' });
+  return r;
+}
+// 저장본에 빠진 구조를 채워 넣는다 (양식이 바뀌어도 옛 보고서가 깨지지 않게)
+function normalize(r, ws) {
+  const b = blankReport(ws);
+  const out = Object.assign(b, r || {});
+  out.s2 = Object.assign(b.s2, r && r.s2 || {});
+  RP_CURRENCIES.forEach(c => out.s2[c] = Object.assign({buy:'',sell:'',pbuy:'',psell:''}, out.s2[c] || {}));
+  out.s4 = Object.assign({cur:{},prev:{},note:{}}, r && r.s4 || {});
+  ['cur','prev','note'].forEach(k => out.s4[k] = out.s4[k] || {});
+  ['s3sched','s51sched'].forEach(k => {
+    const src = Array.isArray(out[k]) ? out[k] : [];
+    out[k] = Array.from({length:7}, (_,i) => Object.assign({}, src[i] || {}));
+  });
+  ['s3notes','s5notes'].forEach(k => {
+    if (!Array.isArray(out[k]) || !out[k].length) out[k] = [{emp:'',branch:'',text:''}];
+  });
+  if (!Array.isArray(out.s5tasks) || !out.s5tasks.length) out.s5tasks = b.s5tasks;
+  if (!out.author) out.author = getCurrentUser()?.name || '';
+  if (!out.periodFrom) out.periodFrom = b.periodFrom;
+  if (!out.periodTo)   out.periodTo   = b.periodTo;
+  out.sign = Object.assign({write:'',review:'',approve:''}, out.sign || {});
+  return out;
+}
+// 일자별 표의 시작일 — 보고 기간을 따라간다 (기간을 바꾸면 표의 날짜도 같이 움직임)
+function schedStart() { return _rp.periodFrom || weekStart(); }
+function resetPeriod() {
+  _rp.periodFrom = _rp.weekStart;
+  _rp.periodTo   = addDays(_rp.weekStart, 6);
+  saveReport(); renderAll();
+}
+
+function allReports() { return mbGetOrDefault(RP_KEY, []); }
+function loadReport() {
+  const ws = weekStart();
+  const saved = allReports().find(r => r.weekStart === ws);
+  _rp = normalize(saved ? JSON.parse(JSON.stringify(saved)) : null, ws);
+  _rp.weekStart = ws;
+}
+function saveReport(explicit) {
+  _rp.updatedAt = today() + ' ' + nowTime();
+  _rp.updatedBy = getCurrentUser()?.name || '';
+  const list = allReports().filter(r => r.weekStart !== _rp.weekStart);
+  list.push(JSON.parse(JSON.stringify(_rp)));
+  list.sort((a,b) => a.weekStart.localeCompare(b.weekStart));
+  mbSet(RP_KEY, list);                       // 기기 간 동기화 포함
+  const el = document.getElementById('save-state');
+  el.textContent = (explicit ? '✔ 저장됨 ' : '자동 저장 ') + nowTime();
+  el.style.color = '#10B981';
+}
+
+// ─── 계산 셀 ─────────────────────────────────────────────────
+function deltaCell(cur, prev) {
+  const d = cur - prev;
+  const cls = d > 0 ? 'up' : d < 0 ? 'down' : '';
+  const txt = d === 0 ? '0' : (d > 0 ? '+' : '−') + fmtNum(Math.abs(d));
+  return `<td class="num calc-cell ${cls}">${txt}</td>`;
+}
+function rateCell(cur, prev) {
+  if (!prev) return `<td class="num calc-cell" style="color:#9CA3AF">—</td>`;
+  const p = ((cur - prev) / Math.abs(prev)) * 100;
+  const cls = p > 0 ? 'up' : p < 0 ? 'down' : '';
+  const txt = (p > 0 ? '+' : p < 0 ? '−' : '') + Math.abs(p).toFixed(1) + '%';
+  return `<td class="num calc-cell ${cls}">${txt}</td>`;
+}
+
+// ─── 렌더 ────────────────────────────────────────────────────
+function renderAll() {
+  const mon = weekStart(), sun = addDays(mon, 6);
+  document.getElementById('wk-label').textContent = `${dotLabel(mon)} ~ ${dotLabel(sun)}` + (_wk === 0 ? ' (이번주)' : '');
+  document.getElementById('m-from').value = _rp.periodFrom || '';
+  document.getElementById('m-to').value   = _rp.periodTo   || '';
+  document.getElementById('m-author').value = _rp.author || '';
+  document.getElementById('sg-write').value   = _rp.sign.write   || '';
+  document.getElementById('sg-review').value  = _rp.sign.review  || '';
+  document.getElementById('sg-approve').value = _rp.sign.approve || '';
+  const st = document.getElementById('save-state');
+  st.textContent = _rp.updatedAt ? `최종 저장 ${_rp.updatedAt} · ${_rp.updatedBy || ''}` : '저장 안 됨';
+  st.style.color = '#9CA3AF';
+  // 내부 이름(s2/s3/s4/s5…)은 원본 양식의 섹션 번호 그대로 두었다.
+  // 화면 표기는 SECTION 1~4 로 당겨졌지만, 이름을 바꾸면 이미 저장된 보고서가 깨진다.
+  renderS2(); renderSched('s3-body','s3sched',0); renderNotes('s3notes','s3n-body');
+  renderS4(); renderSched('s51-body','s51sched',7); renderS52(); renderNotes('s5notes','s53-body');
+  autoGrowAll();
+}
+
+// 통화별 매입·매출 — 4칸 직접 입력, 합계·증감액·증감률 자동
+function renderS2() {
+  const tot = { buy:0, sell:0, pbuy:0, psell:0 };
+  const rows = RP_CURRENCIES.map(c => {
+    const v = _rp.s2[c];
+    const b=num(v.buy), s=num(v.sell), pb=num(v.pbuy), ps=num(v.psell);
+    tot.buy+=b; tot.sell+=s; tot.pbuy+=pb; tot.psell+=ps;
+    const cell = f => `<td><input class="fin num" inputmode="numeric" value="${esc(shown(v[f]))}"
+        oninput="_rp.s2['${c}'].${f}=this.value" onchange="saveReport(); renderS2()"></td>`;
+    return `<tr>
+      <td class="ctr" style="font-weight:700">${c}</td>
+      ${cell('buy')}${cell('sell')}${cell('pbuy')}${cell('psell')}
+      ${deltaCell(b+s, pb+ps)}
+      ${rateCell(b+s, pb+ps)}
+    </tr>`;
+  }).join('');
+  document.getElementById('s2-body').innerHTML = rows + `<tr class="total-row">
+    <td class="ctr">합계</td>
+    <td class="num">${fmtNum(tot.buy)}</td>
+    <td class="num">${fmtNum(tot.sell)}</td>
+    <td class="num">${fmtNum(tot.pbuy)}</td>
+    <td class="num">${fmtNum(tot.psell)}</td>
+    ${deltaCell(tot.buy+tot.sell, tot.pbuy+tot.psell)}
+    ${rateCell(tot.buy+tot.sell, tot.pbuy+tot.psell)}
+  </tr>`;
+}
+
+// SECTION 3 / 5-1 — 근무자 직접 입력 (날짜·요일은 보고 기간 시작일을 따라감)
+function renderSched(bodyId, field, offset) {
+  const mon = addDays(schedStart(), offset);
+  document.getElementById(bodyId).innerHTML = weekDates(mon).map((d, i) => {
+    const row = _rp[field][i] || {};
+    const wend = isWeekend(d) ? 'color:#DC2626' : '';
+    const cells = SLOTS.map(sl => `<td><input class="fin" value="${esc(row[sl] || '')}"
+        oninput="_rp.${field}[${i}]['${sl}']=this.value" onchange="saveReport()"></td>`).join('');
+    return `<tr><td class="ctr" style="font-weight:600;${wend}">${dowLabel(d)}</td>
+      <td class="ctr" style="${wend}">${mdLabel(d)}</td>${cells}</tr>`;
+  }).join('');
+}
+
+// SECTION 4 — 유입수/전주 유입수 직접 입력, 합계·증감·증감률 자동
+function renderS4() {
+  let tot = 0, ptot = 0;
+  const rows = CHANNELS.map(ch => {
+    const c = num(_rp.s4.cur[ch]), p = num(_rp.s4.prev[ch]);
+    tot += c; ptot += p;
+    return `<tr>
+      <td style="font-weight:600">${ch}</td>
+      <td><input class="fin num" inputmode="numeric" value="${esc(shown(_rp.s4.cur[ch]))}"
+           oninput="_rp.s4.cur['${ch}']=this.value" onchange="saveReport(); renderS4()"></td>
+      <td><input class="fin num" inputmode="numeric" value="${esc(shown(_rp.s4.prev[ch]))}"
+           oninput="_rp.s4.prev['${ch}']=this.value" onchange="saveReport(); renderS4()"></td>
+      ${deltaCell(c, p)}
+      ${rateCell(c, p)}
+      <td><input class="fin" value="${esc(_rp.s4.note[ch] || '')}"
+           oninput="_rp.s4.note['${ch}']=this.value" onchange="saveReport()"></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('s4-body').innerHTML = rows + `<tr class="total-row">
+    <td>합계</td>
+    <td class="num">${fmtNum(tot)}</td>
+    <td class="num">${fmtNum(ptot)}</td>
+    ${deltaCell(tot, ptot)}
+    ${rateCell(tot, ptot)}
+    <td></td>
+  </tr>`;
+}
+
+// 3-1 / 5-3 — 직원별 특이사항
+function renderNotes(field, bodyId) {
+  document.getElementById(bodyId).innerHTML = _rp[field].map((n, i) => `
+    <tr>
+      <td><input class="fin" value="${esc(n.emp)}" oninput="_rp.${field}[${i}].emp=this.value" onchange="saveReport()"></td>
+      <td><input class="fin" value="${esc(n.branch)}" oninput="_rp.${field}[${i}].branch=this.value" onchange="saveReport()"></td>
+      <td><textarea class="fin" rows="1" oninput="_rp.${field}[${i}].text=this.value; autoGrow(this)" onchange="saveReport()">${esc(n.text)}</textarea></td>
+      <td class="ctr no-print"><button class="btn btn-ghost btn-sm" onclick="delNote('${field}',${i})">×</button></td>
+    </tr>`).join('');
+}
+function notesBody(field) { return field === 's3notes' ? 's3n-body' : 's53-body'; }
+function addNote(field) { _rp[field].push({emp:'',branch:'',text:''}); renderNotes(field, notesBody(field)); saveReport(); }
+function delNote(field, i) {
+  _rp[field].splice(i,1);
+  if (!_rp[field].length) _rp[field].push({emp:'',branch:'',text:''});
+  renderNotes(field, notesBody(field)); saveReport();
+}
+
+// 5-2 — 다음주 업무 계획
+function renderS52() {
+  document.getElementById('s52-body').innerHTML = _rp.s5tasks.map((t, i) => `
+    <tr>
+      <td class="ctr">${i+1}</td>
+      <td><textarea class="fin" rows="1" oninput="_rp.s5tasks[${i}].task=this.value; autoGrow(this)" onchange="saveReport()">${esc(t.task)}</textarea></td>
+      <td><input class="fin" value="${esc(t.owner)}" oninput="_rp.s5tasks[${i}].owner=this.value" onchange="saveReport()"></td>
+      <td><input class="fin" value="${esc(t.due)}" oninput="_rp.s5tasks[${i}].due=this.value" onchange="saveReport()" placeholder="예: 8/29"></td>
+      <td class="ctr no-print"><button class="btn btn-ghost btn-sm" onclick="delTask(${i})">×</button></td>
+    </tr>`).join('');
+}
+function addTask() { _rp.s5tasks.push({task:'',owner:'',due:''}); renderS52(); saveReport(); }
+function delTask(i) {
+  _rp.s5tasks.splice(i,1);
+  if (!_rp.s5tasks.length) _rp.s5tasks.push({task:'',owner:'',due:''});
+  renderS52(); saveReport();
+}
+
+// ─── textarea 자동 높이 ──────────────────────────────────────
+function autoGrow(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+function autoGrowAll() { document.querySelectorAll('textarea.fin').forEach(autoGrow); }
+
+// ─── 주차 이동 ───────────────────────────────────────────────
+function wkNav(d) { _wk += d; loadReport(); renderAll(); }
+function goThisWeek() { _wk = 0; loadReport(); renderAll(); }
+
+// ─── 초기화 ──────────────────────────────────────────────────
+if (!isSeniorOrAbove()) {
+  document.getElementById('deny-wrap').style.display = '';
+} else {
+  document.getElementById('rp-body').style.display = '';
+  const au = document.getElementById('m-author');
+  au.addEventListener('input',  function () { _rp.author = this.value; });
+  au.addEventListener('change', function () { saveReport(); });
+  // 보고 기간 — 시작일을 바꾸면 일자별 표(3·5-1)의 날짜·요일도 따라 움직인다
+  document.getElementById('m-from').addEventListener('change', function () {
+    _rp.periodFrom = this.value; saveReport(); renderAll();
+  });
+  document.getElementById('m-to').addEventListener('change', function () {
+    _rp.periodTo = this.value; saveReport();
+  });
+  // 결재란 (작성 · 검토 · 승인)
+  [['sg-write','write'], ['sg-review','review'], ['sg-approve','approve']].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input',  function () { _rp.sign[key] = this.value; });
+    el.addEventListener('change', function () { saveReport(); });
+  });
+  loadReport();
+  renderAll();
+  // 다른 기기에서 저장하면 화면 갱신 (입력 중이면 mb-data.js가 알아서 미룸)
+  if (typeof mbOnDataChange === 'function') mbOnDataChange(() => { loadReport(); renderAll(); });
+}
+</script>
+</body>
+</html>
