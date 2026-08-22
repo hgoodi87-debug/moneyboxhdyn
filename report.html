@@ -146,9 +146,9 @@
       <div class="meta">
         <div><span class="meta-l">보고 기간</span>
           <span class="meta-v" style="gap:.35rem">
-            <input class="fin" type="date" id="m-from" style="flex:1">
+            <input class="fin" type="date" id="m-from" style="flex:1" title="시작일을 고르면 그 주의 월요일로 자동 맞춰집니다">
             <span style="color:#9CA3AF">~</span>
-            <input class="fin" type="date" id="m-to" style="flex:1">
+            <input class="fin" type="date" id="m-to" style="flex:1;background:#F1F1F3;color:#6B7280;cursor:not-allowed" readonly tabindex="-1" title="마치는 날은 시작일(월)에서 7일차 일요일로 자동 설정됩니다">
             <button class="btn btn-ghost btn-sm no-print" onclick="resetPeriod()"
                     title="선택한 주의 월~일로 되돌립니다">주간</button>
           </span>
@@ -499,12 +499,13 @@ if (!isSeniorOrAbove()) {
   const au = document.getElementById('m-author');
   au.addEventListener('input',  function () { _rp.author = this.value; });
   au.addEventListener('change', function () { saveReport(); });
-  // 보고 기간 — 시작일을 바꾸면 일자별 표(3·5-1)의 날짜·요일도 따라 움직인다
+  // 보고 기간: 시작일은 그 주의 월요일로 자동 스냅, 마치는 날은 7일차(일요일)로 자동 설정.
+  // 시작일을 바꾸면 일자별 표(3·5-1)의 날짜·요일도 따라 움직인다.
   document.getElementById('m-from').addEventListener('change', function () {
-    _rp.periodFrom = this.value; saveReport(); renderAll();
-  });
-  document.getElementById('m-to').addEventListener('change', function () {
-    _rp.periodTo = this.value; saveReport();
+    const mon = mondayOf(this.value || weekStart());
+    _rp.periodFrom = mon;
+    _rp.periodTo   = addDays(mon, 6);
+    saveReport(); renderAll();
   });
   // 결재란 (작성 · 검토 · 승인)
   [['sg-write','write'], ['sg-review','review'], ['sg-approve','approve']].forEach(([id, key]) => {
