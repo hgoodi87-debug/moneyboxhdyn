@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=52">
-<link rel="apple-touch-icon" href="favicon.png?v=52">
+<link rel="icon" type="image/png" href="favicon.png?v=53">
+<link rel="apple-touch-icon" href="favicon.png?v=53">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=52">
+<link rel="stylesheet" href="css/mb.css?v=53">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=52"></script>
-<script src="js/mb-data.js?v=52"></script>
-<script src="js/mb-sync.js?v=52"></script>
+<script src="js/firebase-config.js?v=53"></script>
+<script src="js/mb-data.js?v=53"></script>
+<script src="js/mb-sync.js?v=53"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -70,13 +70,57 @@
     .ss-table input, .ss-table select { font-size:.72rem; padding:0 3px; height:30px; }
     .ss-table td { height:30px; }
   }
+
+  /* ═══ 외부거래1·2 (일반/분할) 개편 ═══ */
+  .xt-wrap{overflow-x:auto;border:1px solid #E5E7EB;border-radius:.6rem;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  .xt-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-size:.8rem;min-width:800px;}
+  .xt-tbl th{background:#F5F7FA;color:#6B7280;font-size:.7rem;font-weight:700;padding:.5rem .35rem;border-bottom:1px solid #E5E7EB;text-align:left;white-space:nowrap;}
+  .xt-tbl td{padding:.28rem .35rem;border-bottom:1px solid #F1F1F3;vertical-align:middle;}
+  .xt-tbl td select,.xt-tbl td input{border:1px solid #E5E7EB;border-radius:.35rem;padding:.3rem;font-size:.78rem;width:100%;box-sizing:border-box;outline:none;background:#fff;font-family:inherit;color:#1A1A2E;}
+  .xt-tbl td select:focus,.xt-tbl td input:focus{border-color:#F5A623;}
+  .xt-num{text-align:right;}.xt-num input{text-align:right;}
+  .xt-mode{font-weight:700;color:#92400E!important;background:#FFFBEB!important;}
+  .xt-qty{color:#374151;font-weight:700;font-variant-numeric:tabular-nums;}
+  .xt-krw{text-align:right;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .xt-dash{color:#C7CBD1;}
+  .xt-det{border:1px solid #FDE68A;background:#FFFBEB;color:#B45309;font-weight:700;font-size:.74rem;border-radius:.4rem;padding:.32rem .5rem;cursor:pointer;white-space:nowrap;}
+  .xt-det:hover{background:#FEF3C7;}
+  .xt-del{border:none!important;background:none!important;color:#D1D5DB!important;font-size:.95rem;cursor:pointer;padding:0!important;width:auto!important;}
+  .xt-del:hover{color:#EF4444!important;}
+  .xt-tbl tfoot td{padding:.42rem .35rem;border-top:1px solid #E5E7EB;}
+  .xt-tbl tfoot tr.foot-buy td{background:#FEF2F2;color:#B91C1C;}
+  .xt-tbl tfoot tr.foot-sell td{background:#EFF6FF;color:#1E40AF;}
+  .xt-tbl tfoot tr.foot-total td{background:#1E2A3A;color:#fff;}
+  /* 분할 상세보기 팝업 */
+  #ext-ov{display:none;position:fixed;inset:0;background:rgba(15,20,30,.5);z-index:60;align-items:flex-start;justify-content:center;padding:40px 14px;}
+  .xd-modal{background:#fff;border-radius:.9rem;width:100%;max-width:660px;max-height:86vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.3);}
+  .xd-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid #F1F1F3;position:sticky;top:0;background:#fff;}
+  .xd-title{font-size:1rem;font-weight:800;}.xd-sub{font-size:.75rem;color:#6B7280;margin-top:2px;}
+  .xd-x{border:none;background:none;font-size:1.3rem;color:#9CA3AF;cursor:pointer;line-height:1;}
+  .xd-body{padding:14px 18px;}
+  .xd-tbl{width:100%;border-collapse:collapse;font-size:.8rem;}
+  .xd-tbl th{background:#F5F7FA;color:#6B7280;font-size:.72rem;font-weight:700;padding:.45rem .4rem;border:1px solid #EDEFF2;text-align:center;white-space:nowrap;}
+  .xd-tbl td{padding:.25rem .35rem;border:1px solid #F1F1F3;text-align:center;}
+  .xd-tbl .dn{font-weight:700;color:#1A1A2E;background:#FAFBFC;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .xd-tbl input{width:72px;border:1px solid #E5E7EB;border-radius:.35rem;padding:.28rem .3rem;font-size:.78rem;text-align:right;outline:none;font-family:inherit;}
+  .xd-tbl input:focus{border-color:#F5A623;}
+  .xd-bname{width:82px!important;text-align:center!important;font-weight:700;color:#4338CA;}
+  .xd-tbl tfoot td{font-weight:800;background:#1E2A3A;color:#fff;font-variant-numeric:tabular-nums;}
+  .xd-tbl tfoot .lbl{background:#334155;color:#CBD5E1;text-align:center;}
+  .xd-addbr{border:1px dashed #C4B5FD;background:#F5F3FF;color:#6D28D9;font-weight:700;font-size:.74rem;border-radius:.4rem;padding:.35rem .5rem;cursor:pointer;white-space:nowrap;}
+  .xd-tbl th.addcol{background:#F5F3FF;padding:.3rem .4rem;}
+  .xd-tbl td.addcol{border:none;background:#fff;}
+  .xd-tbl tfoot td.addcol{background:#fff;}
+  .xd-foot{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-top:1px solid #F1F1F3;gap:12px;flex-wrap:wrap;position:sticky;bottom:0;background:#fff;}
+  .xd-grand{font-size:.9rem;}.xd-grand b{font-size:1.15rem;color:#B45309;font-variant-numeric:tabular-nums;}
+  .xd-apply{background:#F5A623;color:#fff;border:none;border-radius:.5rem;padding:.5rem 1.1rem;font-size:.86rem;font-weight:700;cursor:pointer;}
 </style>
 </head>
 <body class="bg-[#F5F7FA]">
 
 <div id="mb-header"></div>
 
-<main class="pt-[92px] min-h-screen pb-6" style="padding-left:clamp(16px,10vw,240px);padding-right:clamp(16px,10vw,240px)">
+<main class="pt-[92px] min-h-screen pb-6" style="padding-left:clamp(12px,6vw,140px);padding-right:clamp(12px,6vw,140px)">
   <div style="display:flex;flex-direction:column;align-items:center">
   <!-- 상단 컨트롤 -->
   <div class="tr-controls mb-2 flex justify-center items-center gap-2" style="max-width:640px;width:100%">
@@ -87,7 +131,7 @@
   </div>
 
   <!-- 4개 시트 탭 + 표 중앙 정렬 wrapper -->
-  <div class="tr-tabs flex items-end mb-0" style="border-bottom:1px solid #E5E7EB;max-width:640px;width:100%;overflow-x:auto">
+  <div class="tr-tabs flex items-end mb-0" style="border-bottom:1px solid #E5E7EB;max-width:940px;width:100%;overflow-x:auto">
     <button class="sheet-tab active" onclick="switchSheet(1)" id="tab-1">홍대 연남 지점간 거래</button>
     <button class="sheet-tab" onclick="switchSheet(2)" id="tab-2">외부거래1</button>
     <button class="sheet-tab" onclick="switchSheet(3)" id="tab-3">외부거래2</button>
@@ -96,7 +140,7 @@
   </div>
 
   <!-- 4개 표 (탭 전환) -->
-  <div style="max-width:640px;width:100%">
+  <div style="max-width:940px;width:100%">
     <div id="sheet-1" class="card" style="border-radius:0 .75rem .75rem .75rem"></div>
     <div id="sheet-2" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
     <div id="sheet-3" class="card hidden" style="border-radius:0 .75rem .75rem .75rem"></div>
@@ -122,6 +166,29 @@
       <button onclick="resetWithSave()" class="btn-primary w-full py-2.5">자료실에 저장 후 초기화</button>
       <button onclick="resetWithoutSave()" class="w-full py-2.5 rounded-lg text-sm font-medium" style="background:#FEE2E2;color:#DC2626">저장 없이 그냥 초기화</button>
       <button onclick="document.getElementById('reset-modal').classList.add('hidden')" class="w-full py-2 rounded-lg text-sm bg-gray-100">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 분할 상세보기 팝업 (외부거래1·2) -->
+<div id="ext-ov">
+  <div class="xd-modal">
+    <div class="xd-head">
+      <div><div class="xd-title" id="xd-title">상세보기</div><div class="xd-sub" id="xd-sub"></div></div>
+      <button class="xd-x" id="xd-x" type="button">✕</button>
+    </div>
+    <div class="xd-body">
+      <div style="overflow-x:auto">
+        <table class="xd-tbl">
+          <thead><tr id="xd-head-row"></tr></thead>
+          <tbody id="xd-body-rows"></tbody>
+          <tfoot><tr id="xd-foot-row"></tr></tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="xd-foot">
+      <div class="xd-grand">총 합계 <b id="xd-g-amt">0</b> <span style="color:#6B7280">× 환율 = </span><b id="xd-g-krw">0</b>원</div>
+      <button class="xd-apply" id="xd-apply" type="button">적용</button>
     </div>
   </div>
 </div>
@@ -162,6 +229,8 @@ function switchSheet(n) {
   // 새 시트로 sel 업데이트 (붙여넣기가 새 시트에 적용되도록)
   // r1/c1은 유지해서 같은 위치에 붙여넣기 가능
   sel.sheet = n;
+  // 외부거래1·2는 그리드 셀엔진을 쓰지 않음 → 셀 선택 해제(전역 키/복사/붙여넣기 핸들러 충돌 방지)
+  if (EXT_SHEETS.includes(n)) { sel.r1 = sel.c1 = sel.r2 = sel.c2 = -1; }
 }
 
 function rowsForSheet(sheet) {
@@ -291,14 +360,21 @@ function renderSheet(sheet) {
 
 function renderAll() {
   SHEETS.forEach(s => {
-    document.getElementById(`sheet-${s}`).innerHTML = buildTable(s);
-    renderSheet(s);
-    bindEvents(s);
-    bindSelEvents(s);
+    if (EXT_SHEETS.includes(s)) {                                   // 외부거래1·2 → 일반/분할 리스트 UI
+      document.getElementById(`sheet-${s}`).innerHTML = buildExtSheet(s);
+      renderExtSheet(s);
+      bindExtEvents(s);
+    } else {                                                        // 지점간·연남마감·은행 → 기존 그리드 그대로
+      document.getElementById(`sheet-${s}`).innerHTML = buildTable(s);
+      renderSheet(s);
+      bindEvents(s);
+      bindSelEvents(s);
+    }
   });
 }
 
 function updateSummary(sheet) {
+  if (EXT_SHEETS.includes(sheet)) { updateExtSummary(sheet); return; }  // 외부거래1·2는 데이터 기반 집계
   // DOM에서 직접 읽어 계산 (localStorage 저장 타이밍 문제 방지)
   const tbody = document.getElementById(`tbody-${sheet}`);
   let buy = 0, sell = 0;
@@ -752,6 +828,246 @@ function pasteData(text) {
   mbSet(MB.TRANSACTIONS_KEY, list);
   SHEETS.forEach(s => updateSummary(s));
 }
+
+// ═══════════════════ 외부거래1·2 (일반/분할) 개편 ═══════════════════
+// 시트 2·3만 이 로직 사용. 데이터는 mb_transactions에 저장(다른 시트와 동일 키).
+//  - 일반거래: {mode:'일반', counterparty, tradeType, currency, amount, rate}
+//  - 분할거래: {mode:'분할', ..., detail:{branches:[{name,counts:{액면:매수}}]}, amount=총수량(자동)}
+//  amount에 총수량을 항상 유지 → calcKrw·요약·마감·엑셀내보내기가 그대로 동작.
+const EXT_SHEETS = [2, 3];
+const EXT_SIDES = ['매입','매각','외화미수금','지급완료'];
+const DENOMS = {KRW:[50000,10000,5000,1000],USD:[100,50,20,10,5,1],JPY:[10000,5000,1000],EUR:[500,200,100,50,20,10,5],CHF:[1000,200,100,50,20,10],CNY:[100,50],RUB:[5000,2000,1000,500,200,100,50,10],HKD:[1000,500,100,50,20,10],SGD:[1000,100,50,10,5,2],THB:[1000,500,100,50,20],VND:[500000,200000,100000,50000,20000,10000],TWD:[1000,500,100],AUD:[100,50,20,10,5],CAD:[100,50,20,10,5],GBP:[50,20,10,5],PHP:[1000,500,200,100,50,20],IDR:[100000,50000,20000,10000,5000,2000,1000],MYR:[100,50,20,10,5,1]};
+function denomsOf(c){ return DENOMS[c] || [100,50,20,10,5,1]; }
+function brTot(cur, counts){ return denomsOf(cur).reduce((s,d)=> s + d*parseNum(counts && counts[d]), 0); }
+function extAmount(tx){
+  if (tx.mode === '분할') return ((tx.detail && tx.detail.branches) || []).reduce((s,b)=> s + brTot(tx.currency, b.counts), 0);
+  return parseNum(tx.amount);
+}
+function extEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function buildExtSheet(sheet){
+  return `<div class="xt-wrap"><table class="xt-tbl" id="xt-table-${sheet}">
+    <colgroup><col style="width:96px"><col style="width:132px"><col style="width:108px"><col style="width:74px"><col style="width:112px"><col style="width:76px"><col style="width:116px"><col style="width:88px"><col style="width:32px"></colgroup>
+    <thead><tr>
+      <th>거래종류</th><th>거래처/비고</th><th>유형</th><th>통화</th>
+      <th style="text-align:right">수량</th><th style="text-align:right">환율</th><th style="text-align:right">원화(자동)</th>
+      <th style="text-align:center">상세</th><th></th>
+    </tr></thead>
+    <tbody id="xt-tbody-${sheet}"></tbody>
+    <tfoot>
+      <tr class="foot-buy"><td colspan="6" style="text-align:right">매입 합계</td><td class="xt-krw" id="sum-buy-${sheet}">0</td><td colspan="2"></td></tr>
+      <tr class="foot-sell"><td colspan="6" style="text-align:right">매각 합계</td><td class="xt-krw" id="sum-sell-${sheet}">0</td><td colspan="2"></td></tr>
+      <tr class="foot-total"><td colspan="6" style="text-align:right">총계</td><td class="xt-krw" id="sum-total-${sheet}">0</td><td colspan="2"></td></tr>
+    </tfoot>
+  </table></div>`;
+}
+
+function extRowHtml(tx){
+  const sp = tx.mode === '분할';
+  const amt = extAmount(tx), rate = parseNum(tx.rate);
+  const optSide = ['<option value=""></option>'].concat(EXT_SIDES.map(c=>`<option value="${c}" ${tx.tradeType===c?'selected':''}>${c}</option>`)).join('');
+  const optCur = MB.CURRENCIES.map(c=>`<option value="${c}" ${tx.currency===c?'selected':''}>${c}</option>`).join('');
+  const color = krwColor(tx.tradeType);
+  return `<tr data-id="${tx.id}">
+    <td><select class="xt-mode" data-ef="mode">
+        <option value="일반" ${!sp?'selected':''}>일반거래</option>
+        <option value="분할" ${sp?'selected':''}>분할거래</option></select></td>
+    <td><input type="text" data-ef="counterparty" value="${extEsc(tx.counterparty)}" placeholder="거래처/비고"></td>
+    <td><select data-ef="tradeType" style="color:${color}">${optSide}</select></td>
+    <td><select data-ef="currency">${optCur}</select></td>
+    <td class="xt-num">${sp
+        ? `<span class="xt-qty">${amt?fmtNum(amt):'0'}</span>`
+        : `<input type="text" inputmode="numeric" class="num" data-ef="amount" value="${fmtInput(tx.amount)}" placeholder="수량">`}</td>
+    <td class="xt-num"><input type="text" inputmode="decimal" class="num" data-ef="rate" value="${fmtInput(tx.rate)}" placeholder="환율"></td>
+    <td class="xt-krw" style="color:${color}">${krwDisplay(tx.tradeType, amt, rate)}</td>
+    <td style="text-align:center">${sp ? `<button class="xt-det" onclick="openExtDetail('${tx.id}')">상세보기</button>` : '<span class="xt-dash">—</span>'}</td>
+    <td style="text-align:center"><button class="xt-del" onclick="extDelete('${tx.id}')" title="삭제">✕</button></td>
+  </tr>`;
+}
+
+const EXT_ROWS = 20;   // 외부거래1·2 기본 표시 행 수(원래 시트처럼 빈 행을 깔아둠)
+function renderExtSheet(sheet){
+  const tb = document.getElementById(`xt-tbody-${sheet}`);
+  if (!tb) return;
+  const list = rowsForSheet(sheet);
+  // 입력 위치(row)를 그대로 유지 — 원래 시트처럼 빈 칸 허용(위로 안 정리됨)
+  const slots = new Array(EXT_ROWS).fill(null);
+  const overflow = [];
+  list.forEach(tx => {
+    if (Number.isInteger(tx.row) && tx.row >= 0 && tx.row < EXT_ROWS && slots[tx.row] === null) slots[tx.row] = tx;
+    else overflow.push(tx);
+  });
+  overflow.forEach(tx => { const i = slots.indexOf(null); if (i >= 0) slots[i] = tx; else slots.push(tx); });
+  tb.innerHTML = slots.map(tx => extRowHtml(tx || extEmptyTpl(sheet))).join('');
+  updateExtSummary(sheet);
+}
+
+function updateExtSummary(sheet){
+  let buy=0, sell=0;
+  rowsForSheet(sheet).forEach(tx=>{
+    const t = tx.tradeType;
+    if (!t || t==='외화미수금' || t==='지급완료') return;
+    const krw = calcKrw(t, extAmount(tx), parseNum(tx.rate));
+    if (t==='매각') sell += krw;
+    if (t==='매입') buy += krw;
+  });
+  const sb=document.getElementById(`sum-buy-${sheet}`), ss=document.getElementById(`sum-sell-${sheet}`), st=document.getElementById(`sum-total-${sheet}`);
+  if (sb) sb.textContent = fmtSigned(buy);
+  if (ss) ss.textContent = fmtSigned(sell);
+  if (st) st.textContent = fmtSigned(sell + buy);
+}
+
+function extEmptyTpl(sheet){ return { id: uid(), date: currentDate, sheet, mode:'일반', counterparty:'', tradeType:'', currency:'USD', amount:'', rate:'' }; }
+
+function extUpdateRowCalc(tr, tx){
+  const amt = extAmount(tx), rate = parseNum(tx.rate);
+  const krwCell = tr.children[6];
+  if (krwCell){ krwCell.textContent = krwDisplay(tx.tradeType, amt, rate); krwCell.style.color = krwColor(tx.tradeType); }
+}
+
+function extHasMeaningful(tx){ return (tx.counterparty && tx.counterparty.trim()) || extAmount(tx) > 0; }
+
+function extSave(sheet, el){
+  const tr = el.closest('tr'); const id = tr.dataset.id; const field = el.dataset.ef;
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  let tx = list.find(x=>x.id===id);
+  const isNew = !tx;
+  if (isNew){                                    // 빈 행에 처음 입력 → 그때 레코드 생성(위치 고정)
+    tx = extEmptyTpl(sheet); tx.id = id;
+    tx.row = Array.from(tr.parentNode.rows).indexOf(tr);
+    tr.querySelectorAll('[data-ef]').forEach(x=>{ const f=x.dataset.ef; tx[f]=(f==='amount'||f==='rate')?parseNum(x.value):x.value; });
+    if (!extHasMeaningful(tx)) return;           // 거래처/수량 없으면 아직 저장 안 함
+    list.push(tx);
+  } else {
+    tx[field] = (field==='amount'||field==='rate') ? parseNum(el.value) : el.value;
+  }
+  mbSet(MB.TRANSACTIONS_KEY, list);
+  if (field==='tradeType') el.style.color = krwColor(tx.tradeType);
+  extUpdateRowCalc(tr, tx);
+  updateExtSummary(sheet);
+}
+
+function extSetMode(sheet, tr, mode){
+  const id = tr.dataset.id;
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  let tx = list.find(x=>x.id===id);
+  if (!tx){                                     // 빈 행에서 분할 선택 → 레코드 생성(명시적 의도)
+    tx = extEmptyTpl(sheet); tx.id = id;
+    tx.row = Array.from(tr.parentNode.rows).indexOf(tr);
+    tr.querySelectorAll('[data-ef]').forEach(x=>{ const f=x.dataset.ef; if(f==='mode')return; tx[f]=(f==='amount'||f==='rate')?parseNum(x.value):x.value; });
+    list.push(tx);
+  }
+  tx.mode = mode;
+  if (mode==='분할' && !(tx.detail && tx.detail.branches && tx.detail.branches.length))
+    tx.detail = { branches:[{ name:'홍대', counts:{} }, { name:'연남', counts:{} }] };
+  mbSet(MB.TRANSACTIONS_KEY, list);
+  renderExtSheet(sheet);
+  if (mode==='분할') openExtDetail(id);   // 분할 선택 시 상세보기 팝업 자동 오픈
+}
+
+function extDelete(id){
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  const tx = list.find(x=>x.id===id); if (!tx) return;   // 빈 행 ✕는 무시(레코드 없음)
+  const sheet = tx.sheet;
+  if ((tx.counterparty || extAmount(tx)>0) && !confirm('이 거래를 삭제할까요?')) return;
+  if (typeof mbLogDelete === 'function')
+    mbLogDelete('외부거래 삭제', MB.TRANSACTIONS_KEY, [tx], t=>`${currentDate} 시트${sheet} ${t.counterparty||''} ${t.tradeType||''} ${extAmount(t)}`);
+  mbSet(MB.TRANSACTIONS_KEY, list.filter(x=>x.id!==id));
+  renderExtSheet(sheet);
+}
+
+function bindExtEvents(sheet){
+  const tb = document.getElementById(`xt-tbody-${sheet}`);
+  if (!tb || tb.dataset.bound) return;
+  tb.dataset.bound = '1';
+  tb.addEventListener('input', e=>{
+    const t = e.target;
+    if (!t.matches('input[data-ef]')) return;
+    if (t.classList.contains('num')) applyCommaFormat(t);
+    extSave(sheet, t);
+  });
+  tb.addEventListener('change', e=>{
+    const t = e.target;
+    if (!t.matches('[data-ef]')) return;
+    const ef = t.dataset.ef;
+    if (ef === 'mode') { extSetMode(sheet, t.closest('tr'), t.value); return; }
+    extSave(sheet, t);
+    // 통화 변경은 분할일 때만 재계산(액면 세트 영향). 일반 행은 재렌더 안 함 → 입력 중 포커스 유지
+    if (ef === 'currency') {
+      const modeSel = t.closest('tr').querySelector('[data-ef="mode"]');
+      if (modeSel && modeSel.value === '분할') renderExtSheet(sheet);
+    }
+  });
+  tb.addEventListener('keydown', e=>{
+    if (e.key==='Enter' && e.target.matches('input,select')) { e.preventDefault(); e.target.blur(); }
+  });
+}
+
+// ── 분할 상세보기 팝업 ──
+let _xdEd = null;
+function openExtDetail(id){
+  const tx = mbGetOrDefault(MB.TRANSACTIONS_KEY, []).find(x=>x.id===id);
+  if (!tx) return;
+  _xdEd = {
+    id, cur: tx.currency, rate: tx.rate, sheet: tx.sheet,
+    branches: JSON.parse(JSON.stringify(
+      (tx.detail && tx.detail.branches && tx.detail.branches.length) ? tx.detail.branches : [{ name:'홍대', counts:{} }, { name:'연남', counts:{} }]
+    ))
+  };
+  document.getElementById('xd-title').textContent = `상세보기 — ${tx.counterparty || '(거래처)'}`;
+  document.getElementById('xd-sub').textContent = `${tx.tradeType||''} · ${tx.currency} · 환율 ${fmtInput(tx.rate)||'-'} · 권종(액면)별 × 지점별 매수`;
+  renderExtModal();
+  document.getElementById('ext-ov').style.display = 'flex';
+}
+function closeExtModal(){ document.getElementById('ext-ov').style.display = 'none'; _xdEd = null; }
+function renderExtModal(){
+  if (!_xdEd) return;
+  const dn = denomsOf(_xdEd.cur), bs = _xdEd.branches;
+  document.getElementById('xd-head-row').innerHTML =
+    `<th>권종(액면)</th>${bs.map((b,bi)=>`<th><input class="xd-bname" data-bi="${bi}" value="${extEsc(b.name)}" placeholder="지점"></th>`).join('')}<th class="addcol"><button class="xd-addbr" type="button">＋ 지점</button></th>`;
+  document.getElementById('xd-body-rows').innerHTML =
+    dn.map(d=>`<tr><td class="dn">${fmtNum(d)}</td>${bs.map((b,bi)=>`<td><input class="xd-cnt" inputmode="numeric" data-bi="${bi}" data-d="${d}" value="${b.counts[d]||''}" placeholder="0"></td>`).join('')}<td class="addcol"></td></tr>`).join('');
+  extUpdFoot();
+}
+function extUpdFoot(){
+  if (!_xdEd) return;
+  const bs = _xdEd.branches; let g = 0;
+  const subs = bs.map(b=>{ const t = brTot(_xdEd.cur, b.counts); g += t; return t; });
+  document.getElementById('xd-foot-row').innerHTML =
+    `<td class="lbl">지점 합계</td>${subs.map(s=>`<td>${fmtNum(s)}</td>`).join('')}<td class="addcol"></td>`;
+  document.getElementById('xd-g-amt').textContent = fmtNum(g);
+  document.getElementById('xd-g-krw').textContent = fmtNum(g * parseNum(_xdEd.rate));
+}
+function applyExtDetail(){
+  if (!_xdEd) return;
+  const list = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+  const tx = list.find(x=>x.id===_xdEd.id);
+  if (tx){
+    tx.mode = '분할';
+    tx.detail = { branches: _xdEd.branches };
+    tx.amount = extAmount(tx);   // 총 수량을 amount에 반영(요약·마감·엑셀 호환)
+    mbSet(MB.TRANSACTIONS_KEY, list);
+    const sheet = tx.sheet;
+    closeExtModal();
+    renderExtSheet(sheet);
+  } else { closeExtModal(); }
+}
+(function bindExtModal(){
+  const ov = document.getElementById('ext-ov');
+  if (!ov) return;
+  ov.addEventListener('input', e=>{
+    if (!_xdEd) return;
+    const t = e.target;
+    if (t.classList.contains('xd-cnt')) { _xdEd.branches[+t.dataset.bi].counts[t.dataset.d] = t.value; extUpdFoot(); }
+    else if (t.classList.contains('xd-bname')) { _xdEd.branches[+t.dataset.bi].name = t.value; }
+  });
+  ov.addEventListener('click', e=>{
+    if (e.target.closest('.xd-addbr')) { _xdEd.branches.push({ name:'', counts:{} }); renderExtModal(); return; }
+    if (e.target === ov) closeExtModal();
+  });
+  document.getElementById('xd-x').addEventListener('click', closeExtModal);
+  document.getElementById('xd-apply').addEventListener('click', applyExtDetail);
+})();
 
 renderAll();
 // B2B 메뉴 등에서 특정 시트로 바로 진입 (예: trading.html?sheet=5 → 인천공항)

@@ -56,7 +56,7 @@ const MB = {
     { href: 'accounts.html', label: '🔑 로그인 관리' },
   ],
 
-  CURRENCIES: ['KRW','USD','JPY','EUR','CNY','RUB','HKD','SGD','THB','VND','TWD','AUD','CAD','GBP','PHP','IDR','MYR'],
+  CURRENCIES: ['KRW','USD','JPY','EUR','CHF','CNY','RUB','HKD','SGD','THB','VND','TWD','AUD','CAD','GBP','PHP','IDR','MYR'],
 };
 
 // ─── 기본 헬퍼 ───────────────────────────────────────────────
