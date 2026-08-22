@@ -161,8 +161,8 @@
         <span class="sec-tag">SECTION 1</span>
         <div class="sec-h">통화별 매입 · 매출 <span class="hint">합계 · 증감액 · 증감률은 자동 계산</span></div>
         <table class="rp">
-          <colgroup><col style="width:9%"><col><col><col><col><col><col style="width:10%"></colgroup>
-          <thead><tr><th>통화</th><th>매입액</th><th>매출액</th><th>전주 매입액</th><th>전주 매출액</th><th>증감액</th><th>증감률</th></tr></thead>
+          <colgroup><col style="width:8%"><col><col><col><col><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:10%"></colgroup>
+          <thead><tr><th>통화</th><th>매입액</th><th>매출액</th><th>전주 매입액</th><th>전주 매출액</th><th>매입 증감</th><th>매각 증감</th><th>매입 증감률</th><th>매각 증감률</th></tr></thead>
           <tbody id="s2-body"></tbody>
         </table>
       </div>
@@ -391,8 +391,10 @@ function renderS2() {
     return `<tr>
       <td class="ctr" style="font-weight:700">${c}</td>
       ${cell('buy')}${cell('sell')}${cell('pbuy')}${cell('psell')}
-      ${deltaCell(b+s, pb+ps)}
-      ${rateCell(b+s, pb+ps)}
+      ${deltaCell(b, pb)}
+      ${deltaCell(s, ps)}
+      ${rateCell(b, pb)}
+      ${rateCell(s, ps)}
     </tr>`;
   }).join('');
   document.getElementById('s2-body').innerHTML = rows + `<tr class="total-row">
@@ -401,8 +403,10 @@ function renderS2() {
     <td class="num">${fmtNum(tot.sell)}</td>
     <td class="num">${fmtNum(tot.pbuy)}</td>
     <td class="num">${fmtNum(tot.psell)}</td>
-    ${deltaCell(tot.buy+tot.sell, tot.pbuy+tot.psell)}
-    ${rateCell(tot.buy+tot.sell, tot.pbuy+tot.psell)}
+    ${deltaCell(tot.buy, tot.pbuy)}
+    ${deltaCell(tot.sell, tot.psell)}
+    ${rateCell(tot.buy, tot.pbuy)}
+    ${rateCell(tot.sell, tot.psell)}
   </tr>`;
 }
 
