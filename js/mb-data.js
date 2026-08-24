@@ -58,7 +58,7 @@ const MB = {
     { href: 'report.html',   label: '📄 주간보고서' },
   ],
 
-  CURRENCIES: ['KRW','USD','JPY','EUR','CHF','CNY','RUB','HKD','SGD','THB','VND','TWD','AUD','CAD','GBP','PHP','IDR','MYR'],
+  CURRENCIES: ['KRW','USD','EUR','CNY','JPY','HKD','SGD','AUD','GBP','PHP','IDR','MYR','VND','TWD','THB','RUB','CHF','CAD'],
 };
 
 // ─── 기본 헬퍼 ───────────────────────────────────────────────

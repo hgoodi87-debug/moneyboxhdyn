@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=54">
-<link rel="apple-touch-icon" href="favicon.png?v=54">
+<link rel="icon" type="image/png" href="favicon.png?v=55">
+<link rel="apple-touch-icon" href="favicon.png?v=55">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 주간보고서</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=54">
+<link rel="stylesheet" href="css/mb.css?v=55">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=54"></script>
-<script src="js/mb-data.js?v=54"></script>
-<script src="js/mb-sync.js?v=54"></script>
+<script src="js/firebase-config.js?v=55"></script>
+<script src="js/mb-data.js?v=55"></script>
+<script src="js/mb-sync.js?v=55"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
 
@@ -159,7 +159,7 @@
       <!-- ─────────── SECTION 1 ─────────── -->
       <div class="sec">
         <span class="sec-tag">SECTION 1</span>
-        <div class="sec-h">통화별 매입 · 매출 <span class="hint">합계 · 증감액 · 증감률은 자동 계산</span></div>
+        <div class="sec-h">통화별 매입 · 매출 <span class="hint">원화 기준 · 증감액 · 증감률 자동 계산 (통화마다 금액이 달라 합계는 없음)</span></div>
         <table class="rp">
           <colgroup><col style="width:8%"><col><col><col><col><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:10%"></colgroup>
           <thead><tr><th>통화</th><th>매입액</th><th>매출액</th><th>전주 매입액</th><th>전주 매출액</th><th>매입 증감</th><th>매각 증감</th><th>매입 증감률</th><th>매각 증감률</th></tr></thead>
@@ -381,11 +381,9 @@ function renderAll() {
 
 // 통화별 매입·매출 — 4칸 직접 입력, 합계·증감액·증감률 자동
 function renderS2() {
-  const tot = { buy:0, sell:0, pbuy:0, psell:0 };
   const rows = RP_CURRENCIES.map(c => {
     const v = _rp.s2[c];
     const b=num(v.buy), s=num(v.sell), pb=num(v.pbuy), ps=num(v.psell);
-    tot.buy+=b; tot.sell+=s; tot.pbuy+=pb; tot.psell+=ps;
     const cell = f => `<td><input class="fin num" inputmode="numeric" value="${esc(shown(v[f]))}"
         oninput="_rp.s2['${c}'].${f}=this.value" onchange="saveReport(); renderS2()"></td>`;
     return `<tr>
@@ -397,17 +395,7 @@ function renderS2() {
       ${rateCell(s, ps)}
     </tr>`;
   }).join('');
-  document.getElementById('s2-body').innerHTML = rows + `<tr class="total-row">
-    <td class="ctr">합계</td>
-    <td class="num">${fmtNum(tot.buy)}</td>
-    <td class="num">${fmtNum(tot.sell)}</td>
-    <td class="num">${fmtNum(tot.pbuy)}</td>
-    <td class="num">${fmtNum(tot.psell)}</td>
-    ${deltaCell(tot.buy, tot.pbuy)}
-    ${deltaCell(tot.sell, tot.psell)}
-    ${rateCell(tot.buy, tot.pbuy)}
-    ${rateCell(tot.sell, tot.psell)}
-  </tr>`;
+  document.getElementById('s2-body').innerHTML = rows;   // 합계 행 없음(외화별 금액이라 합산 무의미 — 통화별로만 분석)
 }
 
 // SECTION 3 / 5-1 — 근무자 직접 입력 (날짜·요일은 보고 기간 시작일을 따라감)
@@ -416,7 +404,7 @@ function renderSched(bodyId, field, offset) {
   document.getElementById(bodyId).innerHTML = weekDates(mon).map((d, i) => {
     const row = _rp[field][i] || {};
     const wend = isWeekend(d) ? 'color:#DC2626' : '';
-    const cells = SLOTS.map(sl => `<td><input class="fin" value="${esc(row[sl] || '')}"
+    const cells = SLOTS.map(sl => `<td><input class="fin" style="text-align:center" value="${esc(row[sl] || '')}"
         oninput="_rp.${field}[${i}]['${sl}']=this.value" onchange="saveReport()"></td>`).join('');
     return `<tr><td class="ctr" style="font-weight:600;${wend}">${dowLabel(d)}</td>
       <td class="ctr" style="${wend}">${mdLabel(d)}</td>${cells}</tr>`;
