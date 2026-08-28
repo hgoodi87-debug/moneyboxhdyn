@@ -82,12 +82,12 @@
       <div class="bg-[#FAFBFC] rounded-xl p-4 mb-4">
         <h4 class="font-bold mb-3 text-sm text-[#6B7280]">+ 정산 기록 추가</h4>
         <div class="grid grid-cols-6 gap-2 mb-2 text-xs">
-          <div><label class="text-[#6B7280]">5만원 장</label><input type="number" id="st-50k" value="0" class="input-base w-full"></div>
-          <div><label class="text-[#6B7280]">1만원 장</label><input type="number" id="st-10k" value="0" class="input-base w-full"></div>
-          <div><label class="text-[#6B7280]">5천원 장</label><input type="number" id="st-5k" value="0" class="input-base w-full"></div>
-          <div><label class="text-[#6B7280]">1천원 장</label><input type="number" id="st-1k" value="0" class="input-base w-full"></div>
-          <div><label class="text-[#6B7280]">500원 개</label><input type="number" id="st-500" value="0" class="input-base w-full"></div>
-          <div><label class="text-[#6B7280]">100원 개</label><input type="number" id="st-100" value="0" class="input-base w-full"></div>
+          <div><label class="text-[#6B7280]">5만원 장</label><input type="number" id="st-50k" value="0" class="input-base w-full"><div id="amt-50k" class="text-right text-[11px] font-semibold text-[#F5A623] mt-0.5">0원</div></div>
+          <div><label class="text-[#6B7280]">1만원 장</label><input type="number" id="st-10k" value="0" class="input-base w-full"><div id="amt-10k" class="text-right text-[11px] font-semibold text-[#F5A623] mt-0.5">0원</div></div>
+          <div><label class="text-[#6B7280]">5천원 장</label><input type="number" id="st-5k" value="0" class="input-base w-full"><div id="amt-5k" class="text-right text-[11px] font-semibold text-[#F5A623] mt-0.5">0원</div></div>
+          <div><label class="text-[#6B7280]">1천원 장</label><input type="number" id="st-1k" value="0" class="input-base w-full"><div id="amt-1k" class="text-right text-[11px] font-semibold text-[#F5A623] mt-0.5">0원</div></div>
+          <div><label class="text-[#6B7280]">500원 개</label><input type="number" id="st-500" value="0" class="input-base w-full"><div id="amt-500" class="text-right text-[11px] font-semibold text-[#F5A623] mt-0.5">0원</div></div>
+          <div><label class="text-[#6B7280]">100원 개</label><input type="number" id="st-100" value="0" class="input-base w-full"><div id="amt-100" class="text-right text-[11px] font-semibold text-[#F5A623] mt-0.5">0원</div></div>
         </div>
         <div class="flex justify-end items-end gap-4">
           <div><label class="text-xs text-[#6B7280] block mb-1">최종마감금액</label><input type="text" inputmode="numeric" id="st-final" placeholder="0" class="input-base" style="width:150px;text-align:right"></div>
@@ -148,6 +148,7 @@
       <div class="mt-6 pt-4 border-t">
         <h4 class="font-bold text-sm text-[#6B7280] mb-2">📝 메모 (예외 상황 기록)</h4>
         <div id="memo-list"></div>
+        <div id="memo-pager" class="flex justify-center items-center gap-3 mt-3"></div>
       </div>
     </div>
 
@@ -296,6 +297,8 @@ function readSettleForm() {
 function updateSettleTotal() {
   const r = readSettleForm();
   document.getElementById('st-total').textContent = fmtNum(calcSettle(r.cnt_50k,r.cnt_10k,r.cnt_5k,r.cnt_1k,r.cnt_500,r.cnt_100)) + '원';
+  const dm = { '50k':50000, '10k':10000, '5k':5000, '1k':1000, '500':500, '100':100 };  // 권종별 금액 표시
+  Object.entries(dm).forEach(([k,v]) => { const el = document.getElementById('amt-'+k); if (el) el.textContent = fmtNum((r['cnt_'+k]||0)*v) + '원'; });
 }
 function saveSettle() {
   const r = readSettleForm();
@@ -463,11 +466,19 @@ function deleteMemo(id) {
   mbRemove(MEMO_KEY, x => x.id === id);
   renderMemos();
 }
+let _memoPage = 0;
+const MEMO_PER_PAGE = 10;
+function memoPage(d) { _memoPage += d; renderMemos(); }
 function renderMemos() {
   const list = mbGetOrDefault(MEMO_KEY, []).sort((a,b) => (b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
+  const pages = Math.max(1, Math.ceil(list.length / MEMO_PER_PAGE));
+  if (_memoPage > pages - 1) _memoPage = pages - 1;
+  if (_memoPage < 0) _memoPage = 0;
+  const start = _memoPage * MEMO_PER_PAGE;
+  const pageItems = list.slice(start, start + MEMO_PER_PAGE);
   document.getElementById('memo-list').innerHTML = list.length === 0
     ? '<p class="text-sm text-[#9CA3AF] py-2">메모 없음</p>'
-    : list.map(m => `
+    : pageItems.map(m => `
       <div class="flex items-start gap-3 py-2 border-b last:border-0">
         <div class="text-xs text-[#9CA3AF] whitespace-nowrap pt-0.5" style="min-width:92px">
           ${m.date} ${m.time||''}<br><span class="text-[#6B7280] font-medium">${escMemo(m.author)}</span>
@@ -475,6 +486,16 @@ function renderMemos() {
         <div class="flex-1 text-sm" style="white-space:pre-wrap;word-break:break-word">${escMemo(m.text)}</div>
         <button onclick="deleteMemo('${m.id}')" class="text-[#EF4444] text-xs shrink-0">삭제</button>
       </div>`).join('');
+  const pager = document.getElementById('memo-pager');
+  if (pager) {
+    if (list.length <= MEMO_PER_PAGE) { pager.innerHTML = ''; }
+    else {
+      const bs = 'border:none;background:#F3F4F6;color:#374151;border-radius:.4rem;padding:.25rem .7rem;font-size:.85rem;cursor:pointer';
+      pager.innerHTML = `<button onclick="memoPage(-1)" ${_memoPage<=0?'disabled style="opacity:.35;'+bs+'"':'style="'+bs+'"'}>◀</button>`
+        + `<span class="text-xs text-[#6B7280]">${_memoPage+1} / ${pages} 페이지 · 총 ${list.length}건</span>`
+        + `<button onclick="memoPage(1)" ${_memoPage>=pages-1?'disabled style="opacity:.35;'+bs+'"':'style="'+bs+'"'}>▶</button>`;
+    }
+  }
 }
 
 function atmAll() {
