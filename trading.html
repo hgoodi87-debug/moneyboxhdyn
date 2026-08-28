@@ -91,6 +91,16 @@
   .xt-tbl tfoot tr.foot-buy td{background:#FEF2F2;color:#B91C1C;}
   .xt-tbl tfoot tr.foot-sell td{background:#EFF6FF;color:#1E40AF;}
   .xt-tbl tfoot tr.foot-total td{background:#1E2A3A;color:#fff;}
+  /* 유형별 행 배경(가시성): 매각 파랑 · 매입 빨강 · 지급완료 회색 · 외화미수금 초록 */
+  .xt-tbl tbody tr.xrow-매각 td{background:#EFF6FF;}
+  .xt-tbl tbody tr.xrow-매입 td{background:#FEF2F2;}
+  .xt-tbl tbody tr.xrow-지급완료 td{background:#F3F4F6;}
+  .xt-tbl tbody tr.xrow-외화미수금 td{background:#ECFDF5;}
+  .xt-tbl tbody tr[class*="xrow-"] td input:not(:focus),
+  .xt-tbl tbody tr[class*="xrow-"] td select:not(.xt-mode):not(:focus){background:transparent;}
+  /* 셀 선택(드래그) 하이라이트 — 행 색 위에서도 보이게 */
+  .xt-tbl td.xsel{background:rgba(59,130,246,.20)!important;box-shadow:inset 0 0 0 1px rgba(59,130,246,.55);}
+  .xt-tbl td.xsel input,.xt-tbl td.xsel select{background:transparent!important;}
   /* 분할 상세보기 팝업 */
   #ext-ov{display:none;position:fixed;inset:0;background:rgba(15,20,30,.5);z-index:60;align-items:flex-start;justify-content:center;padding:40px 14px;}
   .xd-modal{background:#fff;border-radius:.9rem;width:100%;max-width:660px;max-height:86vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.3);}
@@ -229,8 +239,9 @@ function switchSheet(n) {
   // 새 시트로 sel 업데이트 (붙여넣기가 새 시트에 적용되도록)
   // r1/c1은 유지해서 같은 위치에 붙여넣기 가능
   sel.sheet = n;
-  // 외부거래1·2는 그리드 셀엔진을 쓰지 않음 → 셀 선택 해제(전역 키/복사/붙여넣기 핸들러 충돌 방지)
-  if (EXT_SHEETS.includes(n)) { sel.r1 = sel.c1 = sel.r2 = sel.c2 = -1; }
+  // 시트 종류에 맞는 셀엔진만 활성화(가드: 그리드=sel, 외부거래=xsel). 서로 충돌 방지.
+  if (EXT_SHEETS.includes(n)) { sel.r1 = sel.c1 = sel.r2 = sel.c2 = -1; }        // 그리드 엔진 off
+  else if (typeof xsel !== 'undefined') { xsel.r1 = xsel.c1 = xsel.r2 = xsel.c2 = -1; xtClearSel(); }  // ext 엔진 off
 }
 
 function rowsForSheet(sheet) {
@@ -364,6 +375,7 @@ function renderAll() {
       document.getElementById(`sheet-${s}`).innerHTML = buildExtSheet(s);
       renderExtSheet(s);
       bindExtEvents(s);
+      bindXSel(s);                                                   // ext 셀엔진(방향키·드래그선택)
     } else {                                                        // 지점간·연남마감·은행 → 기존 그리드 그대로
       document.getElementById(`sheet-${s}`).innerHTML = buildTable(s);
       renderSheet(s);
@@ -868,7 +880,7 @@ function extRowHtml(tx){
   const optSide = ['<option value=""></option>'].concat(EXT_SIDES.map(c=>`<option value="${c}" ${tx.tradeType===c?'selected':''}>${c}</option>`)).join('');
   const optCur = MB.CURRENCIES.map(c=>`<option value="${c}" ${tx.currency===c?'selected':''}>${c}</option>`).join('');
   const color = krwColor(tx.tradeType);
-  return `<tr data-id="${tx.id}">
+  return `<tr data-id="${tx.id}" class="${tx.tradeType ? 'xrow-'+tx.tradeType : ''}">
     <td><select class="xt-mode" data-ef="mode">
         <option value="일반" ${!sp?'selected':''}>일반거래</option>
         <option value="분할" ${sp?'selected':''}>분할거래</option></select></td>
@@ -943,6 +955,7 @@ function extSave(sheet, el){
   }
   mbSet(MB.TRANSACTIONS_KEY, list);
   if (field==='tradeType') el.style.color = krwColor(tx.tradeType);
+  tr.className = tx.tradeType ? 'xrow-'+tx.tradeType : '';   // 유형별 행 배경색 갱신
   extUpdateRowCalc(tr, tx);
   updateExtSummary(sheet);
 }
@@ -998,10 +1011,128 @@ function bindExtEvents(sheet){
       if (modeSel && modeSel.value === '분할') renderExtSheet(sheet);
     }
   });
-  tb.addEventListener('keydown', e=>{
-    if (e.key==='Enter' && e.target.matches('input,select')) { e.preventDefault(); e.target.blur(); }
+}
+
+// ═══ 외부거래1·2 셀엔진(xsel) — 그리드(sel)와 독립. 방향키 이동 + 드래그 선택 + 복사/붙여넣기/삭제 ═══
+// 가드: ext 시트에선 sel.r1<0(그리드 off)·xsel.r1>=0(ext on), 그리드 시트에선 반대. 전역 핸들러 충돌 없음.
+const XT_COLS = 6;   // 이동 열: 0거래종류·1거래처·2유형·3통화·4수량·5환율 (원화/상세/삭제 제외)
+let xsel = { sheet:null, r1:-1, c1:-1, r2:-1, c2:-1, dragging:false, _ps:null };
+function xtBody(sheet){ return document.getElementById('xt-tbody-'+sheet); }
+function xtClearSel(){ document.querySelectorAll('.xt-tbl td.xsel').forEach(td=>td.classList.remove('xsel')); }
+function xtApplySel(){
+  xtClearSel();
+  if (xsel.r1 < 0 || !xsel.sheet) return;
+  const tb = xtBody(xsel.sheet); if (!tb) return;
+  const minR=Math.min(xsel.r1,xsel.r2), maxR=Math.max(xsel.r1,xsel.r2);
+  const minC=Math.min(xsel.c1,xsel.c2), maxC=Math.max(xsel.c1,xsel.c2);
+  Array.from(tb.rows).forEach((tr,r)=>{ if(r<minR||r>maxR)return;
+    Array.from(tr.cells).forEach((td,c)=>{ if(c>=minC && c<=maxC && c<XT_COLS) td.classList.add('xsel'); }); });
+}
+function xtPos(td){ const tr=td.closest('tr'), tb=tr.closest('tbody'); return { r:Array.from(tb.rows).indexOf(tr), c:Array.from(tr.cells).indexOf(td) }; }
+function xtFocus(sheet, r, c, edit){
+  const tb=xtBody(sheet); if(!tb)return;
+  r=Math.max(0,Math.min(tb.rows.length-1,r)); c=Math.max(0,Math.min(XT_COLS-1,c));
+  const tr=tb.rows[r]; if(!tr)return;
+  const td=tr.cells[c]; if(!td)return;
+  const inp=td.querySelector('input,select');
+  Object.assign(xsel,{sheet,r1:r,c1:c,r2:r,c2:c}); xtApplySel();
+  if(edit && inp){ inp.focus(); if(inp.tagName==='INPUT')inp.select(); }
+  else { const a=document.activeElement; if(a&&(a.tagName==='INPUT'||a.tagName==='SELECT'))a.blur(); }
+}
+function bindXSel(sheet){
+  const tb=xtBody(sheet); if(!tb || tb.dataset.xbound) return; tb.dataset.xbound='1';
+  tb.addEventListener('mousedown', e=>{
+    const td=e.target.closest('td'); if(!td)return;
+    const {r,c}=xtPos(td); if(c>=XT_COLS)return;
+    xsel._ps={sheet,r,c}; xsel.dragging=true;
+    if(e.target.tagName!=='INPUT'&&e.target.tagName!=='SELECT'&&e.target.tagName!=='BUTTON'){ Object.assign(xsel,{sheet,r1:r,c1:c,r2:r,c2:c}); xtApplySel(); e.preventDefault(); }
+  });
+  tb.addEventListener('mouseover', e=>{
+    if(!xsel.dragging||!xsel._ps)return;
+    const td=e.target.closest('td'); if(!td)return;
+    const {r,c}=xtPos(td); const st=xsel._ps; if(st.sheet!==sheet)return;
+    const cc=Math.min(c,XT_COLS-1);
+    if(r!==st.r||cc!==st.c){
+      const a=document.activeElement; if(a&&(a.tagName==='INPUT'||a.tagName==='SELECT'))a.blur();
+      Object.assign(xsel,{sheet,r1:st.r,c1:st.c,r2:r,c2:cc}); xtApplySel();
+    }
+  });
+  tb.addEventListener('focusin', e=>{
+    const td=e.target.closest('td'); if(!td)return;
+    const {r,c}=xtPos(td); if(c>=XT_COLS)return;
+    Object.assign(xsel,{sheet,r1:r,c1:c,r2:r,c2:c}); xtApplySel();
   });
 }
+document.addEventListener('mouseup', ()=>{ xsel.dragging=false; xsel._ps=null; });
+
+document.addEventListener('keydown', e=>{
+  if (xsel.r1<0 || !xsel.sheet) return;
+  const tb=xtBody(xsel.sheet); if(!tb)return;
+  const active=document.activeElement;
+  const inInput=active.tagName==='INPUT'||active.tagName==='SELECT';
+  const ROWS=tb.rows.length;
+  const go=(r,c,edit)=>{ e.preventDefault(); if(inInput)active.blur(); xtFocus(xsel.sheet,Math.max(0,Math.min(ROWS-1,r)),c,edit); };
+  if(e.key==='Tab'){ const nc=e.shiftKey?xsel.c1-1:xsel.c1+1;
+    if(nc<0)go(xsel.r1-1,XT_COLS-1); else if(nc>=XT_COLS)go(xsel.r1+1,0); else go(xsel.r1,nc); return; }
+  if(!inInput){
+    if(e.key==='ArrowRight')return go(xsel.r1,xsel.c1+1);
+    if(e.key==='ArrowLeft') return go(xsel.r1,xsel.c1-1);
+    if(e.key==='ArrowDown') return go(xsel.r1+1,xsel.c1);
+    if(e.key==='ArrowUp')   return go(xsel.r1-1,xsel.c1);
+    if(e.key==='Enter'){ e.preventDefault(); xtFocus(xsel.sheet,xsel.r1,xsel.c1,true); const el=document.activeElement; if(el&&el.tagName==='SELECT'&&el.showPicker){try{el.showPicker()}catch(_){}} return; }
+    if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); xtDeleteRange(); return; }
+    if(e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){ const inp=tb.rows[xsel.r1]?.cells[xsel.c1]?.querySelector('input'); if(inp){ e.preventDefault(); inp.focus(); inp.value=e.key; inp.dispatchEvent(new Event('input',{bubbles:true})); try{inp.setSelectionRange(inp.value.length,inp.value.length)}catch(_){} } }
+  } else if(active.tagName==='SELECT'){
+    if(e.key==='Enter'){ e.preventDefault(); if(active.showPicker){try{active.showPicker()}catch(_){}} return; }
+    if(e.key==='ArrowDown')return go(xsel.r1+1,xsel.c1);
+    if(e.key==='ArrowUp')  return go(xsel.r1-1,xsel.c1);
+    if(e.key==='ArrowRight')return go(xsel.r1,xsel.c1+1);
+    if(e.key==='ArrowLeft') return go(xsel.r1,xsel.c1-1);
+    if(e.key==='Escape'){ e.preventDefault(); active.blur(); xtApplySel(); return; }
+  } else {
+    if(e.key==='Enter'){ e.preventDefault(); active.blur(); return; }
+    if(e.key==='ArrowDown')return go(xsel.r1+1,xsel.c1);
+    if(e.key==='ArrowUp')  return go(xsel.r1-1,xsel.c1);
+    if(e.key==='ArrowLeft'&&active.selectionStart===0)return go(xsel.r1,xsel.c1-1);
+    if(e.key==='ArrowRight'&&active.selectionStart===active.value.length)return go(xsel.r1,xsel.c1+1);
+    if(e.key==='Escape'){ e.preventDefault(); active.blur(); xtApplySel(); return; }
+  }
+});
+function xtDeleteRange(){   // 입력칸(거래처·수량·환율)만 지움 — 셀렉트(유형·통화)는 보존
+  const tb=xtBody(xsel.sheet); if(!tb)return;
+  const minR=Math.min(xsel.r1,xsel.r2), maxR=Math.max(xsel.r1,xsel.r2);
+  const minC=Math.min(xsel.c1,xsel.c2), maxC=Math.max(xsel.c1,xsel.c2);
+  for(let r=minR;r<=maxR;r++){ const tr=tb.rows[r]; if(!tr)continue;
+    for(let c=minC;c<=maxC;c++){ const inp=tr.cells[c]?.querySelector('input');
+      if(!inp||inp.value==='')continue; inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); } }
+  xtApplySel();
+}
+document.addEventListener('copy', e=>{
+  if(xsel.r1<0||!xsel.sheet)return;
+  const a=document.activeElement;
+  if((a.tagName==='INPUT'||a.tagName==='SELECT') && a.selectionStart!==a.selectionEnd)return;
+  const tb=xtBody(xsel.sheet); if(!tb)return;
+  const minR=Math.min(xsel.r1,xsel.r2), maxR=Math.max(xsel.r1,xsel.r2);
+  const minC=Math.min(xsel.c1,xsel.c2), maxC=Math.max(xsel.c1,xsel.c2);
+  const tsv=Array.from({length:maxR-minR+1},(_,ri)=>{ const tr=tb.rows[minR+ri];
+    return Array.from({length:maxC-minC+1},(_,ci)=>{ const td=tr?.cells[minC+ci]; if(!td)return '';
+      const inp=td.querySelector('input,select'); return inp?inp.value:td.textContent.trim(); }).join('\t'); }).join('\n');
+  (e.clipboardData||window.clipboardData).setData('text/plain',tsv); e.preventDefault();
+});
+document.addEventListener('paste', e=>{
+  if(xsel.r1<0||!xsel.sheet)return;
+  const a=document.activeElement; const inInput=a.tagName==='INPUT'||a.tagName==='SELECT';
+  const text=(e.clipboardData||window.clipboardData).getData('text'); if(!text)return;
+  if(inInput && text.indexOf('\t')===-1 && text.indexOf('\n')===-1)return;
+  e.preventDefault(); if(inInput)a.blur();
+  const tb=xtBody(xsel.sheet); if(!tb)return;
+  const rows=text.trim().split('\n').map(r=>r.split('\t'));
+  const startR=Math.min(xsel.r1,xsel.r2), startC=Math.min(xsel.c1,xsel.c2);
+  rows.forEach((vals,ri)=>{ const tr=tb.rows[startR+ri]; if(!tr)return;
+    vals.forEach((val,ci)=>{ const c=startC+ci; if(c>=XT_COLS)return;
+      const inp=tr.cells[c]?.querySelector('input'); if(!inp)return;   // 셀렉트 열은 붙여넣기 제외(데이터 보존)
+      inp.value=val.trim(); inp.dispatchEvent(new Event('input',{bubbles:true})); }); });
+});
 
 // ── 분할 상세보기 팝업 ──
 let _xdEd = null;
