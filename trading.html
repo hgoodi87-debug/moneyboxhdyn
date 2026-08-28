@@ -256,7 +256,13 @@ function emptyTpl(sheet) {
 
 function buildTable(sheet) {
   const sumBuyId = `sum-buy-${sheet}`, sumSellId = `sum-sell-${sheet}`, sumTotalId = `sum-total-${sheet}`;
-  return `<table class="ss-table" id="ss-table-${sheet}">
+  const interBanner = sheet === 4
+    ? `<div style="background:#FFF8EC;border:1px solid #F5A623;border-radius:.6rem;padding:.5rem .8rem;margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center;font-size:.85rem">
+         <span style="font-weight:700;color:#92400E">홍대·연남 지점간거래 총계</span>
+         <span><b id="nm-inter" style="font-size:1.05rem;color:#B45309;font-variant-numeric:tabular-nums">0</b><span style="font-size:.72rem;color:#9CA3AF;margin-left:.4rem">· 연남마감 합계에 자동 포함</span></span>
+       </div>`
+    : '';
+  return interBanner + `<table class="ss-table" id="ss-table-${sheet}">
     <colgroup>
       <col style="width:100px">
       <col style="width:80px">
@@ -403,9 +409,27 @@ function updateSummary(sheet) {
       if (t === '매입') buy += krw;
     });
   }
+  let total = sell + buy;
+  if (sheet === 4) {                                   // 연남마감엔 홍대·연남 지점간거래(시트1) 총계를 항상 더한다
+    const inter = gridNetTotal(1);
+    total += inter;
+    const box = document.getElementById('nm-inter');
+    if (box) box.textContent = fmtSigned(inter);
+  }
   document.getElementById(`sum-buy-${sheet}`).textContent = fmtSigned(buy);
   document.getElementById(`sum-sell-${sheet}`).textContent = fmtSigned(sell);
-  document.getElementById(`sum-total-${sheet}`).textContent = fmtSigned(sell + buy);
+  document.getElementById(`sum-total-${sheet}`).textContent = fmtSigned(total);
+  if (sheet === 1 && document.getElementById('sum-total-4')) updateSummary(4);  // 지점간거래 바뀌면 연남마감도 갱신
+}
+function gridNetTotal(sheet) {                          // 그리드 시트 순총계(매각+매입, 원화)
+  const tbody = document.getElementById(`tbody-${sheet}`);
+  let net = 0;
+  if (tbody) Array.from(tbody.rows).forEach(tr => {
+    const t = tr.querySelector('select[data-field="tradeType"]')?.value;
+    if (!t || t === '외화미수금' || t === '지급완료') return;
+    net += calcKrw(t, parseNum(tr.querySelector('input[data-field="amount"]')?.value), parseNum(tr.querySelector('input[data-field="rate"]')?.value));
+  });
+  return net;
 }
 
 function hasMeaningful(tx) {
