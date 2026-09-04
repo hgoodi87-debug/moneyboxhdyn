@@ -1206,7 +1206,7 @@ function bsTimeSel(base, val, empId, date){   // 시(00-23) + 분(00/30만) 선�
   }
   const oc = `onchange="saveBiliberDay('${empId}','${date}')"`;
   let hopts = '<option value="">--</option>';
-  for(let i=16;i<=21;i++){ const p=String(i).padStart(2,'0'); hopts += `<option value="${p}"${h===p?' selected':''}>${p}</option>`; }   // 오후 4시~9시
+  for(let i=9;i<=21;i++){ const p=String(i).padStart(2,'0'); hopts += `<option value="${p}"${h===p?' selected':''}>${p}</option>`; }   // 오전 9시~오후 9시
   const mopts = `<option value="">--</option><option value="00"${m==='00'?' selected':''}>00</option><option value="30"${m==='30'?' selected':''}>30</option>`;
   return `<span class="att-sel"><select id="${base}h-${date}" ${oc}>${hopts}</select><b>:</b><select id="${base}m-${date}" ${oc}>${mopts}</select></span>`;
 }
