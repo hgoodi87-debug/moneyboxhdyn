@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=55">
-<link rel="apple-touch-icon" href="favicon.png?v=55">
+<link rel="icon" type="image/png" href="favicon.png?v=56">
+<link rel="apple-touch-icon" href="favicon.png?v=56">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 근태관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=55">
+<link rel="stylesheet" href="css/mb.css?v=56">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=55"></script>
-<script src="js/mb-data.js?v=55"></script>
-<script src="js/mb-sync.js?v=55"></script>
+<script src="js/firebase-config.js?v=56"></script>
+<script src="js/mb-data.js?v=56"></script>
+<script src="js/mb-sync.js?v=56"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -163,6 +163,7 @@
         <button class="tab-btn" data-subtab="sched">근무 일정</button>
         <button class="tab-btn" data-subtab="emp">직원 관리</button>
         <button class="tab-btn" data-subtab="leave">연차 관리</button>
+        <button class="tab-btn" data-subtab="biliber">빌리버 업무지원</button>
       </div>
 
       <!-- 출퇴근 수정 -->
@@ -272,6 +273,18 @@
           </table>
         </div>
       </div>
+
+      <!-- 빌리버 업무지원 (직원별 · 출퇴근 수정과 동일 형식) -->
+      <div id="subtab-biliber" class="hidden">
+        <div class="flex flex-wrap gap-2 mb-4 items-center justify-center">
+          <button onclick="moveBsMonth(-1)" class="btn-ghost bg-gray-100">◀</button>
+          <input type="month" id="bs-month" class="input-base" onchange="renderBiliber()">
+          <button onclick="moveBsMonth(1)" class="btn-ghost bg-gray-100">▶</button>
+          <select id="bs-emp" class="input-base ml-2" style="font-weight:600" onchange="_bsEmp=this.value;renderBiliber()"></select>
+        </div>
+        <p class="text-xs text-[#9CA3AF] text-center mb-3">빌리버 업무지원 나간 날의 <b>시작·종료 시간</b>을 입력하면 지원 시간이 자동 계산됩니다</p>
+        <div id="bs-list"></div>
+      </div>
     </div>
   </div>
 </main>
@@ -325,11 +338,12 @@ document.querySelectorAll('.tab-btn[data-subtab]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn[data-subtab]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    ['att','sched','emp','leave'].forEach(t => document.getElementById('subtab-'+t).classList.toggle('hidden', t !== btn.dataset.subtab));
+    ['att','sched','emp','leave','biliber'].forEach(t => document.getElementById('subtab-'+t).classList.toggle('hidden', t !== btn.dataset.subtab));
     if (btn.dataset.subtab === 'sched') renderSchedule();
     if (btn.dataset.subtab === 'emp') renderEmpList();
     if (btn.dataset.subtab === 'leave') renderLeaves();
     if (btn.dataset.subtab === 'att') renderAttEdit();
+    if (btn.dataset.subtab === 'biliber') renderBiliber();
   });
 });
 
@@ -552,7 +566,7 @@ function exportAttendance() {
   const days = new Date(y, m, 0).getDate();
   const dayNames = ['일','월','화','수','목','금','토'];
   const branchOrder = { '홍대': 0, '연남': 1 };
-  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch)
+  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.name)   // 지점 미배정 직원도 포함
     .sort((a,b) => (branchOrder[a.branch] ?? 9) - (branchOrder[b.branch] ?? 9) || (a.name||'').localeCompare(b.name||''));
   const att = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
   const leaves = mbGetOrDefault(MB.LEAVE_KEY, []);
@@ -641,19 +655,19 @@ function renderAttEdit() {
   const att = mbGetOrDefault(MB.ATTENDANCE_KEY, []);
   const leaves = mbGetOrDefault(MB.LEAVE_KEY, []);
   const branchOrder = { '홍대': 0, '연남': 1 };
-  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch)
+  const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.name)   // 지점 미배정 직원도 출근기록에 포함(추가 즉시 표시)
     .sort((a,b) => (branchOrder[a.branch] ?? 9) - (branchOrder[b.branch] ?? 9) || (a.name||'').localeCompare(b.name||''));
 
   // 직원 드롭다운 (한 명씩 보기)
   const sel = document.getElementById('att-emp');
   if (emps.length && (!_attEmp || !emps.some(e => e.id === _attEmp))) _attEmp = emps[0].id;
   sel.innerHTML = emps.length
-    ? emps.map(e => `<option value="${e.id}" ${e.id===_attEmp?'selected':''}>${e.name} (${e.branch})</option>`).join('')
+    ? emps.map(e => `<option value="${e.id}" ${e.id===_attEmp?'selected':''}>${e.name}${e.branch?' ('+e.branch+')':' (미배정)'}</option>`).join('')
     : '<option>직원 없음</option>';
 
   const listEl = document.getElementById('att-edit-list');
   const e = emps.find(x => x.id === _attEmp);
-  if (!e) { listEl.innerHTML = '<p class="text-sm text-[#9CA3AF] text-center py-8">지점이 배정된 직원이 없습니다.</p>'; return; }
+  if (!e) { listEl.innerHTML = '<p class="text-sm text-[#9CA3AF] text-center py-8">직원이 없습니다. [직원 관리]에서 추가하세요.</p>'; return; }
 
   const dayNames = ['일','월','화','수','목','금','토'];
   const todayStr = today();
@@ -1174,12 +1188,116 @@ renderTodayStatus();
 renderMyMonthTable();
 setInterval(() => { renderTodayStatus(); }, 30000);
 // 다른 탭/창·다른 기기에서 일정·근무 변경 시 자동 반영 (유기적 연동)
+// ─── 빌리버 업무지원 (직원별 · 출퇴근 수정과 동일 형식: 월별 일자 그리드) ───
+const BILIBER_KEY = 'mb_biliber_support';
+let _bsEmp = null;
+function bsHours(s, e){
+  if (!s || !e) return 0;
+  const [sh,sm] = s.split(':').map(Number), [eh,em] = e.split(':').map(Number);
+  let min = (eh*60+em) - (sh*60+sm);
+  if (min < 0) min += 24*60;   // 자정 넘김 방어
+  return min/60;
+}
+function bsTimeSel(base, val, empId, date){   // 시(00-23) + 분(00/30만) 선택칸
+  let h='', m='';
+  if (val && /^\d{1,2}:\d{1,2}$/.test(val)) {
+    let [hh,mm]=val.split(':').map(Number); let rm=Math.round(mm/30)*30, rh=hh;
+    if(rm===60){rm=0;rh=(hh+1)%24;} h=String(rh).padStart(2,'0'); m=String(rm).padStart(2,'0');
+  }
+  const oc = `onchange="saveBiliberDay('${empId}','${date}')"`;
+  let hopts = '<option value="">--</option>';
+  for(let i=16;i<=21;i++){ const p=String(i).padStart(2,'0'); hopts += `<option value="${p}"${h===p?' selected':''}>${p}</option>`; }   // 오후 4시~9시
+  const mopts = `<option value="">--</option><option value="00"${m==='00'?' selected':''}>00</option><option value="30"${m==='30'?' selected':''}>30</option>`;
+  return `<span class="att-sel"><select id="${base}h-${date}" ${oc}>${hopts}</select><b>:</b><select id="${base}m-${date}" ${oc}>${mopts}</select></span>`;
+}
+function bsEmpList(){
+  const bo = { '홍대':0, '연남':1 };
+  return mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.name)
+    .sort((a,b) => (bo[a.branch]??9)-(bo[b.branch]??9) || (a.name||'').localeCompare(b.name||''));
+}
+function moveBsMonth(d){
+  const inp = document.getElementById('bs-month');
+  const [y,m] = (inp.value || thisYearMonth()).split('-').map(Number);
+  const dt = new Date(y, m-1+d, 1);
+  inp.value = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+  renderBiliber();
+}
+// 하루의 시작/종료를 저장(한 직원·한 날짜당 1건) — 둘 다 비면 삭제
+function saveBiliberDay(empId, date){
+  const sh = document.getElementById('bssh-'+date).value, sm = document.getElementById('bssm-'+date).value;
+  const eh = document.getElementById('bseh-'+date).value, em = document.getElementById('bsem-'+date).value;
+  const s = sh ? `${sh}:${sm||'00'}` : '';   // 분은 00/30만
+  const e = eh ? `${eh}:${em||'00'}` : '';
+  const list = mbGetOrDefault(BILIBER_KEY, []);
+  let rec = list.find(x => x.employeeId===empId && x.date===date);
+  if (!s && !e) { if (rec) mbSet(BILIBER_KEY, list.filter(x => x !== rec)); }
+  else { if (!rec) { rec = { id:uid(), employeeId:empId, date }; list.push(rec); } rec.start = s; rec.end = e; mbSet(BILIBER_KEY, list); }
+  const h = bsHours(s, e);
+  const hEl = document.getElementById('bs-h-'+date); if (hEl) hEl.textContent = h ? h.toFixed(1)+'h' : '';
+  bsUpdateTotal(empId);
+}
+function bsUpdateTotal(empId){
+  const ym = document.getElementById('bs-month').value;
+  const total = mbGetOrDefault(BILIBER_KEY, []).filter(r => r.employeeId===empId && r.date && r.date.slice(0,7)===ym)
+    .reduce((s,r) => s + bsHours(r.start, r.end), 0);
+  const hd = document.getElementById('bs-monthsum'); if (hd) hd.textContent = total.toFixed(1)+'h';
+}
+function renderBiliber(){
+  const inp = document.getElementById('bs-month'); if(!inp) return;
+  if(!inp.value) inp.value = thisYearMonth();
+  const ym = inp.value; const [y,m] = ym.split('-').map(Number); const days = new Date(y, m, 0).getDate();
+  const es = bsEmpList();
+  const selEl = document.getElementById('bs-emp');
+  if(es.length && (!_bsEmp || !es.some(e=>e.id===_bsEmp))) _bsEmp = es[0].id;
+  selEl.innerHTML = es.length
+    ? es.map(e => `<option value="${e.id}" ${e.id===_bsEmp?'selected':''}>${e.name}${e.branch?' ('+e.branch+')':''}</option>`).join('')
+    : '<option value="">직원 없음</option>';
+  const listEl = document.getElementById('bs-list');
+  const e = es.find(x => x.id === _bsEmp);
+  if(!e){ listEl.innerHTML = '<p class="text-sm text-[#9CA3AF] text-center py-8">직원이 없습니다. [직원 관리]에서 추가하세요.</p>'; return; }
+  const dayNames = ['일','월','화','수','목','금','토'];
+  const todayStr = today();
+  const all = mbGetOrDefault(BILIBER_KEY, []);
+  let totalH = 0;
+  const dayRow = (d) => {
+    const dateStr = `${ym}-${String(d).padStart(2,'0')}`;
+    const wd = new Date(y, m-1, d).getDay();
+    const dayColor = wd===0?'color:#EF4444':wd===6?'color:#3B82F6':'';
+    const wknd = wd===0 || wd===6;
+    const rec = all.find(x => x.employeeId===e.id && x.date===dateStr) || {};
+    const h = bsHours(rec.start, rec.end); totalH += h;
+    const rowBg = dateStr===todayStr ? 'background:#FFFBF0' : (wknd ? 'background:#FAFBFD' : '');
+    return `<tr style="${rowBg}">
+      <td class="att-d">${d}일</td>
+      <td class="att-d" style="${dayColor}">${dayNames[wd]}</td>
+      <td>${bsTimeSel('bss', rec.start, e.id, dateStr)}</td>
+      <td>${bsTimeSel('bse', rec.end, e.id, dateStr)}</td>
+      <td class="att-d" id="bs-h-${dateStr}" style="color:#F5A623;font-weight:600">${h?h.toFixed(1)+'h':''}</td>
+    </tr>`;
+  };
+  const cols = 2, per = Math.ceil(days/cols); let tables = '';
+  for (let c=0; c<cols; c++) {
+    let bd = '';
+    for (let d=c*per+1; d<=Math.min((c+1)*per, days); d++) bd += dayRow(d);
+    if (bd) tables += `<table class="att-tbl" style="flex:1"><thead><tr><th style="width:44px">날짜</th><th style="width:38px">요일</th><th>시작</th><th>종료</th><th style="width:52px">시간</th></tr></thead><tbody>${bd}</tbody></table>`;
+  }
+  const roleLabel = e.role==='admin'?'관리자':e.role==='senior'?'시니어':'직원';
+  listEl.innerHTML = `<div class="border rounded-lg overflow-hidden" style="max-width:820px;margin:0 auto">
+    <div class="flex items-center justify-between px-4 py-2 bg-[#F5F7FA]">
+      <div class="flex items-center gap-2"><span class="font-bold text-base">${e.name}</span><span class="text-xs text-[#6B7280]">${e.branch||'미배정'} · ${roleLabel}</span></div>
+      <span class="text-xs">월 합계 <span id="bs-monthsum" class="text-[#F5A623] font-bold text-sm">${totalH.toFixed(1)}h</span></span>
+    </div>
+    <div style="display:flex;gap:10px;padding:10px;align-items:flex-start;justify-content:center;flex-wrap:wrap">${tables}</div>
+  </div>`;
+}
+
 function attRefreshAll() {
   if (typeof renderCalendar === 'function') renderCalendar();
   if (typeof renderTodayStatus === 'function') renderTodayStatus();
   if (typeof renderMyMonthTable === 'function') renderMyMonthTable();
   if (typeof renderAttEdit === 'function' && document.getElementById('att-edit-list')) renderAttEdit();
   if (typeof renderSchedule === 'function' && document.getElementById('sched-emp')) renderSchedule();
+  if (typeof renderBiliber === 'function' && document.getElementById('bs-list')) renderBiliber();
 }
 mbOnDataChange(attRefreshAll);
 </script>
