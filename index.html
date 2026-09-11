@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=56">
-<link rel="apple-touch-icon" href="favicon.png?v=56">
+<link rel="icon" type="image/png" href="favicon.png?v=57">
+<link rel="apple-touch-icon" href="favicon.png?v=57">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=56">
+<link rel="stylesheet" href="css/mb.css?v=57">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=56"></script>
-<script src="js/mb-data.js?v=56"></script>
-<script src="js/mb-sync.js?v=56"></script>
+<script src="js/firebase-config.js?v=57"></script>
+<script src="js/mb-data.js?v=57"></script>
+<script src="js/mb-sync.js?v=57"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
   .widget { background:#fff; border-radius:.875rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.06); display:flex; flex-direction:column; height:100%; overflow:hidden; }
@@ -37,12 +37,37 @@
   input[type=number]::-webkit-outer-spin-button,
   input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   input[type=number] { -moz-appearance:textfield; }
+  /* 주간 캘린더 */
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
+  .cal-day { border:1px solid #E5E7EB; border-radius:.6rem; background:#FCFCFD; display:flex; flex-direction:column; min-height:150px; overflow:hidden; }
+  .cal-day.today { border-color:#F5A623; box-shadow:0 0 0 2px rgba(245,166,35,.18); background:#FFFDF8; }
+  .cal-day.weekend .cal-dnum { color:#EF4444; }
+  .cal-dhead { display:flex; align-items:baseline; justify-content:space-between; padding:.35rem .5rem; border-bottom:1px solid #F1F2F4; background:#fff; flex-shrink:0; }
+  .cal-dow { font-size:.68rem; font-weight:700; color:#6B7280; }
+  .cal-day.today .cal-dow { color:#B45309; }
+  .cal-dnum { font-size:.8rem; font-weight:700; color:#1A1A2E; font-variant-numeric:tabular-nums; }
+  .cal-body { flex:1; padding:.35rem; display:flex; flex-direction:column; gap:3px; overflow-y:auto; max-height:230px; }
+  .cal-memo { font-size:.7rem; line-height:1.4; border-radius:.35rem; padding:.22rem .35rem; display:flex; align-items:flex-start; gap:4px;
+              word-break:break-word; background:#FFF4E0; color:#92400E; cursor:text; }
+  .cal-memo:hover { background:#FFEBC7; }
+  .cal-memo span { flex:1; min-width:0; white-space:pre-wrap; }
+  .cal-x { color:#D9B98A; cursor:pointer; flex-shrink:0; font-size:.66rem; line-height:1.5; }
+  .cal-x:hover { color:#EF4444; }
+  .cal-add { border:none; background:transparent; color:#C4C7CE; font-size:.7rem; cursor:pointer; padding:.15rem .2rem; text-align:left; margin-top:auto; flex-shrink:0; }
+  .cal-add:hover { color:#F5A623; }
+  .cal-input { border:1px solid #F5A623; border-radius:.35rem; padding:.2rem .35rem; font-size:.7rem; width:100%; outline:none; box-sizing:border-box; font-family:inherit; flex-shrink:0; }
+  .cal-hint { font-size:.68rem; color:#9CA3AF; margin-bottom:.6rem; flex-shrink:0; }
+  .cal-nav, .cal-today { font-size:.7rem; padding:.22rem .6rem; border-radius:.4rem; background:#F3F4F6; color:#374151; cursor:pointer; border:none; font-weight:600; }
+  .cal-nav:hover, .cal-today:hover { background:#E5E7EB; }
   /* 모바일: 3열 → 세로 스택, 고정 높이 해제 */
   @media (max-width: 860px) {
     .dash-row { flex-direction:column; min-width:0 !important; } /* 모바일: 가로스크롤 없이 세로 스택 */
     .dash-col { width:100% !important; height:auto !important; }
     .widget { height:auto !important; }
     .widget-body { max-height:300px; overflow-y:auto; }
+    .cal-grid { grid-template-columns:1fr; }
+    .cal-day { min-height:0; }
+    .cal-body { max-height:none; }
   }
 </style>
 </head>
@@ -204,6 +229,26 @@
     </div>
 
   </div>
+
+  <!-- ─── 주간 캘린더: 금주 특이사항 · 이슈 · 스케줄 한눈에 ─── -->
+  <div style="max-width:1600px;margin:16px auto 0">
+    <div class="widget" style="height:auto">
+      <div class="widget-title flex items-center justify-between">
+        <div class="flex items-baseline gap-2">
+          <span>📅 주간 메모 · 이슈</span>
+          <span id="cal-range" style="font-size:.72rem;font-weight:500;color:#9CA3AF"></span>
+        </div>
+        <div class="flex items-center gap-1">
+          <button class="cal-nav" onclick="calMove(-1)" title="지난주">◀</button>
+          <button class="cal-today" onclick="calToday()">이번주</button>
+          <button class="cal-nav" onclick="calMove(1)" title="다음주">▶</button>
+        </div>
+      </div>
+      <div class="cal-hint">날짜 칸의 ＋ 를 눌러 메모를 적어두세요 · 메모를 클릭하면 수정 (내용을 비우면 삭제)</div>
+      <div id="cal-grid" class="cal-grid"></div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -493,6 +538,104 @@ function updateTransfer(id, memo) {
   mbSet(MB.TRANSFERS_KEY, list);                      // DOM에 이미 반영돼 재렌더 불필요
 }
 
+// ═══ 주간 메모 · 이슈 캘린더 ════════════════════════════════
+//  날짜별로 이슈·특이사항을 미리 적어두는 메모장 (mb_calendar_events)
+const CAL_DOW = ['월','화','수','목','금','토','일'];
+let _calOffset = 0;   // 0=이번주, -1=지난주, +1=다음주
+
+function _escA(s){ return _esc(s).replace(/"/g,'&quot;'); }
+function calMondayOf(d){ const x=new Date(d); x.setDate(x.getDate()-((x.getDay()+6)%7)); x.setHours(0,0,0,0); return x; }
+function calYmd(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function calMove(n){ _calOffset += n; renderCalendar(); }
+function calToday(){ _calOffset = 0; renderCalendar(); }
+
+function renderCalendar(){
+  const mon = calMondayOf(new Date());
+  mon.setDate(mon.getDate() + _calOffset * 7);
+  const days = Array.from({length:7}, (_,i) => { const d = new Date(mon); d.setDate(mon.getDate()+i); return d; });
+  const todayStr = today();
+  const memos = mbGetOrDefault(MB.CALENDAR_KEY, []);
+
+  const rg = document.getElementById('cal-range');
+  if (rg) rg.textContent = `${calYmd(days[0]).slice(5).replace('-','.')} ~ ${calYmd(days[6]).slice(5).replace('-','.')}`
+    + (_calOffset === 0 ? ' · 이번주' : _calOffset < 0 ? ` · ${-_calOffset}주 전` : ` · ${_calOffset}주 후`);
+
+  document.getElementById('cal-grid').innerHTML = days.map(d => {
+    const ds = calYmd(d), dow = (d.getDay()+6)%7, isToday = ds === todayStr;
+    const list = memos.filter(m => m.date === ds).map(m =>
+      `<div class="cal-memo" data-id="${m.id}" onclick="calEdit('${m.id}')" title="${_escA(m.createdBy ? m.createdBy + ' 등록' : '')}">
+         <span>${_esc(m.text)}</span>
+         <span class="cal-x" title="삭제" onclick="event.stopPropagation();calDel('${m.id}')">✕</span>
+       </div>`).join('');
+    return `<div class="cal-day${isToday?' today':''}${dow>=5?' weekend':''}">
+      <div class="cal-dhead">
+        <span class="cal-dow">${CAL_DOW[dow]}${isToday?' · 오늘':''}</span>
+        <span class="cal-dnum">${d.getMonth()+1}/${d.getDate()}</span>
+      </div>
+      <div class="cal-body">
+        ${list}
+        <button class="cal-add" id="cal-add-${ds}" onclick="calAddStart('${ds}')">＋ 메모</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ＋ → 그 자리에서 입력 (Enter 저장 후 이어서 계속 입력 · Esc 취소)
+function calAddStart(ds){
+  const btn = document.getElementById('cal-add-'+ds);
+  if (!btn) return;
+  btn.outerHTML = `<input class="cal-input" id="cal-in-${ds}" placeholder="이슈 / 특이사항"
+    onkeydown="if(event.key==='Enter'){event.preventDefault();calAddSave('${ds}',this.value,this,true)}else if(event.key==='Escape'){this.dataset.done='1';renderCalendar()}"
+    onblur="calAddSave('${ds}',this.value,this,false)">`;
+  const inp = document.getElementById('cal-in-'+ds);
+  if (inp) inp.focus();
+}
+//  keepOpen=true(Enter): 저장 후 입력칸을 다시 열어 연속 입력 / false(포커스 아웃): 저장만
+//  el.dataset.done — Enter 저장 뒤 따라오는 blur 로 두 번 저장되는 것을 막음
+function calAddSave(ds, text, el, keepOpen){
+  if (el) { if (el.dataset.done) return; el.dataset.done = '1'; }
+  const t = (text || '').trim();
+  if (!t) { renderCalendar(); return; }
+  mbPush(MB.CALENDAR_KEY, { id:uid(), date:ds, text:t, createdBy:(getCurrentUser()||{}).name || '-', createdAt:nowTs() });
+  renderCalendar();
+  if (keepOpen) calAddStart(ds);
+}
+
+// 메모 클릭 → 그 자리에서 수정 (내용을 비우면 삭제 · Esc 취소)
+function calEdit(id){
+  const m = mbGetOrDefault(MB.CALENDAR_KEY, []).find(x => x.id === id);
+  if (!m) return;
+  const el = document.querySelector('.cal-memo[data-id="' + id + '"]');
+  if (!el) return;
+  el.outerHTML = `<input class="cal-input" id="cal-ed-${id}" value="${_escA(m.text)}"
+    onkeydown="if(event.key==='Enter'){event.preventDefault();calEditSave('${id}',this.value,this)}else if(event.key==='Escape'){this.dataset.done='1';renderCalendar()}"
+    onblur="calEditSave('${id}',this.value,this)">`;
+  const inp = document.getElementById('cal-ed-'+id);
+  if (inp) { inp.focus(); inp.select(); }
+}
+function calEditSave(id, text, el){
+  if (el) { if (el.dataset.done) return; el.dataset.done = '1'; }   // Enter 저장 뒤 blur 중복 방지
+  const list = mbGetOrDefault(MB.CALENDAR_KEY, []);
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) { renderCalendar(); return; }
+  const t = (text || '').trim();
+  if (t === '') {                                  // 비우면 삭제
+    if (typeof mbLogDelete === 'function') mbLogDelete('주간메모 삭제', MB.CALENDAR_KEY, [list[i]], x => `${x.date} ${x.text}`);
+    list.splice(i, 1);
+  } else if (list[i].text === t) { renderCalendar(); return; }   // 변경 없음
+  else list[i].text = t;
+  mbSet(MB.CALENDAR_KEY, list);
+  renderCalendar();
+}
+function calDel(id){
+  const it = mbGetOrDefault(MB.CALENDAR_KEY, []).find(x => x.id === id);
+  if (!it) return;
+  if (!confirm(`[${it.text}] 메모를 삭제할까요?`)) return;
+  if (typeof mbLogDelete === 'function') mbLogDelete('주간메모 삭제', MB.CALENDAR_KEY, [it], x => `${x.date} ${x.text}`);
+  mbRemove(MB.CALENDAR_KEY, x => x.id === id);
+  renderCalendar();
+}
+
 function dashAll() {
   renderAttendance();
   renderHandovers();
@@ -500,6 +643,7 @@ function dashAll() {
   renderMainTrades();
   renderDailyTasks();
   renderTransfers();
+  renderCalendar();
 }
 dashAll();
 

@@ -37,6 +37,7 @@ const MB = {
   MARKETING_PLANS_KEY: 'mb_marketing_plans',
   MARKETING_INFLOW_KEY: 'mb_marketing_inflow',
   WEEKLY_REPORTS_KEY: 'mb_weekly_reports',
+  CALENDAR_KEY: 'mb_calendar_events',
   LOG_RETENTION_DAYS: 30,
 
   // 공통 헤더 네비게이션
