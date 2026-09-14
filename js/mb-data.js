@@ -167,13 +167,27 @@ function mbChangePassword(newPw) {
 }
 
 // 직원 삭제 — 근무표/출퇴근/연차 등 모든 참조까지 함께 제거
+//  ※ 지우기 전에 각 기록도 기록 로그에 스냅샷으로 남긴다.
+//    계정만 남기면 근태가 복구 불가능해져 월급 정산이 막힌다(2026-09 실제 유실 사고).
 function mbDeleteEmployee(id) {
   const emps = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
   const emp = emps.find(e => e.id === id) || null;
+  const who = emp ? emp.name : id;
+  [
+    { key: MB.SCHEDULE_KEY,   label: '직원 삭제 · 근무표',
+      desc: x => `${who} ${x.date||''} ${x.branch||''} ${x.shiftType||''}`.trim() },
+    { key: MB.ATTENDANCE_KEY, label: '직원 삭제 · 출퇴근',
+      desc: x => `${who} ${x.date||''} ${x.clockIn||'-'}~${x.clockOut||'-'}`.trim() },
+    { key: MB.LEAVE_KEY,      label: '직원 삭제 · 연차',
+      desc: x => `${who} ${x.date||''} ${x.reason||''}`.trim() },
+  ].forEach(t => {
+    const list = mbGetOrDefault(t.key, []);
+    const removed = list.filter(x => x && x.employeeId === id);
+    if (!removed.length) return;
+    if (typeof mbLogDelete === 'function') mbLogDelete(t.label, t.key, removed, t.desc);
+    mbSet(t.key, list.filter(x => !(x && x.employeeId === id)));
+  });
   mbSet(MB.EMPLOYEES_KEY, emps.filter(e => e.id !== id));
-  mbSet(MB.SCHEDULE_KEY,   mbGetOrDefault(MB.SCHEDULE_KEY, []).filter(s => s.employeeId !== id));
-  mbSet(MB.ATTENDANCE_KEY, mbGetOrDefault(MB.ATTENDANCE_KEY, []).filter(a => a.employeeId !== id));
-  mbSet(MB.LEAVE_KEY,      mbGetOrDefault(MB.LEAVE_KEY, []).filter(l => l.employeeId !== id));
   return emp;
 }
 
@@ -252,7 +266,11 @@ function mbLogRestore(logId) {
   if (!e || e.restored) return false;
   const list = mbGetOrDefault(e.storeKey, []);
   (e.snapshot || []).forEach(item => {
-    if (!list.some(x => x.id === item.id)) list.push(item);
+    // id 없는 기록(근무표 등)은 id 비교가 undefined끼리 맞아떨어져 전부 건너뛰므로 내용으로 비교
+    const dup = (item && item.id != null)
+      ? list.some(x => x && x.id === item.id)
+      : list.some(x => JSON.stringify(x) === JSON.stringify(item));
+    if (!dup) list.push(item);
   });
   mbSet(e.storeKey, list);
   e.restored = true;
