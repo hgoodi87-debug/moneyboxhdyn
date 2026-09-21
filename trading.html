@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=58">
-<link rel="apple-touch-icon" href="favicon.png?v=58">
+<link rel="icon" type="image/png" href="favicon.png?v=59">
+<link rel="apple-touch-icon" href="favicon.png?v=59">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=58">
+<link rel="stylesheet" href="css/mb.css?v=59">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=58"></script>
-<script src="js/mb-data.js?v=58"></script>
-<script src="js/mb-sync.js?v=58"></script>
+<script src="js/firebase-config.js?v=59"></script>
+<script src="js/mb-data.js?v=59"></script>
+<script src="js/mb-sync.js?v=59"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -700,6 +700,15 @@ function focusCell(sheet, r, c, edit=false) {
   }
 }
 
+// 글자를 치기 시작한 키인지 판정.
+//  한글 IME 로 조합을 시작하면 e.key 는 'Process'(또는 keyCode 229)로 오고 길이가 1이 아니다.
+//  이걸 놓치면 셀 선택 상태에서 한글 첫 글자가 아예 입력되지 않는다.
+function _isTypingKey(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  if (e.isComposing || e.keyCode === 229 || e.key === 'Process') return true;
+  return typeof e.key === 'string' && e.key.length === 1;
+}
+
 document.addEventListener('keydown', async e => {
   const active = document.activeElement;
   const inInput = active.tagName==='INPUT' || active.tagName==='SELECT';
@@ -757,14 +766,14 @@ document.addEventListener('keydown', async e => {
         return;
       }
       // 셀 선택 상태에서 글자 입력 → 바로 편집 시작
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (_isTypingKey(e)) {
         const td = tbody.rows[sel.r1]?.cells[sel.c1];
         const inp = td?.querySelector('input,select');
         if (inp && inp.tagName === 'INPUT') {
-          e.preventDefault();
+          // 포커스만 옮기고 입력은 브라우저에 맡긴다(preventDefault 금지).
+          // 여기서 값을 직접 써넣으면 한글 IME 조합을 건너뛰어 첫 글자가 영문으로 박힌다.
           inp.focus();
-          inp.value = e.key;
-          inp.setSelectionRange(inp.value.length, inp.value.length);
+          inp.value = '';                 // 엑셀처럼 기존 값 위에 새로 입력
           return;
         } else if (inp && inp.tagName === 'SELECT') {
           e.preventDefault();
@@ -941,7 +950,7 @@ function pasteData(text) {
 //  amount에 총수량을 항상 유지 → calcKrw·요약·마감·엑셀내보내기가 그대로 동작.
 const EXT_SHEETS = [2, 3];
 const EXT_SIDES = ['매입','매각','외화미수금','지급완료'];
-const DENOMS = {KRW:[50000,10000,5000,1000],USD:[100,50,20,10,5,1],JPY:[10000,5000,1000],EUR:[500,200,100,50,20,10,5],CHF:[1000,200,100,50,20,10],CNY:[100,50],RUB:[5000,2000,1000,500,200,100,50,10],HKD:[1000,500,100,50,20,10],SGD:[1000,100,50,10,5,2],THB:[1000,500,100,50,20],VND:[500000,200000,100000,50000,20000,10000],TWD:[1000,500,100],AUD:[100,50,20,10,5],CAD:[100,50,20,10,5],GBP:[50,20,10,5],PHP:[1000,500,200,100,50,20],IDR:[100000,50000,20000,10000,5000,2000,1000],MYR:[100,50,20,10,5,1]};
+const DENOMS = {KRW:[50000,10000,5000,1000],USD:[100,50,20,10,5,1],JPY:[10000,5000,1000],EUR:[500,200,100,50,20,10,5],CHF:[1000,200,100,50,20,10],CNY:[100,50],RUB:[5000,2000,1000,500,200,100,50,10],HKD:[1000,500,100,50,20,10],SGD:[1000,100,50,10,5,2],THB:[1000,500,100,50,20],VND:[500000,200000,100000,50000,20000,10000],TWD:[1000,500,100],AUD:[100,50,20,10,5],CAD:[100,50,20,10,5],NZD:[100,50,20,10,5],GBP:[50,20,10,5],PHP:[1000,500,200,100,50,20],IDR:[100000,50000,20000,10000,5000,2000,1000],MYR:[100,50,20,10,5,1]};
 function denomsOf(c){ return DENOMS[c] || [100,50,20,10,5,1]; }
 function brTot(cur, counts){ return denomsOf(cur).reduce((s,d)=> s + d*parseNum(counts && counts[d]), 0); }
 function extAmount(tx){
@@ -1182,7 +1191,8 @@ document.addEventListener('keydown', e=>{
     if(e.key==='ArrowUp')   return go(xsel.r1-1,xsel.c1);
     if(e.key==='Enter') return go(xsel.r1+1, xsel.c1);   // Enter → 아래 셀로 이동
     if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); xtDeleteRange(); return; }
-    if(e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){ const inp=tb.rows[xsel.r1]?.cells[xsel.c1]?.querySelector('input'); if(inp){ e.preventDefault(); inp.focus(); inp.value=e.key; inp.dispatchEvent(new Event('input',{bubbles:true})); try{inp.setSelectionRange(inp.value.length,inp.value.length)}catch(_){} } }
+    // 글자 입력 → 편집 시작. 값을 직접 써넣으면 한글 IME 조합이 깨지므로 포커스만 옮긴다.
+    if(_isTypingKey(e)){ const inp=tb.rows[xsel.r1]?.cells[xsel.c1]?.querySelector('input'); if(inp){ inp.focus(); inp.value=''; } }
   } else if(active.tagName==='SELECT'){
     if(e.key==='Enter') return go(xsel.r1+1, xsel.c1);   // Enter → 아래 셀로 이동
     if(e.key==='ArrowDown')return go(xsel.r1+1,xsel.c1);
