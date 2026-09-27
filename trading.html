@@ -137,11 +137,16 @@
 <main class="pt-[92px] min-h-screen pb-6" style="padding-left:clamp(12px,6vw,140px);padding-right:clamp(12px,6vw,140px)">
   <div style="display:flex;flex-direction:column;align-items:center">
   <!-- 상단 컨트롤 -->
-  <div class="tr-controls mb-2 flex justify-center items-center gap-2" style="max-width:640px;width:100%">
+  <div class="tr-controls mb-2 flex justify-center items-center gap-2" style="max-width:780px;width:100%">
     <button onclick="moveDate(-1)" class="px-2 py-1.5 rounded bg-gray-100 text-sm">◀</button>
     <input type="date" id="trade-date" class="input-base">
     <button onclick="moveDate(1)" class="px-2 py-1.5 rounded bg-gray-100 text-sm">▶</button>
     <button onclick="setToday()" class="px-3 py-1.5 rounded bg-gray-100 text-sm">오늘</button>
+    <span style="width:1px;height:20px;background:#E5E7EB;margin:0 .15rem"></span>
+    <button onclick="exportTrading()" class="px-3 py-1.5 rounded bg-gray-100 text-sm whitespace-nowrap"
+            title="이 날짜의 모든 시트를 엑셀로 내려받기">⬇ 엑셀</button>
+    <button onclick="openResetModal()" class="px-3 py-1.5 rounded text-sm whitespace-nowrap"
+            style="background:#FEF2F2;color:#DC2626" title="지금 보고 있는 시트의 거래 기록 초기화">초기화</button>
   </div>
 
   <!-- 4개 시트 탭 + 표 중앙 정렬 wrapper -->
