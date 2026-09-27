@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=60">
-<link rel="apple-touch-icon" href="favicon.png?v=60">
+<link rel="icon" type="image/png" href="favicon.png?v=61">
+<link rel="apple-touch-icon" href="favicon.png?v=61">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=60">
+<link rel="stylesheet" href="css/mb.css?v=61">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=60"></script>
-<script src="js/mb-data.js?v=60"></script>
-<script src="js/mb-sync.js?v=60"></script>
+<script src="js/firebase-config.js?v=61"></script>
+<script src="js/mb-data.js?v=61"></script>
+<script src="js/mb-sync.js?v=61"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -215,7 +215,6 @@ let currentSheet = 1;
 const TOTAL_ROWS = 20;
 const TYPES = ['','매각','매입','외화미수금'];
 const TYPES_EXT = ['','매각','매입','외화미수금','지급완료']; // 외부거래1,2 + 연남마감용
-const SHEET_NAMES = { 1:'홍대 연남 지점간 거래', 2:'외부거래1', 3:'외부거래2', 4:'연남 마감', 6:'은행' };
 const SHEET_EXT = [1, 2, 3, 4, 6]; // 지급완료 옵션 있는 시트
 const SHEETS = [1,2,3,4,6];
 

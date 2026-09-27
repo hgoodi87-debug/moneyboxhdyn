@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=60">
-<link rel="apple-touch-icon" href="favicon.png?v=60">
+<link rel="icon" type="image/png" href="favicon.png?v=61">
+<link rel="apple-touch-icon" href="favicon.png?v=61">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 근태관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=60">
+<link rel="stylesheet" href="css/mb.css?v=61">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=60"></script>
-<script src="js/mb-data.js?v=60"></script>
-<script src="js/mb-sync.js?v=60"></script>
+<script src="js/firebase-config.js?v=61"></script>
+<script src="js/mb-data.js?v=61"></script>
+<script src="js/mb-sync.js?v=61"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:1rem; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -37,8 +37,6 @@
   .att-tbl th { background:#E9EDF2; color:#374151; font-weight:700; padding:.4rem; border:1px solid #D9DFE7; font-size:.7rem; position:sticky; top:0; }
   .att-tbl td { border:1px solid #E5E7EB; padding:.3rem .4rem; text-align:center; height:30px; }
   .att-tbl td.att-d { font-weight:600; color:#374151; }
-  .att-time { width:74px; border:1px solid #E5E7EB; border-radius:.3rem; padding:.15rem .2rem; font-size:.72rem; text-align:center; outline:none; }
-  .att-time:focus { border-color:#F5A623; }
   .att-sel { display:inline-flex; align-items:center; gap:1px; }
   .att-sel select { border:1px solid #E5E7EB; border-radius:.3rem; padding:.12rem 0; font-size:.72rem; outline:none; text-align:center; background:#fff; cursor:pointer; }
   .att-sel select:focus { border-color:#F5A623; }
@@ -61,7 +59,6 @@
   .day-row .ddot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   .day-row .dshift { font-weight:600; font-size:.85rem; color:#374151; }
   .day-row .dname { margin-left:auto; font-weight:700; font-size:.9rem; color:#1A1A2E; }
-  .worker-tag { display:block; padding:1px 5px; border-radius:.25rem; font-size:.65rem; line-height:1.45; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tag-hd-open  { background:#FFF8EC; color:#92400E; border-left:2px solid #F5A623; }
   .tag-hd-close { background:#FEF2F2; color:#B91C1C; border-left:2px solid #EF4444; }
   .tag-yn-open  { background:#EAF7F0; color:#047857; border-left:2px solid #10B981; }
@@ -72,11 +69,6 @@
   .tag-leave    { background:#F5F3FF; color:#6D28D9; }
   .legend-dot { display:inline-block; width:.625rem; height:.625rem; border-radius:2px; margin-right:.3rem; vertical-align:middle; }
   /* Schedule pills */
-  .pill-open  { background:#FFF8EC; color:#92400E; }
-  .pill-close { background:#FEF2F2; color:#B91C1C; }
-  .pill-full  { background:#FAE8FF; color:#86198F; font-weight:700; }
-  .pill-off   { background:#F3F4F6; color:#6B7280; }
-  .pill-leave { background:#F5F3FF; color:#6D28D9; }
 </style>
 </head>
 <body class="bg-[#F5F7FA]">
@@ -348,13 +340,6 @@ document.querySelectorAll('.tab-btn[data-subtab]').forEach(btn => {
 });
 
 // ─── 출근 버튼 래퍼 (출퇴근 후 페이지 자동 갱신) ───
-function handleClockInOutWrapped() {
-  handleClockInOut();
-  renderTodayStatus();
-  renderMyMonthTable();
-  renderCalendar();
-}
-
 // ─── 캘린더 ───
 let _calMonth = thisYearMonth();
 let _selDate = today();
@@ -788,14 +773,6 @@ function moveSchedMonth(delta) {
   document.getElementById('sched-month').value = _schedMonth;
   renderSchedule();
 }
-function pillFor(shift) {
-  if (shift === '오픈') return 'pill-open';
-  if (shift === '마감') return 'pill-close';
-  if (shift === '풀')   return 'pill-full';
-  if (shift === '휴무') return 'pill-off';
-  if (shift === '연차') return 'pill-leave';
-  return '';
-}
 const SCHED_OPTS = [
   ['', '· 없음'],
   ['홍대|오픈', '홍대 오픈'], ['홍대|마감', '홍대 마감'], ['홍대|풀', '홍대 풀'],
@@ -917,27 +894,6 @@ function autoSchedule() {
   renderSchedule();
   renderCalendar();
   alert(`자동 배치 완료\n근무 ${added}건 / 휴무 ${off}건`);
-}
-function seedScheduleSamples() {
-  if (!_isManager) { alert('관리자만 가능'); return; }
-  if (!confirm(`${_schedMonth} 샘플 근무표를 생성합니다.`)) return;
-  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch);
-  const sched = mbGetOrDefault(MB.SCHEDULE_KEY, []);
-  const days = new Date(...(_schedMonth.split('-').map((v,i)=>i===1?Number(v):Number(v))), 0).getDate();
-  const [y, m] = _schedMonth.split('-').map(Number);
-  const realDays = new Date(y, m, 0).getDate();
-  for (let d=1; d<=realDays; d++) {
-    const dateStr = `${_schedMonth}-${String(d).padStart(2,'0')}`;
-    employees.forEach((e, i) => {
-      if (sched.find(x => x.date === dateStr && x.employeeId === e.id)) return;
-      const shifts = ['오픈','마감','휴무'];
-      const shift = shifts[(d + i) % 3];
-      sched.push({ date: dateStr, employeeId: e.id, branch: e.branch, shiftType: shift });
-    });
-  }
-  mbSet(MB.SCHEDULE_KEY, sched);
-  renderSchedule();
-  renderCalendar();
 }
 function downloadExcel() {
   const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e.branch);

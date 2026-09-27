@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=60">
-<link rel="apple-touch-icon" href="favicon.png?v=60">
+<link rel="icon" type="image/png" href="favicon.png?v=61">
+<link rel="apple-touch-icon" href="favicon.png?v=61">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=60">
+<link rel="stylesheet" href="css/mb.css?v=61">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=60"></script>
-<script src="js/mb-data.js?v=60"></script>
-<script src="js/mb-sync.js?v=60"></script>
+<script src="js/firebase-config.js?v=61"></script>
+<script src="js/mb-data.js?v=61"></script>
+<script src="js/mb-sync.js?v=61"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
   .widget { background:#fff; border-radius:.875rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.06); display:flex; flex-direction:column; height:100%; overflow:hidden; }
@@ -39,24 +39,30 @@
   input[type=number] { -moz-appearance:textfield; }
   /* 주간 캘린더 */
   .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
-  .cal-day { border:1px solid #E5E7EB; border-radius:.6rem; background:#FCFCFD; display:flex; flex-direction:column; min-height:150px; overflow:hidden; }
+  /* 높이 고정 — 메모가 늘어나도 카드가 커지지 않고 칸 안에서 스크롤 */
+  .cal-day { border:1px solid #E5E7EB; border-radius:.6rem; background:#FCFCFD; display:flex; flex-direction:column; height:88px; overflow:hidden; }
   .cal-day.today { border-color:#F5A623; box-shadow:0 0 0 2px rgba(245,166,35,.18); background:#FFFDF8; }
   .cal-day.weekend .cal-dnum { color:#EF4444; }
-  .cal-dhead { display:flex; align-items:baseline; justify-content:space-between; padding:.35rem .5rem; border-bottom:1px solid #F1F2F4; background:#fff; flex-shrink:0; }
-  .cal-dow { font-size:.68rem; font-weight:700; color:#6B7280; }
+  .cal-dhead { display:flex; align-items:center; gap:.25rem; padding:.18rem .3rem .18rem .45rem; border-bottom:1px solid #F1F2F4; background:#fff; flex-shrink:0; }
+  .cal-dow { font-size:.68rem; font-weight:700; color:#6B7280; flex:1; min-width:0; }
   .cal-day.today .cal-dow { color:#B45309; }
   .cal-dnum { font-size:.8rem; font-weight:700; color:#1A1A2E; font-variant-numeric:tabular-nums; }
-  .cal-body { flex:1; padding:.35rem; display:flex; flex-direction:column; gap:3px; overflow-y:auto; max-height:230px; }
-  .cal-memo { font-size:.7rem; line-height:1.4; border-radius:.35rem; padding:.22rem .35rem; display:flex; align-items:flex-start; gap:4px;
+  .cal-body { flex:1; min-height:0; padding:.22rem; display:flex; flex-direction:column; gap:2px; overflow-y:auto; scrollbar-width:thin; }
+  .cal-body::-webkit-scrollbar { width:4px; }
+  .cal-body::-webkit-scrollbar-thumb { background:#DDE1E7; border-radius:2px; }
+  .cal-body::-webkit-scrollbar-track { background:transparent; }
+  .cal-memo { font-size:.7rem; line-height:1.35; border-radius:.32rem; padding:.18rem .34rem; display:flex; align-items:flex-start; gap:3px;
               word-break:break-word; background:#FFF4E0; color:#92400E; cursor:text; }
   .cal-memo:hover { background:#FFEBC7; }
   .cal-memo span { flex:1; min-width:0; white-space:pre-wrap; }
   .cal-x { color:#D9B98A; cursor:pointer; flex-shrink:0; font-size:.66rem; line-height:1.5; }
   .cal-x:hover { color:#EF4444; }
-  .cal-add { border:none; background:transparent; color:#C4C7CE; font-size:.7rem; cursor:pointer; padding:.15rem .2rem; text-align:left; margin-top:auto; flex-shrink:0; }
+  /* ＋는 날짜 옆으로 — 칸마다 한 줄씩 잡아먹지 않게 */
+  .cal-add { border:none; background:transparent; color:#C4C7CE; font-size:.85rem; line-height:1; cursor:pointer; padding:0 .1rem; flex-shrink:0; }
   .cal-add:hover { color:#F5A623; }
-  .cal-input { border:1px solid #F5A623; border-radius:.35rem; padding:.2rem .35rem; font-size:.7rem; width:100%; outline:none; box-sizing:border-box; font-family:inherit; flex-shrink:0; }
-  .cal-hint { font-size:.68rem; color:#9CA3AF; margin-bottom:.6rem; flex-shrink:0; }
+  .cal-day:hover .cal-add { color:#F5A623; }
+  .cal-input { border:1px solid #F5A623; border-radius:.3rem; padding:.14rem .3rem; font-size:.66rem; width:100%; outline:none; box-sizing:border-box; font-family:inherit; flex-shrink:0; }
+  .cal-hint { font-size:.66rem; color:#9CA3AF; font-weight:500; }
   .cal-nav, .cal-today { font-size:.7rem; padding:.22rem .6rem; border-radius:.4rem; background:#F3F4F6; color:#374151; cursor:pointer; border:none; font-weight:600; }
   .cal-nav:hover, .cal-today:hover { background:#E5E7EB; }
   /* 모바일: 3열 → 세로 스택, 고정 높이 해제 */
@@ -76,9 +82,23 @@
 <div id="mb-header"></div>
 
 <main class="pt-[92px] pb-6" style="overflow-x:auto;padding-left:16px;padding-right:16px">
-  <div style="max-width:1600px;margin:0 auto 12px;display:flex;justify-content:flex-end;align-items:center;gap:8px">
-    <span class="mb-hide-sm" style="font-size:.72rem;color:#9CA3AF">업무 시작 클릭 · 처음엔 팝업 "허용" →</span>
-    <button onclick="openWorkSites()" style="background:#10B981;color:#fff;border:none;border-radius:.6rem;padding:.5rem 1.05rem;font-size:.85rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(16,185,129,.35)">💻 업무 시작 (사이트 열기)</button>
+  <!-- ─── 주간 메모 · 이슈 (상단) ─── -->
+  <div style="max-width:1600px;margin:0 auto 16px">
+    <div class="widget" style="height:auto;padding:.8rem 1rem">
+      <div class="widget-title flex items-center justify-between" style="padding-bottom:.35rem;margin-bottom:.45rem">
+        <div class="flex items-baseline gap-2">
+          <span>📅 주간 메모 · 이슈</span>
+          <span id="cal-range" style="font-size:.72rem;font-weight:500;color:#9CA3AF"></span>
+          <span class="cal-hint mb-hide-sm">＋ 눌러 추가 · 메모 클릭해 수정</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <button class="cal-nav" onclick="calMove(-1)" title="지난주">◀</button>
+          <button class="cal-today" onclick="calToday()">이번주</button>
+          <button class="cal-nav" onclick="calMove(1)" title="다음주">▶</button>
+        </div>
+      </div>
+      <div id="cal-grid" class="cal-grid"></div>
+    </div>
   </div>
   <div class="flex gap-4 dash-row">
 
@@ -230,60 +250,11 @@
 
   </div>
 
-  <!-- ─── 주간 캘린더: 금주 특이사항 · 이슈 · 스케줄 한눈에 ─── -->
-  <div style="max-width:1600px;margin:16px auto 0">
-    <div class="widget" style="height:auto">
-      <div class="widget-title flex items-center justify-between">
-        <div class="flex items-baseline gap-2">
-          <span>📅 주간 메모 · 이슈</span>
-          <span id="cal-range" style="font-size:.72rem;font-weight:500;color:#9CA3AF"></span>
-        </div>
-        <div class="flex items-center gap-1">
-          <button class="cal-nav" onclick="calMove(-1)" title="지난주">◀</button>
-          <button class="cal-today" onclick="calToday()">이번주</button>
-          <button class="cal-nav" onclick="calMove(1)" title="다음주">▶</button>
-        </div>
-      </div>
-      <div class="cal-hint">날짜 칸의 ＋ 를 눌러 메모를 적어두세요 · 메모를 클릭하면 수정 (내용을 비우면 삭제)</div>
-      <div id="cal-grid" class="cal-grid"></div>
-    </div>
-  </div>
 
 </main>
 
 <script>
 mbBoot('index.html');
-
-// ─── 업무 시작: 버튼 누르면 업무용 사이트들을 새 탭으로 엽니다 ───
-// (URL 추가/변경은 이 배열만 수정하면 됩니다)
-const WORK_SITES = [
-  "https://www.mibank.me/exchange/saving/index.php?currency=USD",
-  "https://cems.moneybox.or.kr/money-box.php",
-  "https://kimpga.com/",
-  "https://kr.investing.com/currencies/exchange-rates-table",
-  "https://docs.google.com/spreadsheets/d/1TbFnu2awc8ba1EGbZdfyipdcouYa-KlGKibro-zVSXs/edit?gid=1593953976#gid=1593953976"
-];
-function openWorkSites() {
-  let blocked = 0;
-  WORK_SITES.forEach(url => {
-    if (/investing\.com/.test(url)) {
-      // investing.com은 referrer 없이 열어야 홈이 아닌 환율표(딥링크)로 열림
-      const a = document.createElement('a');
-      a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
-      document.body.appendChild(a); a.click(); a.remove();
-    } else {
-      // 나머지는 window.open으로 열어 팝업 차단 여부를 감지
-      if (!window.open(url, '_blank')) blocked++;
-    }
-  });
-  if (blocked > 0) {
-    alert('브라우저가 여러 탭 열기를 막아서 첫 사이트만 열렸어요.\n\n'
-      + '① 주소창 오른쪽 끝의 팝업 차단 아이콘을 클릭\n'
-      + '② "항상 허용"(이 사이트의 팝업 허용) 선택\n'
-      + '③ 버튼을 다시 누르면 5개 전부 열립니다.\n\n'
-      + '처음 한 번만 설정하면 됩니다.');
-  }
-}
 
 document.getElementById('mt-currency').innerHTML = MB.CURRENCIES.map(c=>`<option value="${c}">${c}</option>`).join('');
 document.getElementById('ho-date').value = today();
@@ -563,7 +534,7 @@ function renderCalendar(){
   document.getElementById('cal-grid').innerHTML = days.map(d => {
     const ds = calYmd(d), dow = (d.getDay()+6)%7, isToday = ds === todayStr;
     const list = memos.filter(m => m.date === ds).map(m =>
-      `<div class="cal-memo" data-id="${m.id}" onclick="calEdit('${m.id}')" title="${_escA(m.createdBy ? m.createdBy + ' 등록' : '')}">
+      `<div class="cal-memo" data-id="${m.id}" onclick="calEdit('${m.id}')" title="${_escA(m.text + (m.createdBy ? '\n— ' + m.createdBy + ' 등록' : ''))}">
          <span>${_esc(m.text)}</span>
          <span class="cal-x" title="삭제" onclick="event.stopPropagation();calDel('${m.id}')">✕</span>
        </div>`).join('');
@@ -571,24 +542,25 @@ function renderCalendar(){
       <div class="cal-dhead">
         <span class="cal-dow">${CAL_DOW[dow]}${isToday?' · 오늘':''}</span>
         <span class="cal-dnum">${d.getMonth()+1}/${d.getDate()}</span>
+        <button class="cal-add" id="cal-add-${ds}" onclick="calAddStart('${ds}')" title="메모 추가">＋</button>
       </div>
-      <div class="cal-body">
-        ${list}
-        <button class="cal-add" id="cal-add-${ds}" onclick="calAddStart('${ds}')">＋ 메모</button>
-      </div>
+      <div class="cal-body" id="cal-body-${ds}">${list}</div>
     </div>`;
   }).join('');
 }
 
 // ＋ → 그 자리에서 입력 (Enter 저장 후 이어서 계속 입력 · Esc 취소)
 function calAddStart(ds){
-  const btn = document.getElementById('cal-add-'+ds);
-  if (!btn) return;
-  btn.outerHTML = `<input class="cal-input" id="cal-in-${ds}" placeholder="이슈 / 특이사항"
-    onkeydown="if(mbComposing(event))return; if(event.key==='Enter'){event.preventDefault();calAddSave('${ds}',this.value,this,true)}else if(event.key==='Escape'){this.dataset.done='1';renderCalendar()}"
-    onblur="calAddSave('${ds}',this.value,this,false)">`;
-  const inp = document.getElementById('cal-in-'+ds);
-  if (inp) inp.focus();
+  const body = document.getElementById('cal-body-'+ds);
+  if (!body) return;
+  let inp = document.getElementById('cal-in-'+ds);
+  if (!inp) {                                  // 입력칸은 메모 목록 맨 아래에 붙인다
+    body.insertAdjacentHTML('beforeend', `<input class="cal-input" id="cal-in-${ds}" placeholder="이슈 / 특이사항"
+      onkeydown="if(mbComposing(event))return; if(event.key==='Enter'){event.preventDefault();calAddSave('${ds}',this.value,this,true)}else if(event.key==='Escape'){this.dataset.done='1';renderCalendar()}"
+      onblur="calAddSave('${ds}',this.value,this,false)">`);
+    inp = document.getElementById('cal-in-'+ds);
+  }
+  if (inp) { inp.focus(); inp.scrollIntoView({ block: 'nearest' }); }
 }
 //  keepOpen=true(Enter): 저장 후 입력칸을 다시 열어 연속 입력 / false(포커스 아웃): 저장만
 //  el.dataset.done — Enter 저장 뒤 따라오는 blur 로 두 번 저장되는 것을 막음

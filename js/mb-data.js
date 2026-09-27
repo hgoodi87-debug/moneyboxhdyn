@@ -161,18 +161,6 @@ function confirmLogout() {
   if (confirm('로그아웃하시겠습니까?')) logoutUser();
 }
 
-// 비밀번호 변경
-function mbChangePassword(newPw) {
-  const user = getCurrentUser();
-  if (!user) return false;
-  const employees = mbGetOrDefault(MB.EMPLOYEES_KEY, []);
-  const emp = employees.find(e => e.id === user.id);
-  if (!emp) return false;
-  emp.password = newPw;
-  mbSet(MB.EMPLOYEES_KEY, employees);
-  return true;
-}
-
 // 직원 삭제 — 근무표/출퇴근/연차 등 모든 참조까지 함께 제거
 //  ※ 지우기 전에 각 기록도 기록 로그에 스냅샷으로 남긴다.
 //    계정만 남기면 근태가 복구 불가능해져 월급 정산이 막힌다(2026-09 실제 유실 사고).
@@ -196,44 +184,6 @@ function mbDeleteEmployee(id) {
   });
   mbSet(MB.EMPLOYEES_KEY, emps.filter(e => e.id !== id));
   return emp;
-}
-
-// 비밀번호 변경 모달 (사이드바 ⚙ 클릭용)
-function showChangePwModal() {
-  const old = document.getElementById('_cpw-modal');
-  if (old) old.remove();
-  const div = document.createElement('div');
-  div.id = '_cpw-modal';
-  div.className = 'fixed inset-0 bg-black/60 z-50 flex items-center justify-center';
-  div.innerHTML = `
-    <div class="bg-white rounded-2xl p-6 w-[360px] shadow-2xl">
-      <h3 class="text-lg font-bold mb-4">🔑 비밀번호 변경</h3>
-      <div class="space-y-3">
-        <input type="password" id="_cpw-cur" placeholder="현재 비밀번호" class="border border-gray-200 rounded-lg px-3 py-2.5 w-full text-sm outline-none focus:border-[#F5A623]">
-        <input type="password" id="_cpw-new" placeholder="새 비밀번호" class="border border-gray-200 rounded-lg px-3 py-2.5 w-full text-sm outline-none focus:border-[#F5A623]">
-        <input type="password" id="_cpw-chk" placeholder="새 비밀번호 확인" class="border border-gray-200 rounded-lg px-3 py-2.5 w-full text-sm outline-none focus:border-[#F5A623]">
-        <p id="_cpw-err" class="text-xs text-red-500 hidden"></p>
-      </div>
-      <div class="flex gap-2 mt-5">
-        <button onclick="document.getElementById('_cpw-modal').remove()" class="flex-1 py-2.5 rounded-lg bg-gray-100 text-sm font-medium">취소</button>
-        <button onclick="_doChangePw()" class="flex-1 py-2.5 rounded-lg bg-[#F5A623] text-white text-sm font-bold">변경</button>
-      </div>
-    </div>`;
-  document.body.appendChild(div);
-}
-function _doChangePw() {
-  const cur = document.getElementById('_cpw-cur').value;
-  const nw  = document.getElementById('_cpw-new').value;
-  const chk = document.getElementById('_cpw-chk').value;
-  const err = document.getElementById('_cpw-err');
-  const user = getCurrentUser();
-  if (!user) return;
-  if ((user.password || '0000') !== cur) { err.textContent='현재 비밀번호가 틀립니다.'; err.classList.remove('hidden'); return; }
-  if (nw.length < 4) { err.textContent='4자리 이상 입력하세요.'; err.classList.remove('hidden'); return; }
-  if (nw !== chk) { err.textContent='새 비밀번호가 일치하지 않습니다.'; err.classList.remove('hidden'); return; }
-  mbChangePassword(nw);
-  document.getElementById('_cpw-modal').remove();
-  alert('비밀번호가 변경되었습니다.');
 }
 
 // ─── 출퇴근 게이트 ───────────────────────────────────────────
@@ -320,11 +270,6 @@ function mbAssignmentFor(employeeId, date) {
   if (!v) return null;
   const [b, sh] = v.split('|');
   return { branch: b || e.branch || null, shift: sh };
-}
-// 해당 날짜의 배정 시프트만
-function mbShiftFor(employeeId, date) {
-  const a = mbAssignmentFor(employeeId, date);
-  return a ? a.shift : null;
 }
 // 일찍 출근/늦게 퇴근을 정해진 근무시간으로 보정
 function mbClampClock(shift, clockIn, clockOut, branch) {
@@ -602,7 +547,6 @@ function mbBoot(activePage) {
 }
 
 // ─── 홍콩 환전 수익률 계산기 ─────────────────────────────
-const CALC_PASSWORD = '1234';
 const HK_CURRENCIES = [
   { id:'KRW', label:'KRW', name:'원화',     mabang:'',      h1:'192',     h2:'',        threshold:1.4, type:'krw', main:true  },
   { id:'USD', label:'USD', name:'달러',     mabang:'1485',  h1:'7.81',    h2:'7.744',   threshold:1.4, type:'div', main:true  },
@@ -665,56 +609,6 @@ function hkGetRanked(list) {
   });
 }
 
-function openCalc() {
-  if (!document.getElementById('calc-modal')) {
-    const modal = document.createElement('div');
-    modal.id = 'calc-modal';
-    modal.innerHTML = `
-      <div style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:1rem" onclick="if(event.target===this)closeCalc()">
-        <!-- 비밀번호 단계 -->
-        <div id="calc-pw-wrap" style="background:#fff;border-radius:1rem;padding:2rem 2.5rem;min-width:280px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center">
-          <div style="font-size:1.5rem;margin-bottom:1.25rem">🔒</div>
-          <input id="calc-pw-input" type="password" maxlength="10" placeholder="비밀번호 입력"
-            style="border:1.5px solid #E5E7EB;border-radius:.5rem;padding:.6rem 1rem;width:100%;font-size:1rem;outline:none;text-align:center;box-sizing:border-box;margin-bottom:.75rem"
-            onkeydown="if(mbComposing(event))return; if(event.key==='Enter')checkCalcPw()">
-          <div id="calc-pw-err" style="color:#EF4444;font-size:.8rem;height:1rem;margin-bottom:.5rem"></div>
-          <button onclick="checkCalcPw()" style="background:#1E2A3A;color:#fff;border:none;border-radius:.5rem;padding:.65rem 2rem;font-size:.9rem;font-weight:600;cursor:pointer;width:100%">확인</button>
-        </div>
-        <!-- 계산기 본체 -->
-        <div id="calc-body-wrap" style="display:none;background:#fff;border-radius:1rem;padding:1rem 1.25rem;width:720px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4);font-family:sans-serif;font-size:13px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-            <div style="font-weight:700;font-size:.95rem;color:#1E2A3A">홍콩 환전 수익률 계산기</div>
-            <button onclick="closeCalc()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:1.1rem;line-height:1">✕</button>
-          </div>
-          <div id="hk-content"></div>
-        </div>
-      </div>`;
-    document.body.appendChild(modal);
-    setTimeout(() => document.getElementById('calc-pw-input')?.focus(), 50);
-  } else {
-    document.getElementById('calc-modal').style.display = '';
-    document.getElementById('calc-pw-wrap').style.display = '';
-    document.getElementById('calc-body-wrap').style.display = 'none';
-    document.getElementById('calc-pw-input').value = '';
-    document.getElementById('calc-pw-err').textContent = '';
-    setTimeout(() => document.getElementById('calc-pw-input')?.focus(), 50);
-  }
-}
-function closeCalc() { const m=document.getElementById('calc-modal'); if(m) m.style.display='none'; }
-function checkCalcPw() {
-  const pw = document.getElementById('calc-pw-input').value;
-  if (pw === CALC_PASSWORD) {
-    document.getElementById('calc-pw-wrap').style.display = 'none';
-    document.getElementById('calc-body-wrap').style.display = '';
-    _hkState = hkLoadState();
-    hkRender();
-  } else {
-    const err = document.getElementById('calc-pw-err');
-    err.textContent = '비밀번호가 틀렸습니다.';
-    document.getElementById('calc-pw-input').value = '';
-    setTimeout(() => { err.textContent = ''; }, 2000);
-  }
-}
 
 function hkUpdate(key, value) {
   if (key === '_usdt') _hkState.usdt = value;
