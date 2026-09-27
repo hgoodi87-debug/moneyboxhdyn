@@ -94,6 +94,13 @@ function mbUpdate(key, predicate, updater) {
 }
 function uid() { return 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,8); }
 
+// 한글 IME 조합 중인지 — 조합을 확정하려고 누른 Enter 가 "등록/이동"까지 실행하는 것을 막는다.
+//  맥에서 "...합니다" 처럼 끝 글자가 조합 중일 때 Enter 를 치면
+//   ① 조합 확정용 Enter 가 먼저 등록을 실행하고 입력칸이 비워진 뒤
+//   ② IME 가 뒤늦게 확정한 마지막 글자가 빈 칸에 다시 들어가 한 건이 더 등록된다.
+//  Enter 를 처리하는 핸들러는 맨 앞에서 이 함수로 걸러야 한다.
+function mbComposing(e) { return !!(e && (e.isComposing || e.keyCode === 229)); }
+
 // ─── 시간 헬퍼 ───────────────────────────────────────────────
 function today() {
   const d = new Date();
@@ -669,7 +676,7 @@ function openCalc() {
           <div style="font-size:1.5rem;margin-bottom:1.25rem">🔒</div>
           <input id="calc-pw-input" type="password" maxlength="10" placeholder="비밀번호 입력"
             style="border:1.5px solid #E5E7EB;border-radius:.5rem;padding:.6rem 1rem;width:100%;font-size:1rem;outline:none;text-align:center;box-sizing:border-box;margin-bottom:.75rem"
-            onkeydown="if(event.key==='Enter')checkCalcPw()">
+            onkeydown="if(mbComposing(event))return; if(event.key==='Enter')checkCalcPw()">
           <div id="calc-pw-err" style="color:#EF4444;font-size:.8rem;height:1rem;margin-bottom:.5rem"></div>
           <button onclick="checkCalcPw()" style="background:#1E2A3A;color:#fff;border:none;border-radius:.5rem;padding:.65rem 2rem;font-size:.9rem;font-weight:600;cursor:pointer;width:100%">확인</button>
         </div>

@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=59">
-<link rel="apple-touch-icon" href="favicon.png?v=59">
+<link rel="icon" type="image/png" href="favicon.png?v=60">
+<link rel="apple-touch-icon" href="favicon.png?v=60">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=59">
+<link rel="stylesheet" href="css/mb.css?v=60">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=59"></script>
-<script src="js/mb-data.js?v=59"></script>
-<script src="js/mb-sync.js?v=59"></script>
+<script src="js/firebase-config.js?v=60"></script>
+<script src="js/mb-data.js?v=60"></script>
+<script src="js/mb-sync.js?v=60"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
   .widget { background:#fff; border-radius:.875rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.06); display:flex; flex-direction:column; height:100%; overflow:hidden; }
@@ -585,7 +585,7 @@ function calAddStart(ds){
   const btn = document.getElementById('cal-add-'+ds);
   if (!btn) return;
   btn.outerHTML = `<input class="cal-input" id="cal-in-${ds}" placeholder="이슈 / 특이사항"
-    onkeydown="if(event.key==='Enter'){event.preventDefault();calAddSave('${ds}',this.value,this,true)}else if(event.key==='Escape'){this.dataset.done='1';renderCalendar()}"
+    onkeydown="if(mbComposing(event))return; if(event.key==='Enter'){event.preventDefault();calAddSave('${ds}',this.value,this,true)}else if(event.key==='Escape'){this.dataset.done='1';renderCalendar()}"
     onblur="calAddSave('${ds}',this.value,this,false)">`;
   const inp = document.getElementById('cal-in-'+ds);
   if (inp) inp.focus();
@@ -608,7 +608,7 @@ function calEdit(id){
   const el = document.querySelector('.cal-memo[data-id="' + id + '"]');
   if (!el) return;
   el.outerHTML = `<input class="cal-input" id="cal-ed-${id}" value="${_escA(m.text)}"
-    onkeydown="if(event.key==='Enter'){event.preventDefault();calEditSave('${id}',this.value,this)}else if(event.key==='Escape'){this.dataset.done='1';renderCalendar()}"
+    onkeydown="if(mbComposing(event))return; if(event.key==='Enter'){event.preventDefault();calEditSave('${id}',this.value,this)}else if(event.key==='Escape'){this.dataset.done='1';renderCalendar()}"
     onblur="calEditSave('${id}',this.value,this)">`;
   const inp = document.getElementById('cal-ed-'+id);
   if (inp) { inp.focus(); inp.select(); }
@@ -655,7 +655,10 @@ mbOnDataChange(dashAll);
   const bind = (ids, fn) => ids.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); fn(); } });
+    el.addEventListener('keydown', e => {
+      if (mbComposing(e)) return;                       // 한글 조합 확정용 Enter는 등록으로 치지 않음
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); fn(); }
+    });
   });
   bind(['ho-content', 'ho-date'],             addHandover);
   bind(['dt-content'],                        addDailyTask);
