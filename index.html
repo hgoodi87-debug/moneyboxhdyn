@@ -51,18 +51,19 @@
   .cal-body::-webkit-scrollbar { width:4px; }
   .cal-body::-webkit-scrollbar-thumb { background:#DDE1E7; border-radius:2px; }
   .cal-body::-webkit-scrollbar-track { background:transparent; }
-  .cal-memo { font-size:.7rem; line-height:1.35; border-radius:.32rem; padding:.18rem .34rem; display:flex; align-items:flex-start; gap:3px;
-              word-break:break-word; background:#FFF4E0; color:#92400E; cursor:text; }
+  /* ✕ 를 float 으로 빼 첫 줄만 살짝 줄이고 둘째 줄부터는 칸 폭을 다 쓴다.
+     keep-all 로 한글 어절이 중간에서 끊기지 않게 ("오후 4시" 가 "4 / 시" 로 갈라지던 문제) */
+  .cal-memo { font-size:.7rem; line-height:1.35; border-radius:.32rem; padding:.18rem .3rem;
+              word-break:keep-all; overflow-wrap:anywhere; background:#FFF4E0; color:#92400E; cursor:text; }
   .cal-memo:hover { background:#FFEBC7; }
-  .cal-memo span { flex:1; min-width:0; white-space:pre-wrap; }
-  .cal-x { color:#D9B98A; cursor:pointer; flex-shrink:0; font-size:.66rem; line-height:1.5; }
+  .cal-t { white-space:pre-wrap; }
+  .cal-x { float:right; margin-left:2px; color:#D9B98A; cursor:pointer; font-size:.66rem; line-height:1.45; }
   .cal-x:hover { color:#EF4444; }
   /* ＋는 날짜 옆으로 — 칸마다 한 줄씩 잡아먹지 않게 */
   .cal-add { border:none; background:transparent; color:#C4C7CE; font-size:.85rem; line-height:1; cursor:pointer; padding:0 .1rem; flex-shrink:0; }
   .cal-add:hover { color:#F5A623; }
   .cal-day:hover .cal-add { color:#F5A623; }
   .cal-input { border:1px solid #F5A623; border-radius:.3rem; padding:.14rem .3rem; font-size:.66rem; width:100%; outline:none; box-sizing:border-box; font-family:inherit; flex-shrink:0; }
-  .cal-hint { font-size:.66rem; color:#9CA3AF; font-weight:500; }
   .cal-nav, .cal-today { font-size:.7rem; padding:.22rem .6rem; border-radius:.4rem; background:#F3F4F6; color:#374151; cursor:pointer; border:none; font-weight:600; }
   .cal-nav:hover, .cal-today:hover { background:#E5E7EB; }
   /* 모바일: 3열 → 세로 스택, 고정 높이 해제 */
@@ -87,9 +88,8 @@
     <div class="widget" style="height:auto;padding:.8rem 1rem">
       <div class="widget-title flex items-center justify-between" style="padding-bottom:.35rem;margin-bottom:.45rem">
         <div class="flex items-baseline gap-2">
-          <span>📅 주간 메모 · 이슈</span>
+          <span>주간 메모 · 이슈</span>
           <span id="cal-range" style="font-size:.72rem;font-weight:500;color:#9CA3AF"></span>
-          <span class="cal-hint mb-hide-sm">＋ 눌러 추가 · 메모 클릭해 수정</span>
         </div>
         <div class="flex items-center gap-1">
           <button class="cal-nav" onclick="calMove(-1)" title="지난주">◀</button>
@@ -534,10 +534,10 @@ function renderCalendar(){
   document.getElementById('cal-grid').innerHTML = days.map(d => {
     const ds = calYmd(d), dow = (d.getDay()+6)%7, isToday = ds === todayStr;
     const list = memos.filter(m => m.date === ds).map(m =>
-      `<div class="cal-memo" data-id="${m.id}" onclick="calEdit('${m.id}')" title="${_escA(m.text + (m.createdBy ? '\n— ' + m.createdBy + ' 등록' : ''))}">
-         <span>${_esc(m.text)}</span>
-         <span class="cal-x" title="삭제" onclick="event.stopPropagation();calDel('${m.id}')">✕</span>
-       </div>`).join('');
+      // ✕ 가 텍스트보다 앞에 와야 float 이 첫 줄에 걸린다. 줄바꿈/들여쓰기가 공백으로 새지 않게 한 줄로.
+      `<div class="cal-memo" data-id="${m.id}" onclick="calEdit('${m.id}')" title="${_escA(m.text + (m.createdBy ? '\n— ' + m.createdBy + ' 등록' : ''))}"`
+      + `><span class="cal-x" title="삭제" onclick="event.stopPropagation();calDel('${m.id}')">✕</span>`
+      + `<span class="cal-t">${_esc(m.text)}</span></div>`).join('');
     return `<div class="cal-day${isToday?' today':''}${dow>=5?' weekend':''}">
       <div class="cal-dhead">
         <span class="cal-dow">${CAL_DOW[dow]}${isToday?' · 오늘':''}</span>
