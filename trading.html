@@ -316,10 +316,21 @@ function curInput(el) {                       // 타이핑 중: 대문자로만 
   el.value = up;
   try { el.setSelectionRange(p, p); } catch (e) {}
 }
-function curCommit(el) {                      // 확정: 목록에 있어야 통과
+function curCommit(el) {                      // 확정: 정확히 일치 → 앞글자 자동완성 → 안 되면 직전 값
   const up = String(el.value || '').trim().toUpperCase();
-  el.value = (MB.CURRENCIES.indexOf(up) >= 0) ? up : (el.dataset.prev || 'KRW');
+  let hit = '';
+  if (MB.CURRENCIES.indexOf(up) >= 0) hit = up;
+  else if (up) {                              // tw + Enter → TWD, t + Enter → TWD(목록 순서상 첫 항목)
+    const m = MB.CURRENCIES.filter(function (c) { return c.indexOf(up) === 0; });
+    if (m.length) hit = m[0];
+  }
+  el.value = hit || el.dataset.prev || 'KRW';
   el.dataset.prev = el.value;
+}
+//  Enter 로 확정 — blur 가 뜨기를 기다리지 않고 즉시 확정·저장한다
+function curEnter(el) {
+  curCommit(el);
+  el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 function krwColor(tradeType) {
@@ -376,7 +387,8 @@ function buildRow(tx, isEmpty, sheet) {
     <td><input type="text" value="${tx.counterparty||''}" data-field="counterparty" placeholder="거래처/비고"></td>
     <td><select data-field="tradeType" class="${typeClass}" onchange="this.className='type-'+this.value; const tr=this.closest('tr'); tr.className=this.value?'t-'+this.value:'empty'; tr.style.color=''; updateKrwCell(tr);">${optType}</select></td>
     <td><input class="cur-in" list="mb-cur-list" data-field="currency" value="${curVal}" data-prev="${curVal}"
-        autocomplete="off" spellcheck="false" oninput="curInput(this)" onchange="curCommit(this)" onblur="curCommit(this)"></td>
+        autocomplete="off" spellcheck="false" oninput="curInput(this)" onchange="curCommit(this)" onblur="curCommit(this)"
+        onkeydown="if(!mbComposing(event)&&event.key==='Enter')curEnter(this)"></td>
     <td><input type="text" inputmode="numeric" class="num" value="${fmtInput(tx.amount)}" data-field="amount" placeholder="0"></td>
     <td><input type="text" inputmode="decimal" class="num" value="${fmtInput(tx.rate)}" data-field="rate" placeholder="0"></td>
     <td class="calc cell-krw" style="color:${krwCol}">${krwTxt}</td>
@@ -1033,7 +1045,8 @@ function extRowHtml(tx){
     <td><input type="text" data-ef="counterparty" value="${extEsc(tx.counterparty)}" placeholder="거래처/비고"></td>
     <td><select data-ef="tradeType" style="color:${color}">${optSide}</select></td>
     <td><input class="cur-in" list="mb-cur-list" data-ef="currency" value="${curVal}" data-prev="${curVal}"
-        autocomplete="off" spellcheck="false" oninput="curInput(this)" onchange="curCommit(this)" onblur="curCommit(this)"></td>
+        autocomplete="off" spellcheck="false" oninput="curInput(this)" onchange="curCommit(this)" onblur="curCommit(this)"
+        onkeydown="if(!mbComposing(event)&&event.key==='Enter')curEnter(this)"></td>
     <td class="xt-num">${sp
         ? `<span class="xt-qty">${amt?fmtNum(amt):'0'}</span>`
         : `<input type="text" inputmode="numeric" class="num" data-ef="amount" value="${fmtInput(tx.amount)}" placeholder="수량">`}</td>
