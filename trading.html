@@ -46,9 +46,19 @@
   .ss-table input:focus, .ss-table select:focus { background:#FFF8EC; box-shadow:inset 0 0 0 2px #F5A623; border-radius:2px; }
   .ss-table input.num { text-align:right; font-variant-numeric:tabular-nums; }
   .ss-table .calc { text-align:right; padding:0 .25rem; font-weight:700; font-variant-numeric:tabular-nums; }
-  /* 통화 입력칸 — 타이핑하면 목록이 좁혀지는 구글시트식 */
+  /* 통화 칸 — 클릭하면 목록, 타이핑하면 목록이 좁혀짐 */
   .cur-in { text-transform:uppercase; }
   .ss-table td .cur-in { text-align:center; font-weight:600; }
+  .cur-cell { position:relative; }
+  .cur-cell::after { content:'▾'; position:absolute; right:4px; top:50%; transform:translateY(-50%);
+                     font-size:.6rem; color:#9CA3AF; pointer-events:none; }
+  .cur-cell .cur-in { padding-right:13px !important; }
+  #cur-pop { display:none; position:fixed; z-index:70; background:#fff; border:1px solid #E5E7EB;
+             border-radius:.45rem; box-shadow:0 8px 24px rgba(0,0,0,.16); max-height:196px; overflow-y:auto; padding:3px; }
+  .cur-op { padding:.25rem .55rem; font-size:.78rem; font-weight:600; color:#1A1A2E; border-radius:.3rem;
+            cursor:pointer; white-space:nowrap; letter-spacing:.02em; }
+  .cur-op:hover { background:#F5F7FA; }
+  .cur-op.on { background:#FFF4E0; color:#92400E; }
   .ss-table select.type-매입 { color:#DC2626; font-weight:700; }
   .ss-table select.type-매각 { color:#2563EB; font-weight:700; }
   .ss-table select.type-외화미수금 { color:#059669; font-weight:700; }
@@ -299,23 +309,84 @@ function buildTable(sheet) {
   </table>`;
 }
 
-// ─── 통화 입력칸 (구글시트식) ─────────────────────────────────
-//  datalist 로 타이핑하면 목록이 좁혀진다. t → TWD·THB, tw → TWD, Enter 로 확정.
-//  확정 시 목록에 없는 값이면 직전 값으로 되돌려 잘못된 통화가 저장되지 않게 한다.
-function mbCurList() {
-  if (document.getElementById('mb-cur-list')) return;
-  const dl = document.createElement('datalist');
-  dl.id = 'mb-cur-list';
-  dl.innerHTML = MB.CURRENCIES.map(c => `<option value="${c}"></option>`).join('');
-  document.body.appendChild(dl);
+// ─── 통화 칸 ─────────────────────────────────────────────────
+//  · 칸을 누르면 목록이 뜬다(드롭다운처럼 클릭해서 고르기)
+//  · 타이핑하면 목록이 좁혀진다(t → TWD·THB), ↑↓ 로 고르고 Enter 로 확정
+//  · tw + Enter 처럼 앞글자만 쳐도 자동완성, 목록에 없는 값은 직전 값으로 되돌림
+let _curEl = null, _curIdx = 0, _curItems = [];
+function curPop() { return document.getElementById('cur-pop'); }
+function curPopOpen() { const p = curPop(); return !!(p && p.style.display === 'block'); }
+function mbCurList() {                        // 목록 패널 1회 생성 (모든 칸이 같이 씀)
+  if (curPop()) return;
+  const p = document.createElement('div');
+  p.id = 'cur-pop';
+  p.addEventListener('mousedown', e => e.preventDefault());   // 클릭해도 입력칸 포커스 유지
+  p.addEventListener('click', e => {
+    const d = e.target.closest ? e.target.closest('.cur-op') : null;
+    if (d) curPick(d.dataset.c);
+  });
+  document.body.appendChild(p);
+  window.addEventListener('scroll', curClose, true);
+  window.addEventListener('resize', curClose);
 }
-function curInput(el) {                       // 타이핑 중: 대문자로만 정규화(저장은 안 함)
+let _curFilt = false;                         // true = 타이핑으로 좁힌 상태, false = 전체 목록
+function curRender() {
+  if (!_curEl) return;
+  const v = String(_curEl.value || '').trim().toUpperCase();
+  _curItems = (_curFilt && v) ? MB.CURRENCIES.filter(c => c.indexOf(v) === 0) : MB.CURRENCIES.slice();
+  if (!_curItems.length) _curItems = MB.CURRENCIES.slice();      // 일치하는 게 없으면 전체 목록
+  _curIdx = Math.max(0, Math.min(_curItems.length - 1, _curIdx));
+  const p = curPop();
+  p.innerHTML = _curItems.map((c, i) => `<div class="cur-op${i === _curIdx ? ' on' : ''}" data-c="${c}">${c}</div>`).join('');
+  const r = _curEl.getBoundingClientRect();
+  p.style.display = 'block';
+  p.style.minWidth = Math.max(74, Math.round(r.width)) + 'px';
+  p.style.left = Math.round(Math.min(r.left, innerWidth - p.offsetWidth - 8)) + 'px';
+  p.style.top = (r.bottom + 2 + p.offsetHeight > innerHeight)   // 아래로 넘치면 위에 띄움
+    ? Math.round(r.top - p.offsetHeight - 2) + 'px'
+    : Math.round(r.bottom + 2) + 'px';
+  const on = p.querySelector('.cur-op.on');
+  if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
+}
+function curOpen(el) {                        // 드롭다운처럼 열기 — 전체 목록 + 현재 통화 강조
+  if (curPopOpen() && _curEl === el) return;
+  mbCurList(); _curEl = el; _curFilt = false;
+  const i = MB.CURRENCIES.indexOf(String(el.value || '').trim().toUpperCase());
+  _curIdx = i >= 0 ? i : 0;
+  curRender();
+}
+function curClose() { const p = curPop(); if (p) p.style.display = 'none'; _curEl = null; _curIdx = 0; _curFilt = false; }
+function curPick(c) {
+  const el = _curEl;
+  curClose();
+  if (!el) return;
+  el.value = c; el.dataset.prev = c;
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function curKey(e, el) {                      // ↑↓ 로 고르기 / Enter 확정 / Esc 닫기
+  if (mbComposing(e)) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!curPopOpen()) curOpen(el);
+    else { _curIdx += (e.key === 'ArrowDown' ? 1 : -1); curRender(); }
+    e.preventDefault(); e.stopPropagation();  // 시트 칸 이동으로 새지 않게
+    return;
+  }
+  if (e.key === 'Escape') { curClose(); e.stopPropagation(); return; }
+  if (e.key === 'Enter') {                    // 확정 후 시트의 '아래 칸 이동'은 그대로 둔다
+    const pick = curPopOpen() ? _curItems[_curIdx] : null;
+    if (pick) curPick(pick); else { curClose(); curEnter(el); }
+  }
+}
+function curInput(el) {                       // 타이핑 중: 대문자 정규화 + 목록 좁히기(저장은 안 함)
   const up = String(el.value || '').toUpperCase();
-  if (up === el.value) return;
-  const p = el.selectionStart;
-  el.value = up;
-  try { el.setSelectionRange(p, p); } catch (e) {}
+  if (up !== el.value) {
+    const p = el.selectionStart;
+    el.value = up;
+    try { el.setSelectionRange(p, p); } catch (e) {}
+  }
+  _curEl = el; _curIdx = 0; _curFilt = true; mbCurList(); curRender();
 }
+function curBlur(el) { curClose(); curCommit(el); }
 function curCommit(el) {                      // 확정: 정확히 일치 → 앞글자 자동완성 → 안 되면 직전 값
   const up = String(el.value || '').trim().toUpperCase();
   let hit = '';
@@ -386,9 +457,9 @@ function buildRow(tx, isEmpty, sheet) {
   return `<tr data-id="${tx.id}" data-sheet="${sheet}" class="${cls}" style="${rowStyle}">
     <td><input type="text" value="${tx.counterparty||''}" data-field="counterparty" placeholder="거래처/비고"></td>
     <td><select data-field="tradeType" class="${typeClass}" onchange="this.className='type-'+this.value; const tr=this.closest('tr'); tr.className=this.value?'t-'+this.value:'empty'; tr.style.color=''; updateKrwCell(tr);">${optType}</select></td>
-    <td><input class="cur-in" list="mb-cur-list" data-field="currency" value="${curVal}" data-prev="${curVal}"
-        autocomplete="off" spellcheck="false" oninput="curInput(this)" onchange="curCommit(this)" onblur="curCommit(this)"
-        onkeydown="if(!mbComposing(event)&&event.key==='Enter')curEnter(this)"></td>
+    <td class="cur-cell"><input class="cur-in" data-field="currency" value="${curVal}" data-prev="${curVal}"
+        autocomplete="off" spellcheck="false" oninput="curInput(this)" onchange="curCommit(this)"
+        onfocus="curOpen(this)" onclick="curOpen(this)" onblur="curBlur(this)" onkeydown="curKey(event,this)"></td>
     <td><input type="text" inputmode="numeric" class="num" value="${fmtInput(tx.amount)}" data-field="amount" placeholder="0"></td>
     <td><input type="text" inputmode="decimal" class="num" value="${fmtInput(tx.rate)}" data-field="rate" placeholder="0"></td>
     <td class="calc cell-krw" style="color:${krwCol}">${krwTxt}</td>
@@ -1057,9 +1128,9 @@ function extRowHtml(tx){
         <option value="분할" ${sp?'selected':''}>분할거래</option></select></td>
     <td><input type="text" data-ef="counterparty" value="${extEsc(tx.counterparty)}" placeholder="거래처/비고"></td>
     <td><select data-ef="tradeType" style="color:${color}">${optSide}</select></td>
-    <td><input class="cur-in" list="mb-cur-list" data-ef="currency" value="${curVal}" data-prev="${curVal}"
-        autocomplete="off" spellcheck="false" oninput="curInput(this)" onchange="curCommit(this)" onblur="curCommit(this)"
-        onkeydown="if(!mbComposing(event)&&event.key==='Enter')curEnter(this)"></td>
+    <td class="cur-cell"><input class="cur-in" data-ef="currency" value="${curVal}" data-prev="${curVal}"
+        autocomplete="off" spellcheck="false" oninput="curInput(this)" onchange="curCommit(this)"
+        onfocus="curOpen(this)" onclick="curOpen(this)" onblur="curBlur(this)" onkeydown="curKey(event,this)"></td>
     <td class="xt-num">${sp
         ? `<span class="xt-qty">${amt?fmtNum(amt):'0'}</span>`
         : `<input type="text" inputmode="numeric" class="num" data-ef="amount" value="${fmtInput(tx.amount)}" placeholder="수량">`}</td>
