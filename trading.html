@@ -34,25 +34,30 @@
   .ss-table th { background:#F5F7FA; color:#6B7280; font-weight:600; padding:.35rem .2rem; border:1px solid #E5E7EB; font-size:.72rem; white-space:nowrap; }
   .ss-table td { border:1px solid #E5E7EB; padding:0; height:28px; vertical-align:middle; background:#fff; user-select:none; }
   .ss-table td.sel { background:rgba(59,130,246,.13) !important; }
-  .ss-table td.sel input, .ss-table td.sel select { background:transparent; }
+  .ss-table td.sel input, .ss-table td.sel select { background-color:transparent; }
   .ss-table tr.empty td { background:#FAFAFA; }
   .ss-table tr.t-매입 td { background:#FEF2F2; }
   .ss-table tr.t-매각 td { background:#EFF6FF; }
   .ss-table tr.t-외화미수금 td { background:#ECFDF5; }
   .ss-table input, .ss-table select {
-    width:100%; height:28px; border:none; background:transparent;
+    width:100%; height:28px; border:none; background-color:transparent;
     padding:0 .2rem; font-size:.78rem; outline:none; box-sizing:border-box; font-family:inherit;
   }
-  .ss-table input:focus, .ss-table select:focus { background:#FFF8EC; box-shadow:inset 0 0 0 2px #F5A623; border-radius:2px; }
+  .ss-table input:focus, .ss-table select:focus { background-color:#FFF8EC; box-shadow:inset 0 0 0 2px #F5A623; border-radius:2px; }
   .ss-table input.num { text-align:right; font-variant-numeric:tabular-nums; }
   .ss-table .calc { text-align:right; padding:0 .25rem; font-weight:700; font-variant-numeric:tabular-nums; }
   /* 통화 칸 — 클릭하면 목록, 타이핑하면 목록이 좁혀짐 */
   .cur-in { text-transform:uppercase; }
-  .ss-table td .cur-in { text-align:center; font-weight:600; }
   .cur-cell { position:relative; }
-  .cur-cell::after { content:'▾'; position:absolute; right:4px; top:50%; transform:translateY(-50%);
-                     font-size:.6rem; color:#9CA3AF; pointer-events:none; }
-  .cur-cell .cur-in { padding-right:13px !important; }
+  /* 드롭다운 화살표 통일 — 거래종류·유형·통화 모두 같은 모양으로 오른쪽 끝에 */
+  .ss-table select, .xt-tbl td select, .ss-table td .cur-in, .xt-tbl td .cur-in {
+    -webkit-appearance:none; -moz-appearance:none; appearance:none;
+    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%239CA3AF'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 5px center;
+    padding-right:15px;
+  }
+  /* 통화는 가운데 정렬 — 화살표 자리만큼 왼쪽에도 여백을 줘 시각적 중앙을 맞춤 */
+  .ss-table td .cur-in, .xt-tbl td .cur-in { text-align:center; padding-left:15px; font-weight:600; }
   #cur-pop { display:none; position:fixed; z-index:70; background:#fff; border:1px solid #E5E7EB;
              border-radius:.45rem; box-shadow:0 8px 24px rgba(0,0,0,.16); max-height:196px; overflow-y:auto; padding:3px; }
   .cur-op { padding:.25rem .55rem; font-size:.78rem; font-weight:600; color:#1A1A2E; border-radius:.3rem;
@@ -93,10 +98,10 @@
   .xt-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-size:.8rem;min-width:800px;}
   .xt-tbl th{background:#F5F7FA;color:#6B7280;font-size:.7rem;font-weight:700;padding:.5rem .35rem;border-bottom:1px solid #E5E7EB;text-align:left;white-space:nowrap;}
   .xt-tbl td{padding:.28rem .35rem;border-bottom:1px solid #F1F1F3;vertical-align:middle;}
-  .xt-tbl td select,.xt-tbl td input{border:1px solid #E5E7EB;border-radius:.35rem;padding:.3rem;font-size:.78rem;width:100%;box-sizing:border-box;outline:none;background:#fff;font-family:inherit;color:#1A1A2E;}
+  .xt-tbl td select,.xt-tbl td input{border:1px solid #E5E7EB;border-radius:.35rem;padding:.3rem;font-size:.78rem;width:100%;box-sizing:border-box;outline:none;background-color:#fff;font-family:inherit;color:#1A1A2E;}
   .xt-tbl td select:focus,.xt-tbl td input:focus{border-color:#F5A623;}
   .xt-num{text-align:right;}.xt-num input{text-align:right;}
-  .xt-mode{font-weight:700;color:#92400E!important;background:#FFFBEB!important;}
+  .xt-mode{font-weight:700;color:#92400E!important;background-color:#FFFBEB!important;}
   .xt-qty{color:#374151;font-weight:700;font-variant-numeric:tabular-nums;}
   .xt-krw{text-align:right;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;}
   .xt-dash{color:#C7CBD1;}
@@ -114,7 +119,7 @@
   .xt-tbl tbody tr.xrow-지급완료 td{background:#F3F4F6;}
   .xt-tbl tbody tr.xrow-외화미수금 td{background:#ECFDF5;}
   .xt-tbl tbody tr[class*="xrow-"] td input:not(:focus),
-  .xt-tbl tbody tr[class*="xrow-"] td select:not(.xt-mode):not(:focus){background:transparent;}
+  .xt-tbl tbody tr[class*="xrow-"] td select:not(.xt-mode):not(:focus){background-color:transparent;}
   /* 셀 선택(드래그) 하이라이트 — 행 색 위에서도 보이게 */
   .xt-tbl td.xsel{background:rgba(59,130,246,.20)!important;box-shadow:inset 0 0 0 1px rgba(59,130,246,.55);}
   .xt-tbl td.xsel input,.xt-tbl td.xsel select{background:transparent!important;}
