@@ -748,6 +748,16 @@ function focusCell(sheet, r, c, edit=false) {
 // 글자를 치기 시작한 키인지 판정.
 //  한글 IME 로 조합을 시작하면 e.key 는 'Process'(또는 keyCode 229)로 오고 길이가 1이 아니다.
 //  이걸 놓치면 셀 선택 상태에서 한글 첫 글자가 아예 입력되지 않는다.
+// 팝업(분할 상세보기 / 초기화 확인)이 떠 있으면 시트 단축키를 쓰지 않는다.
+//  전역 키 핸들러라 팝업 위에서 방향키·Enter 를 눌러도 아래 시트가 움직이던 문제.
+function mbModalOpen() {
+  const ov = document.getElementById('ext-ov');
+  if (ov && getComputedStyle(ov).display !== 'none') return true;
+  const rm = document.getElementById('reset-modal');
+  if (rm && !rm.classList.contains('hidden')) return true;
+  return false;
+}
+
 function _isTypingKey(e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return false;
   if (e.isComposing || e.keyCode === 229 || e.key === 'Process') return true;
@@ -755,6 +765,7 @@ function _isTypingKey(e) {
 }
 
 document.addEventListener('keydown', async e => {
+  if (mbModalOpen()) return;          // 팝업이 떠 있으면 시트 단축키 비활성
   const active = document.activeElement;
   const inInput = active.tagName==='INPUT' || active.tagName==='SELECT';
   // 입력칸에서 한글 조합 중이면 IME 에 맡긴다 — 조합 확정용 Enter 가 셀 이동까지 일으키지 않게
@@ -880,6 +891,7 @@ function _hasTextSel() {
   try { const s = window.getSelection(); return !!(s && !s.isCollapsed && String(s).trim()); } catch (e) { return false; }
 }
 document.addEventListener('copy', (e) => {
+  if (mbModalOpen()) return;
   if (sel.r1 < 0 || !sel.sheet) return;
   const active = document.activeElement;
   const inInput = active.tagName==='INPUT' || active.tagName==='SELECT';
@@ -891,6 +903,7 @@ document.addEventListener('copy', (e) => {
   e.preventDefault();
 });
 document.addEventListener('paste', (e) => {
+  if (mbModalOpen()) return;
   if (sel.r1 < 0 || !sel.sheet) return;
   const active = document.activeElement;
   const inInput = active.tagName==='INPUT' || active.tagName==='SELECT';
@@ -1235,6 +1248,7 @@ function bindXSel(sheet){
 document.addEventListener('mouseup', ()=>{ xsel.dragging=false; xsel._ps=null; });
 
 document.addEventListener('keydown', e=>{
+  if (mbModalOpen()) return;          // 팝업이 떠 있으면 시트 단축키 비활성
   if (xsel.r1<0 || !xsel.sheet) return;
   const tb=xtBody(xsel.sheet); if(!tb)return;
   const active=document.activeElement;
@@ -1283,6 +1297,7 @@ function xtDeleteRange(){   // 입력칸(거래처·수량·환율)만 지움 �
   xtApplySel();
 }
 document.addEventListener('copy', e=>{
+  if (mbModalOpen()) return;
   if(xsel.r1<0||!xsel.sheet)return;
   const a=document.activeElement;
   const inInput=a.tagName==='INPUT'||a.tagName==='SELECT';
@@ -1297,6 +1312,7 @@ document.addEventListener('copy', e=>{
   (e.clipboardData||window.clipboardData).setData('text/plain',tsv); e.preventDefault();
 });
 document.addEventListener('paste', e=>{
+  if (mbModalOpen()) return;
   if(xsel.r1<0||!xsel.sheet)return;
   const a=document.activeElement; const inInput=a.tagName==='INPUT'||a.tagName==='SELECT';
   const text=(e.clipboardData||window.clipboardData).getData('text'); if(!text)return;
@@ -1339,6 +1355,45 @@ function openExtDetail(id){
   document.getElementById('ext-ov').style.display = 'flex';
 }
 function closeExtModal(){ document.getElementById('ext-ov').style.display = 'none'; _xdEd = null; }
+
+// ─── 분할 상세보기 팝업 안에서 칸 이동 (권종=행 × 지점=열) ───
+function xdGrid(){
+  const b = document.getElementById('xd-body-rows');
+  return b ? Array.from(b.rows).map(tr => Array.from(tr.querySelectorAll('input.xd-cnt'))) : [];
+}
+function xdMove(el, dr, dc){
+  const g = xdGrid();
+  let r = -1, c = -1;
+  g.forEach((row, ri) => { const ci = row.indexOf(el); if (ci >= 0) { r = ri; c = ci; } });
+  if (r < 0) return false;
+  const nr = Math.max(0, Math.min(g.length - 1, r + dr));
+  const row = g[nr] || [];
+  const nc = Math.max(0, Math.min(row.length - 1, c + dc));
+  const next = row[nc];
+  if (!next || next === el) return false;
+  next.focus(); next.select();
+  return true;
+}
+(function(){
+  const ov = document.getElementById('ext-ov');
+  if (!ov) return;
+  ov.addEventListener('keydown', function(e){
+    const el = e.target;
+    if (!el || !el.classList || !el.classList.contains('xd-cnt')) return;
+    if (mbComposing(e)) return;
+    const len = (el.value || '').length;
+    const allSel = el.selectionStart === 0 && el.selectionEnd === len;
+    const atStart = el.selectionStart === 0 && el.selectionEnd === 0;
+    const atEnd = el.selectionStart === len && el.selectionEnd === len;
+    let moved = false;
+    if (e.key === 'ArrowDown' || e.key === 'Enter') moved = xdMove(el, 1, 0);
+    else if (e.key === 'ArrowUp')    moved = xdMove(el, -1, 0);
+    else if (e.key === 'ArrowRight' && (allSel || atEnd))   moved = xdMove(el, 0, 1);
+    else if (e.key === 'ArrowLeft'  && (allSel || atStart)) moved = xdMove(el, 0, -1);
+    else return;
+    if (moved || e.key === 'Enter') e.preventDefault();   // Enter 는 끝 행에서도 폼 동작 방지
+  });
+})();
 function renderExtModal(){
   if (!_xdEd) return;
   const dn = denomsOf(_xdEd.cur), bs = _xdEd.branches;
