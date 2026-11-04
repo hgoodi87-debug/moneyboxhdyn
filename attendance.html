@@ -124,7 +124,7 @@
           <!-- 일별 근무표 -->
           <div>
             <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-bold">이번 달 일별 근무</span>
+              <span class="text-sm font-bold">일별 근무</span>
               <span class="text-xs text-[#6B7280]" id="my-month-label"></span>
             </div>
             <div class="border rounded-lg overflow-hidden" style="max-height:380px;overflow-y:auto">
@@ -348,6 +348,7 @@ function moveCalMonth(d) {
   const dt = new Date(y, m - 1 + d, 1);
   _calMonth = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
   renderCalendar();
+  renderMyMonthTable();                 // 우측 일별 근무표도 같은 달로 함께 이동
 }
 function tagClassFor(branch, shift) {
   if (shift === '휴무') return 'tag-off';
@@ -480,7 +481,7 @@ function renderTodayStatus() {
 function renderMyMonthTable() {
   const u = getCurrentUser();
   if (!u) return;
-  const ym = thisYearMonth();
+  const ym = _calMonth;                 // 좌측 달력에서 고른 달을 따라감(이전 달도 조회 가능)
   document.getElementById('my-month-label').textContent = ym;
   const [y, m] = ym.split('-').map(Number);
   const days = new Date(y, m, 0).getDate();
