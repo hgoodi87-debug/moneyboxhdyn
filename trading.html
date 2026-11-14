@@ -50,7 +50,7 @@
   .cur-in { text-transform:uppercase; }
   .cur-cell { position:relative; }
   /* 드롭다운 화살표 통일 — 거래종류·유형·통화 모두 같은 모양으로 오른쪽 끝에 */
-  .ss-table select, .xt-tbl td select, .ss-table td .cur-in, .xt-tbl td .cur-in {
+  .ss-table select, .xt-tbl td select, .ss-table td .cmb-in, .xt-tbl td .cmb-in {
     -webkit-appearance:none; -moz-appearance:none; appearance:none;
     background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%239CA3AF'/%3E%3C/svg%3E");
     background-repeat:no-repeat; background-position:right 5px center;
@@ -58,16 +58,18 @@
   }
   /* 통화는 가운데 정렬 — 화살표 자리만큼 왼쪽에도 여백을 줘 시각적 중앙을 맞춤 */
   .ss-table td .cur-in, .xt-tbl td .cur-in { text-align:center; padding-left:15px; font-weight:600; }
+  .cmb-cell { position:relative; }
+  .ss-table td .cmb-in::placeholder, .xt-tbl td .cmb-in::placeholder { color:#C4C7CE; font-weight:400; }
   #cur-pop { display:none; position:fixed; z-index:70; background:#fff; border:1px solid #E5E7EB;
              border-radius:.45rem; box-shadow:0 8px 24px rgba(0,0,0,.16); max-height:196px; overflow-y:auto; padding:3px; }
   .cur-op { padding:.25rem .55rem; font-size:.78rem; font-weight:600; color:#1A1A2E; border-radius:.3rem;
             cursor:pointer; white-space:nowrap; letter-spacing:.02em; }
   .cur-op:hover { background:#F5F7FA; }
   .cur-op.on { background:#FFF4E0; color:#92400E; }
-  .ss-table select.type-매입 { color:#DC2626; font-weight:700; }
-  .ss-table select.type-매각 { color:#2563EB; font-weight:700; }
-  .ss-table select.type-외화미수금 { color:#059669; font-weight:700; }
-  .ss-table select.type-지급완료 { color:#7C3AED; font-weight:700; }
+  .ss-table .type-매입 { color:#DC2626; font-weight:700; }
+  .ss-table .type-매각 { color:#2563EB; font-weight:700; }
+  .ss-table .type-외화미수금 { color:#059669; font-weight:700; }
+  .ss-table .type-지급완료 { color:#7C3AED; font-weight:700; }
   .ss-table tr.t-지급완료 td { background:#F5F3FF; }
   .ss-table tfoot td { padding:.45rem .4rem; font-size:.8rem; font-weight:700; border:1px solid #E5E7EB; }
   /* 합계·총계: 마우스로 긁어서 복사 가능 + 금액 칸 클릭하면 클립보드로 바로 복사 */
@@ -314,115 +316,142 @@ function buildTable(sheet) {
   </table>`;
 }
 
-// ─── 통화 칸 ─────────────────────────────────────────────────
-//  · 칸을 누르면 목록이 뜬다(드롭다운처럼 클릭해서 고르기)
-//  · 타이핑하면 목록이 좁혀진다(t → TWD·THB), ↑↓ 로 고르고 Enter 로 확정
-//  · tw + Enter 처럼 앞글자만 쳐도 자동완성, 목록에 없는 값은 직전 값으로 되돌림
-let _curEl = null, _curIdx = 0, _curItems = [];
-function curPop() { return document.getElementById('cur-pop'); }
-function curPopOpen() { const p = curPop(); return !!(p && p.style.display === 'block'); }
+// ─── 드롭다운 칸(거래종류·유형·통화) 공용 콤보박스 ──────────────
+//  구글 스프레드시트식 빠른 입력:
+//   Enter 로 목록 열기 → ↑↓ 로 고르기 → Enter 로 확정(제자리) → Tab 으로 다음 칸
+//   타이핑하면 목록이 좁혀지고(JP → JPY), 확정 직후 Enter 를 또 치면 아래 칸으로
+const CMB = {
+  cur:   { list: () => MB.CURRENCIES,             upper: true  },  // 통화
+  type:  { list: () => TYPES.filter(Boolean),     upper: false },  // 거래종류
+  typeX: { list: () => TYPES_EXT.filter(Boolean), upper: false },  // 거래종류(지급완료 포함)
+  side:  { list: () => EXT_SIDES,                 upper: false },  // 외부거래 유형
+};
+function cmbKind(el) { return CMB[el && el.dataset ? el.dataset.cmb : ''] || CMB.cur; }
+function cmbList(el) { return cmbKind(el).list(); }
+function cmbNorm(el, v) { const s = String(v == null ? '' : v).trim(); return cmbKind(el).upper ? s.toUpperCase() : s; }
+
+let _cmbEl = null, _cmbIdx = 0, _cmbItems = [], _cmbFilt = false;
+let _cmbPicked = null;        // 방금 Enter 로 확정한 칸 — 여기서 Enter 를 또 누르면 아래 칸으로
+function cmbPop() { return document.getElementById('cur-pop'); }
+function cmbOpened() { const p = cmbPop(); return !!(p && p.style.display === 'block'); }
 function mbCurList() {                        // 목록 패널 1회 생성 (모든 칸이 같이 씀)
-  if (curPop()) return;
+  if (cmbPop()) return;
   const p = document.createElement('div');
   p.id = 'cur-pop';
   p.addEventListener('mousedown', e => e.preventDefault());   // 클릭해도 입력칸 포커스 유지
   p.addEventListener('click', e => {
     const d = e.target.closest ? e.target.closest('.cur-op') : null;
-    if (d) curPick(d.dataset.c);
+    if (d) cmbPick(d.dataset.c);
   });
   document.body.appendChild(p);
   // 목록 안에서 굴린 스크롤은 무시하고, 바깥이 스크롤되면 닫지 말고 위치만 따라간다
   window.addEventListener('scroll', function (e) {
-    const pop = curPop();
+    const pop = cmbPop();
     if (!pop || pop.style.display !== 'block') return;
     const t = e.target;
     if (t === pop || (t && t.nodeType === 1 && pop.contains(t))) return;
-    curPos();
+    cmbPos();
   }, true);
-  window.addEventListener('resize', curPos);
+  window.addEventListener('resize', cmbPos);
 }
-let _curFilt = false;                         // true = 타이핑으로 좁힌 상태, false = 전체 목록
-function curRender() {
-  if (!_curEl) return;
-  const v = String(_curEl.value || '').trim().toUpperCase();
-  _curItems = (_curFilt && v) ? MB.CURRENCIES.filter(c => c.indexOf(v) === 0) : MB.CURRENCIES.slice();
-  if (!_curItems.length) _curItems = MB.CURRENCIES.slice();      // 일치하는 게 없으면 전체 목록
-  _curIdx = Math.max(0, Math.min(_curItems.length - 1, _curIdx));
-  const p = curPop();
-  p.innerHTML = _curItems.map((c, i) => `<div class="cur-op${i === _curIdx ? ' on' : ''}" data-c="${c}">${c}</div>`).join('');
+function cmbRender() {
+  if (!_cmbEl) return;
+  const all = cmbList(_cmbEl);
+  const v = cmbNorm(_cmbEl, _cmbEl.value);
+  _cmbItems = (_cmbFilt && v) ? all.filter(c => c.indexOf(v) === 0) : all.slice();
+  if (!_cmbItems.length) _cmbItems = all.slice();      // 일치하는 게 없으면 전체 목록
+  _cmbIdx = Math.max(0, Math.min(_cmbItems.length - 1, _cmbIdx));
+  const p = cmbPop();
+  p.innerHTML = _cmbItems.map((c, i) => `<div class="cur-op${i === _cmbIdx ? ' on' : ''}" data-c="${extEsc(c)}">${extEsc(c)}</div>`).join('');
   p.style.display = 'block';
-  curPos();
+  cmbPos();
   const on = p.querySelector('.cur-op.on');
   if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
 }
 // 위치만 다시 잡기 — 목록 내용/스크롤 위치는 그대로 둔다
-function curPos() {
-  const p = curPop();
-  if (!_curEl || !p || p.style.display !== 'block') return;
-  const r = _curEl.getBoundingClientRect();
-  if (r.bottom < 0 || r.top > innerHeight) { curClose(); return; }   // 칸이 화면 밖으로 나가면 닫음
+function cmbPos() {
+  const p = cmbPop();
+  if (!_cmbEl || !p || p.style.display !== 'block') return;
+  const r = _cmbEl.getBoundingClientRect();
+  if (r.bottom < 0 || r.top > innerHeight) { cmbClose(); return; }   // 칸이 화면 밖으로 나가면 닫음
   p.style.minWidth = Math.max(74, Math.round(r.width)) + 'px';
   p.style.left = Math.round(Math.min(r.left, innerWidth - p.offsetWidth - 8)) + 'px';
   p.style.top = (r.bottom + 2 + p.offsetHeight > innerHeight)   // 아래로 넘치면 위에 띄움
     ? Math.round(r.top - p.offsetHeight - 2) + 'px'
     : Math.round(r.bottom + 2) + 'px';
 }
-function curOpen(el) {                        // 드롭다운처럼 열기 — 전체 목록 + 현재 통화 강조
-  if (curPopOpen() && _curEl === el) return;
-  mbCurList(); _curEl = el; _curFilt = false;
-  const i = MB.CURRENCIES.indexOf(String(el.value || '').trim().toUpperCase());
-  _curIdx = i >= 0 ? i : 0;
-  curRender();
+function cmbOpen(el) {                        // 전체 목록 + 현재 값 강조
+  if (cmbOpened() && _cmbEl === el) return;
+  mbCurList(); _cmbEl = el; _cmbFilt = false;
+  const i = cmbList(el).indexOf(cmbNorm(el, el.value));
+  _cmbIdx = i >= 0 ? i : 0;
+  cmbRender();
 }
-function curClose() { const p = curPop(); if (p) p.style.display = 'none'; _curEl = null; _curIdx = 0; _curFilt = false; }
-function curPick(c) {
-  const el = _curEl;
-  curClose();
+function cmbClose() { const p = cmbPop(); if (p) p.style.display = 'none'; _cmbEl = null; _cmbIdx = 0; _cmbFilt = false; }
+function cmbPick(c) {
+  const el = _cmbEl;
+  cmbClose();
   if (!el) return;
   el.value = c; el.dataset.prev = c;
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
-function curKey(e, el) {                      // ↑↓ 로 고르기 / Enter 확정 / Esc 닫기
+//  Enter: 닫혀 있으면 열기 / 열려 있으면 확정(제자리) / 확정 직후 한 번 더면 아래 칸
+//  ↑↓ : 열려 있으면 목록 이동, 닫혀 있으면 시트 칸 이동(이벤트를 그대로 흘려보냄)
+//  Tab : 열려 있으면 확정만 하고 칸 이동은 시트 엔진에 맡김
+function cmbKey(e, el) {
   if (mbComposing(e)) return;
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    if (!curPopOpen()) curOpen(el);
-    else { _curIdx += (e.key === 'ArrowDown' ? 1 : -1); curRender(); }
-    e.preventDefault(); e.stopPropagation();  // 시트 칸 이동으로 새지 않게
+    if (!cmbOpened()) return;                 // 닫혀 있으면 칸 이동 (엔진이 처리)
+    _cmbIdx += (e.key === 'ArrowDown' ? 1 : -1);
+    cmbRender();
+    e.preventDefault(); e.stopPropagation();
     return;
   }
-  if (e.key === 'Escape') { curClose(); e.stopPropagation(); return; }
-  if (e.key === 'Enter') {                    // 확정 후 시트의 '아래 칸 이동'은 그대로 둔다
-    const pick = curPopOpen() ? _curItems[_curIdx] : null;
-    if (pick) curPick(pick); else { curClose(); curEnter(el); }
+  if (e.key === 'Escape') { if (cmbOpened()) { cmbClose(); e.stopPropagation(); } return; }
+  if (e.key === 'Tab') { if (cmbOpened()) { const p = _cmbItems[_cmbIdx]; if (p) cmbPick(p); else cmbClose(); } _cmbPicked = null; return; }
+  if (e.key === 'Enter') {
+    if (cmbOpened()) {                        // 고른 항목 확정 — 칸은 그대로
+      const p = _cmbItems[_cmbIdx];
+      if (p) cmbPick(p); else cmbClose();
+      _cmbPicked = el;
+      e.preventDefault(); e.stopPropagation();
+      return;
+    }
+    if (_cmbPicked === el) { _cmbPicked = null; return; }   // 확정 직후 Enter → 아래 칸(엔진 처리)
+    cmbOpen(el);                              // 처음 Enter → 목록 열기
+    e.preventDefault(); e.stopPropagation();
   }
 }
-function curInput(el) {                       // 타이핑 중: 대문자 정규화 + 목록 좁히기(저장은 안 함)
-  const up = String(el.value || '').toUpperCase();
+function cmbInput(el) {                       // 타이핑 중: 정규화 + 목록 좁히기(저장은 안 함)
+  const up = cmbKind(el).upper ? String(el.value || '').toUpperCase() : el.value;
   if (up !== el.value) {
     const p = el.selectionStart;
     el.value = up;
     try { el.setSelectionRange(p, p); } catch (e) {}
   }
-  _curEl = el; _curIdx = 0; _curFilt = true; mbCurList(); curRender();
+  _cmbEl = el; _cmbIdx = 0; _cmbFilt = true; _cmbPicked = null; mbCurList(); cmbRender();
 }
-function curBlur(el) { curClose(); curCommit(el); }
-function curCommit(el) {                      // 확정: 정확히 일치 → 앞글자 자동완성 → 안 되면 직전 값
-  const up = String(el.value || '').trim().toUpperCase();
+function cmbBlur(el) { if (_cmbEl === el) cmbClose(); _cmbPicked = null; cmbCommit(el); }
+function cmbCommit(el) {                      // 확정: 정확히 일치 → 앞글자 자동완성 → 안 되면 직전 값
+  const all = cmbList(el);
+  const v = cmbNorm(el, el.value);
   let hit = '';
-  if (MB.CURRENCIES.indexOf(up) >= 0) hit = up;
-  else if (up) {                              // tw + Enter → TWD, t + Enter → TWD(목록 순서상 첫 항목)
-    const m = MB.CURRENCIES.filter(function (c) { return c.indexOf(up) === 0; });
-    if (m.length) hit = m[0];
+  if (v !== '') {
+    if (all.indexOf(v) >= 0) hit = v;
+    else { const m = all.filter(c => c.indexOf(v) === 0); if (m.length) hit = m[0]; }
+    if (!hit) hit = el.dataset.prev || '';    // 못 맞추면 직전 값으로
   }
-  el.value = hit || el.dataset.prev || 'KRW';
-  el.dataset.prev = el.value;
+  el.value = hit;
+  el.dataset.prev = hit;
 }
-//  Enter 로 확정 — blur 가 뜨기를 기다리지 않고 즉시 확정·저장한다
-function curEnter(el) {
-  curCommit(el);
-  el.dispatchEvent(new Event('change', { bubbles: true }));
+function gridTypePaint(el) {        // 거래종류 바뀌면 글자색·행 배경·원화 갱신
+  const v = el.value || '';
+  el.className = 'cmb-in' + (v ? ' type-' + v : '');
+  const tr = el.closest('tr');
+  tr.className = v ? 't-' + v : 'empty';
+  tr.style.color = '';
+  updateKrwCell(tr);
 }
-
 function krwColor(tradeType) {
   if (tradeType === '매각') return '#2563EB';
   if (tradeType === '매입') return '#DC2626';
@@ -466,8 +495,7 @@ function applyCommaFormat(el) {
 
 function buildRow(tx, isEmpty, sheet) {
   const cls = isEmpty ? 'empty' : `t-${tx.tradeType}`;
-  const typeList = SHEET_EXT.includes(sheet) ? TYPES_EXT : TYPES;
-  const optType = typeList.map(c => `<option value="${c}" ${tx.tradeType===c?'selected':''}>${c||'선택'}</option>`).join('');
+  const typeKind = SHEET_EXT.includes(sheet) ? 'typeX' : 'type';
   const typeClass = tx.tradeType ? `type-${tx.tradeType}` : '';
   const curVal = tx.currency || 'KRW';
   const krwTxt   = isEmpty ? '' : krwDisplay(tx.tradeType, tx.amount, tx.rate);
@@ -475,10 +503,13 @@ function buildRow(tx, isEmpty, sheet) {
   const rowStyle = (!isEmpty && !tx.tradeType) ? 'color:#9CA3AF' : '';
   return `<tr data-id="${tx.id}" data-sheet="${sheet}" class="${cls}" style="${rowStyle}">
     <td><input type="text" value="${tx.counterparty||''}" data-field="counterparty" placeholder="거래처/비고"></td>
-    <td><select data-field="tradeType" class="${typeClass}" onchange="this.className='type-'+this.value; const tr=this.closest('tr'); tr.className=this.value?'t-'+this.value:'empty'; tr.style.color=''; updateKrwCell(tr);">${optType}</select></td>
-    <td class="cur-cell"><input class="cur-in" data-field="currency" value="${curVal}" data-prev="${curVal}"
-        autocomplete="off" spellcheck="false" oninput="curInput(this)" onchange="curCommit(this)"
-        onfocus="curOpen(this)" onclick="curOpen(this)" onblur="curBlur(this)" onkeydown="curKey(event,this)"></td>
+    <td class="cmb-cell"><input class="cmb-in ${typeClass}" data-cmb="${typeKind}" data-field="tradeType"
+        value="${tx.tradeType||''}" data-prev="${tx.tradeType||''}" placeholder="선택"
+        autocomplete="off" spellcheck="false" oninput="cmbInput(this)" onchange="cmbCommit(this);gridTypePaint(this)"
+        onclick="cmbOpen(this)" onblur="cmbBlur(this)" onkeydown="cmbKey(event,this)"></td>
+    <td class="cur-cell"><input class="cmb-in cur-in" data-cmb="cur" data-field="currency" value="${curVal}" data-prev="${curVal}"
+        autocomplete="off" spellcheck="false" oninput="cmbInput(this)" onchange="cmbCommit(this)"
+        onclick="cmbOpen(this)" onblur="cmbBlur(this)" onkeydown="cmbKey(event,this)"></td>
     <td><input type="text" inputmode="numeric" class="num" value="${fmtInput(tx.amount)}" data-field="amount" placeholder="0"></td>
     <td><input type="text" inputmode="decimal" class="num" value="${fmtInput(tx.rate)}" data-field="rate" placeholder="0"></td>
     <td class="calc cell-krw" style="color:${krwCol}">${krwTxt}</td>
@@ -491,7 +522,7 @@ function updateKrwCell(tr) {
   const rate = parseNum(tr.querySelector('input[data-field="rate"]')?.value);
   const c    = tr.querySelector('.cell-krw');
   if (!c) return;
-  const t = tr.querySelector('select[data-field="tradeType"]')?.value || '';
+  const t = tr.querySelector('[data-field="tradeType"]')?.value || '';
   c.textContent  = krwDisplay(t, amt, rate);
   c.style.color  = krwColor(t);
   updateSummary(sheet);
@@ -535,7 +566,7 @@ function updateSummary(sheet) {
   let buy = 0, sell = 0;
   if (tbody) {
     Array.from(tbody.rows).forEach(tr => {
-      const typeEl   = tr.querySelector('select[data-field="tradeType"]');
+      const typeEl   = tr.querySelector('[data-field="tradeType"]');
       const amtEl    = tr.querySelector('input[data-field="amount"]');
       const rateEl   = tr.querySelector('input[data-field="rate"]');
       if (!typeEl) return;
@@ -562,7 +593,7 @@ function gridNetTotal(sheet) {                          // 그리드 시트 순�
   const tbody = document.getElementById(`tbody-${sheet}`);
   let net = 0;
   if (tbody) Array.from(tbody.rows).forEach(tr => {
-    const t = tr.querySelector('select[data-field="tradeType"]')?.value;
+    const t = tr.querySelector('[data-field="tradeType"]')?.value;
     if (!t || t === '외화미수금' || t === '지급완료') return;
     net += calcKrw(t, parseNum(tr.querySelector('input[data-field="amount"]')?.value), parseNum(tr.querySelector('input[data-field="rate"]')?.value));
   });
@@ -640,7 +671,7 @@ function bindEvents(sheet) {
   tbody.addEventListener('input', (e) => {
     const target = e.target;
     if (!target.matches('input')) return; // select은 change에서 처리됨
-    if (target.dataset.field === 'currency') return;  // 통화는 타이핑 중 저장 안 함(확정 때만)
+    if (target.dataset.cmb) return;                   // 드롭다운 칸은 타이핑 중 저장 안 함(확정 때만)
     if (target.classList.contains('num')) applyCommaFormat(target); // 천단위 쉼표 실시간
     _commitEditSnap(); // 첫 입력 시 undo 스냅샷 확정
     const tr = target.closest('tr');
@@ -875,13 +906,13 @@ document.addEventListener('keydown', async e => {
     const tbody = document.getElementById(`tbody-${sel.sheet}`);
     const ROWS = tbody ? tbody.rows.length : 0;
 
-    if (e.key === 'Tab') {
+    if (e.key === 'Tab') {            // 다음 칸으로 — 편집 상태를 유지해 바로 이어 칠 수 있게
       e.preventDefault();
       if (inInput) active.blur();
       const nextC = e.shiftKey ? sel.c1 - 1 : sel.c1 + 1;
-      if (nextC < 0) { focusCell(sel.sheet, Math.max(0, sel.r1-1), COLS-1); }
-      else if (nextC >= COLS) { focusCell(sel.sheet, Math.min(ROWS-1, sel.r1+1), 0); }
-      else { focusCell(sel.sheet, sel.r1, nextC); }
+      if (nextC < 0) { focusCell(sel.sheet, Math.max(0, sel.r1-1), COLS-1, true); }
+      else if (nextC >= COLS) { focusCell(sel.sheet, Math.min(ROWS-1, sel.r1+1), 0, true); }
+      else { focusCell(sel.sheet, sel.r1, nextC, true); }
       return;
     }
 
@@ -1023,7 +1054,13 @@ function pasteCell(td, val) {
   const el = td.querySelector('input,select');
   if (!el) return;                                        // 원화(자동계산)·분할 수량 등은 건너뜀
   const v = String(val == null ? '' : val).trim();
-  if (el.tagName === 'SELECT') {
+  if (el.dataset && el.dataset.cmb) {                     // 드롭다운 칸: 목록에 있는 값만
+    if (v === '') return;
+    const nv = cmbNorm(el, v);
+    if (cmbList(el).indexOf(nv) < 0 || el.value === nv) return;
+    el.value = nv; el.dataset.prev = nv;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (el.tagName === 'SELECT') {
     if (v === '') return;                                 // 빈 값으로 드롭다운을 지우지는 않음
     const opts = Array.from(el.options);
     const opt = opts.find(o => o.value === v)
@@ -1071,10 +1108,11 @@ function pasteData(text) {
         if (!opt) return;
         val = opt.value;
         inp.value = val;
-      } else if (field === 'currency') {     // 통화는 목록에 있는 값만 (없으면 기존 값 유지)
-        const up = val.toUpperCase();
-        if (MB.CURRENCIES.indexOf(up) < 0) return;
-        val = up; inp.value = up; inp.dataset.prev = up;
+      } else if (inp.dataset.cmb) {          // 드롭다운 칸은 목록에 있는 값만 (없으면 기존 값 유지)
+        const nv = cmbNorm(inp, val);
+        if (nv !== '' && cmbList(inp).indexOf(nv) < 0) return;
+        val = nv; inp.value = nv; inp.dataset.prev = nv;
+        if (field === 'tradeType') gridTypePaint(inp);
       } else {
         inp.value = (field==='amount'||field==='rate') ? fmtInput(val) : val;
       }
@@ -1138,7 +1176,6 @@ function buildExtSheet(sheet){
 function extRowHtml(tx){
   const sp = tx.mode === '분할';
   const amt = extAmount(tx), rate = parseNum(tx.rate);
-  const optSide = ['<option value=""></option>'].concat(EXT_SIDES.map(c=>`<option value="${c}" ${tx.tradeType===c?'selected':''}>${c}</option>`)).join('');
   const curVal = tx.currency || 'USD';
   const color = krwColor(tx.tradeType);
   return `<tr data-id="${tx.id}" class="${tx.tradeType ? 'xrow-'+tx.tradeType : ''}">
@@ -1146,10 +1183,13 @@ function extRowHtml(tx){
         <option value="일반" ${!sp?'selected':''}>일반거래</option>
         <option value="분할" ${sp?'selected':''}>분할거래</option></select></td>
     <td><input type="text" data-ef="counterparty" value="${extEsc(tx.counterparty)}" placeholder="거래처/비고"></td>
-    <td><select data-ef="tradeType" style="color:${color}">${optSide}</select></td>
-    <td class="cur-cell"><input class="cur-in" data-ef="currency" value="${curVal}" data-prev="${curVal}"
-        autocomplete="off" spellcheck="false" oninput="curInput(this)" onchange="curCommit(this)"
-        onfocus="curOpen(this)" onclick="curOpen(this)" onblur="curBlur(this)" onkeydown="curKey(event,this)"></td>
+    <td class="cmb-cell"><input class="cmb-in" data-cmb="side" data-ef="tradeType" style="color:${color}"
+        value="${tx.tradeType||''}" data-prev="${tx.tradeType||''}" placeholder="선택"
+        autocomplete="off" spellcheck="false" oninput="cmbInput(this)" onchange="cmbCommit(this)"
+        onclick="cmbOpen(this)" onblur="cmbBlur(this)" onkeydown="cmbKey(event,this)"></td>
+    <td class="cur-cell"><input class="cmb-in cur-in" data-cmb="cur" data-ef="currency" value="${curVal}" data-prev="${curVal}"
+        autocomplete="off" spellcheck="false" oninput="cmbInput(this)" onchange="cmbCommit(this)"
+        onclick="cmbOpen(this)" onblur="cmbBlur(this)" onkeydown="cmbKey(event,this)"></td>
     <td class="xt-num">${sp
         ? `<span class="xt-qty">${amt?fmtNum(amt):'0'}</span>`
         : `<input type="text" inputmode="numeric" class="num" data-ef="amount" value="${fmtInput(tx.amount)}" placeholder="수량">`}</td>
@@ -1267,7 +1307,7 @@ function bindExtEvents(sheet){
   tb.addEventListener('input', e=>{
     const t = e.target;
     if (!t.matches('input[data-ef]')) return;
-    if (t.dataset.ef === 'currency') return;        // 통화는 확정(change) 때만 저장
+    if (t.dataset.cmb) return;                      // 드롭다운 칸은 확정(change) 때만 저장
     if (t.classList.contains('num')) applyCommaFormat(t);
     extSave(sheet, t);
   });
@@ -1346,8 +1386,8 @@ document.addEventListener('keydown', e=>{
   if (inInput && mbComposing(e)) return;          // 조합 중엔 IME 에 맡김
   const ROWS=tb.rows.length;
   const go=(r,c,edit)=>{ e.preventDefault(); if(inInput)active.blur(); xtFocus(xsel.sheet,Math.max(0,Math.min(ROWS-1,r)),c,edit); };
-  if(e.key==='Tab'){ const nc=e.shiftKey?xsel.c1-1:xsel.c1+1;
-    if(nc<0)go(xsel.r1-1,XT_COLS-1); else if(nc>=XT_COLS)go(xsel.r1+1,0); else go(xsel.r1,nc); return; }
+  if(e.key==='Tab'){ const nc=e.shiftKey?xsel.c1-1:xsel.c1+1;   // 다음 칸 — 편집 상태 유지
+    if(nc<0)go(xsel.r1-1,XT_COLS-1,true); else if(nc>=XT_COLS)go(xsel.r1+1,0,true); else go(xsel.r1,nc,true); return; }
   if(!inInput){
     // 이동 후에도 입력칸 포커스 유지 — body 포커스면 한글 IME 가 조합을 시작하지 못함
     if(e.key==='ArrowRight')return go(xsel.r1,xsel.c1+1,true);
@@ -1383,7 +1423,8 @@ function xtDeleteRange(){   // 입력칸(거래처·수량·환율)만 지움 �
   const minC=Math.min(xsel.c1,xsel.c2), maxC=Math.max(xsel.c1,xsel.c2);
   for(let r=minR;r<=maxR;r++){ const tr=tb.rows[r]; if(!tr)continue;
     for(let c=minC;c<=maxC;c++){ const inp=tr.cells[c]?.querySelector('input');
-      if(!inp||inp.value==='')continue; inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); } }
+      if(!inp||inp.value===''||inp.dataset.cmb)continue;   // 드롭다운 칸(유형·통화)은 보존
+      inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); } }
   xtApplySel();
 }
 document.addEventListener('copy', e=>{
