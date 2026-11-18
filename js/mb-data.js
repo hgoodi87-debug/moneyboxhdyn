@@ -38,6 +38,8 @@ const MB = {
   MARKETING_INFLOW_KEY: 'mb_marketing_inflow',
   WEEKLY_REPORTS_KEY: 'mb_weekly_reports',
   CALENDAR_KEY: 'mb_calendar_events',
+  CUSTOMERS_KEY: 'mb_customers',
+  VISITS_KEY: 'mb_cust_visits',
   LOG_RETENTION_DAYS: 30,
 
   // 공통 헤더 네비게이션
@@ -57,9 +59,36 @@ const MB = {
     { href: 'log.html',      label: '🗂 기록 로그' },
     { href: 'accounts.html', label: '🔑 로그인 관리' },
     { href: 'report.html',   label: '📄 주간보고서' },
+    { href: 'list.html',     label: '📋 리스트' },
   ],
 
   CURRENCIES: ['KRW','USD','EUR','CNY','JPY','HKD','SGD','AUD','GBP','PHP','IDR','MYR','VND','TWD','THB','RUB','CHF','CAD','NZD'],
+
+  //  통화 한글 이름표 — 코드를 몰라도 '미국'·'ㅁㄱ'·'달러' 로 찾을 수 있게 한다.
+  //  맨 앞이 화면에 보여줄 이름이고, 뒤에 붙인 말들은 검색어로만 쓴다(흔히 쓰는 다른 표기).
+  CUR_KO: {
+    KRW: '한국 원화 원',
+    USD: '미국 달러 달라 불',
+    EUR: '유로 유럽',
+    CNY: '중국 위안 위엔 중국돈',
+    JPY: '일본 엔화 엔 엥',
+    HKD: '홍콩 달러',
+    SGD: '싱가포르 달러 싱가폴 싱가불',
+    AUD: '호주 달러 오스트레일리아',
+    GBP: '영국 파운드',
+    PHP: '필리핀 페소',
+    IDR: '인도네시아 루피아 인니',
+    MYR: '말레이시아 링깃 링기트',
+    VND: '베트남 동',
+    TWD: '대만 달러 타이완 위안',
+    THB: '태국 바트 타이',
+    RUB: '러시아 루블',
+    CHF: '스위스 프랑',
+    CAD: '캐나다 달러',
+    NZD: '뉴질랜드 달러',
+  },
+  //  화면에 보여줄 짧은 이름 (예: USD → 미국 달러)
+  curName: function (code) { return String((MB.CUR_KO[code] || '')).split(' ').slice(0, 2).join(' '); },
 };
 
 // ─── 기본 헬퍼 ───────────────────────────────────────────────

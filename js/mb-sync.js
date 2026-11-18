@@ -30,7 +30,7 @@
     'mb_atm_gate', 'mb_atm_memo', 'mb_storage_sales', 'mb_storage_price',
     'mb_storage_monthly', 'mb_archive', 'mb_credentials', 'mb_audit_log',
     'mb_marketing_plans', 'mb_marketing_inflow', 'mb_weekly_reports', 'mb_biliber_support',
-    'mb_calendar_events'
+    'mb_calendar_events', 'mb_customers', 'mb_cust_visits'
   ];
 
   let app;
@@ -46,6 +46,8 @@
   const _clientId = 'c' + Math.random().toString(36).slice(2) + '_' + Date.now();
   const _pushTimers = {};        // 키별 디바운스 타이머
   const _pendingVal = {};        // 키별 보류 중 값
+  const _holdAt = {};            // 키별 '처음 보류한 시각' — 디바운스 상한 계산용
+  const PUSH_MAX_HOLD = 900;     // 쉬지 않고 입력해도 이 시간 안에는 반드시 전송한다(ms)
 
   // ─────────────────────────────────────────────────────────────
   //  레코드 배열은 통째로 덮어쓰지 않고 "내가 바꾼 것만" 원격에 반영한다.
@@ -72,11 +74,27 @@
   //  원격(remote)을 기준으로, base→mine 사이에 내가 만든 변경만 덧씌운다.
   //  · 내가 건드리지 않은 남의 레코드는 그대로 보존된다
   //  · 내가 추가/수정한 것은 반영, 내가 지운 것(base 엔 있고 mine 엔 없음)은 삭제
+  //  한 레코드 안에서도 칸(필드) 단위로 병합한다.
+  //  A 가 금액을, B 가 환율을 고쳐도 둘 다 살아남아야 하므로
+  //  "내가 base 에서 바꾼 칸"만 원격 레코드 위에 덧씌운다.
+  function _mergeRec(base, mine, remote) {
+    const out = Object.assign({}, remote);
+    Object.keys(mine).forEach(function (k) {
+      if (JSON.stringify(mine[k]) !== JSON.stringify(base[k])) out[k] = mine[k];   // 내가 바꾼 칸
+    });
+    Object.keys(base).forEach(function (k) {                                       // 내가 지운 칸
+      if (!(k in mine) && k in out && JSON.stringify(base[k]) === JSON.stringify(out[k])) delete out[k];
+    });
+    return out;
+  }
   function _merge(base, mine, remote) {
     const B = _indexBy(base), M = _indexBy(mine), out = _indexBy(remote);
     M.forEach(function (v, k) {
       const b = B.get(k);
-      if (!b || JSON.stringify(b) !== JSON.stringify(v)) out.set(k, v);
+      if (!b) { out.set(k, v); return; }                        // 내가 새로 추가한 레코드
+      if (JSON.stringify(b) === JSON.stringify(v)) return;      // 내가 안 건드림 → 원격 그대로
+      const r = out.get(k);
+      out.set(k, r ? _mergeRec(b, v, r) : v);                   // 칸 단위로 합침
     });
     B.forEach(function (v, k) { if (!M.has(k)) out.delete(k); });
     return Array.from(out.values());
@@ -87,13 +105,24 @@
     if (_applyingRemote) return;
     if (KEYS.indexOf(key) === -1) return;
     _pendingVal[key] = value;
+    //  디바운스는 키 입력마다 리셋되므로, 쉬지 않고 치면 영원히 전송되지 않는다.
+    //  그래서 '처음 보류한 시각 + 900ms' 를 상한으로 둔다. 쉬지 않고 쳐도 0.9초마다는 올라간다.
+    //  (이 상한이 없으면 유실 가능 구간이 '타이핑하는 내내' 로 무한정 열린다)
+    if (!_holdAt[key]) _holdAt[key] = Date.now();
+    const wait = Math.max(0, Math.min(350, _holdAt[key] + PUSH_MAX_HOLD - Date.now()));
     clearTimeout(_pushTimers[key]);
-    _pushTimers[key] = setTimeout(function () { _flushPush(key); }, 350);
+    _pushTimers[key] = setTimeout(function () { _flushPush(key); }, wait);
   };
   function _flushPush(key) {
     if (!(key in _pendingVal)) return;
     const value = _pendingVal[key];
     delete _pendingVal[key];
+    delete _holdAt[key];
+    //  병합 기준을 '보낼 때' 로 고정한다.
+    //  예전엔 트랜잭션 콜백(서버 왕복 뒤) 안에서 _base[key] 를 그때 읽었는데,
+    //  왕복 중에 남의 변경이 수신되면 _base 만 먼저 최신이 되어
+    //  '내가 보낸 값에 없는 남의 새 행' 을 _merge 가 "내가 지웠다" 로 판정해 서버에서 지웠다.
+    const sentBase = _base[key] || [];
     const json = JSON.stringify(value);
     if (_lastPushed[key] === json) return;
     const ref = col.doc(key);
@@ -110,7 +139,7 @@
       return tx.get(ref).then(function (snap) {
         const d = snap.exists ? (snap.data() || {}) : {};
         const remote = Array.isArray(d.v) ? d.v : [];
-        const merged = _merge(_base[key] || [], value, remote);
+        const merged = _merge(sentBase, value, remote);
         tx.set(ref, { v: merged, by: _clientId, at: firebase.firestore.FieldValue.serverTimestamp() });
         return merged;
       });
@@ -136,16 +165,29 @@
   function _flushAll() { Object.keys(_pendingVal).forEach(function (k) { clearTimeout(_pushTimers[k]); _flushPush(k); }); }
   // 탭을 닫거나 숨길 때 보류 중인 저장을 즉시 반영 (데이터 유실 방지)
   window.addEventListener('beforeunload', _flushAll);
+  //  사파리·iOS 는 페이지를 떠날 때 beforeunload 가 아니라 pagehide 를 주 경로로 쓴다.
+  //  (맥북에서 더 자주 유실된다는 신고의 한 갈래. 플러시만으로 전부 구제되지는 않는다 — 아래 주석 참고)
+  window.addEventListener('pagehide', _flushAll);
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') _flushAll(); });
 
   // ── 클라우드 변경 → 로컬 + 화면 ──
   function applyRemote(key, value) {
     const json = JSON.stringify(value);
     if (json === localStorage.getItem(key)) return;  // 동일하면 스킵
+    //  try/finally 가 없으면, 저장 공간이 꽉 찼거나 사파리가 저장을 막아 setItem 이 한 번 던지는 순간
+    //  _applyingRemote 가 true 로 영원히 굳어 그 탭의 모든 저장이 클라우드로 안 간다.
+    //  화면도 콘솔도 멀쩡해 보여서 알아챌 방법이 없었다.
     _applyingRemote = true;
-    _lastPushed[key] = json;
-    localStorage.setItem(key, json);
-    _applyingRemote = false;
+    try {
+      localStorage.setItem(key, json);
+      _lastPushed[key] = json;          // 실제로 쓰인 뒤에만 '올렸다' 로 표시한다
+    } catch (e) {
+      console.warn('[mb-sync] 로컬 저장 실패 — 이 변경은 화면에만 반영됨', key, e && e.name);
+      delete _lastPushed[key];
+      return;
+    } finally {
+      _applyingRemote = false;
+    }
     window.dispatchEvent(new CustomEvent('mb-remote', { detail: { key } }));
     try {
       window.dispatchEvent(new StorageEvent('storage', { key: key, newValue: json }));

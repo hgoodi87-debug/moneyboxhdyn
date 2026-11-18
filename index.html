@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=62">
-<link rel="apple-touch-icon" href="favicon.png?v=62">
+<link rel="icon" type="image/png" href="favicon.png?v=65">
+<link rel="apple-touch-icon" href="favicon.png?v=65">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=62">
+<link rel="stylesheet" href="css/mb.css?v=65">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=62"></script>
-<script src="js/mb-data.js?v=62"></script>
-<script src="js/mb-sync.js?v=62"></script>
+<script src="js/firebase-config.js?v=65"></script>
+<script src="js/mb-data.js?v=65"></script>
+<script src="js/mb-sync.js?v=65"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
   .widget { background:#fff; border-radius:.875rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.06); display:flex; flex-direction:column; height:100%; overflow:hidden; }
@@ -56,6 +56,9 @@
   .cal-memo { font-size:.7rem; line-height:1.35; border-radius:.32rem; padding:.18rem .3rem;
               word-break:keep-all; overflow-wrap:anywhere; background:#FFF4E0; color:#92400E; cursor:text; }
   .cal-memo:hover { background:#FFEBC7; }
+  /* 캘린더 업무 체크리스트에서 체크하면 주간 메모에도 완료로 보인다 */
+  .cal-memo.done { text-decoration:line-through; opacity:.5; background:#F3F4F6; color:#9CA3AF; }
+  .cal-memo.done:hover { background:#EDEFF1; }
   .cal-t { white-space:pre-wrap; }
   .cal-x { float:right; margin-left:2px; color:#D9B98A; cursor:pointer; font-size:.66rem; line-height:1.45; }
   .cal-x:hover { color:#EF4444; }
@@ -76,6 +79,85 @@
     .cal-day { min-height:0; }
     .cal-body { max-height:none; }
   }
+
+  /* ── 당일거래 전달사항 : 칸 나눈 입력/목록 ── */
+  .nt-in{display:flex;align-items:stretch;flex-wrap:nowrap;border:1px solid #E5E7EB;border-radius:.5rem;
+         background:#fff;overflow:hidden}
+  .nt-in:focus-within{border-color:#F5A623;box-shadow:0 0 0 2px rgba(245,166,35,.12)}
+  .nt-f{display:flex;flex-direction:column;gap:1px;min-width:0;padding:3px 0;border-right:1px solid #EEF0F2}
+  .nt-f:last-of-type{border-right:0}
+  .nt-f:focus-within{background:#FFFBF4}
+  .nt-lab{font-size:.58rem;font-weight:700;color:#B9BDC6;padding:0 6px;line-height:1.1}
+  .nt-c{height:23px;border:0;background:transparent;padding:0 6px;font-size:.78rem;color:#1A1A2E;width:100%;min-width:0}
+  .nt-c:focus{outline:none}
+  .nt-c.r{text-align:right}
+  .nt-c.cmb{background-image:linear-gradient(45deg,transparent 50%,#C4C7CE 50%),linear-gradient(135deg,#C4C7CE 50%,transparent 50%);
+            background-position:calc(100% - 10px) 10px,calc(100% - 6px) 10px;background-size:4px 4px,4px 4px;
+            background-repeat:no-repeat;padding-right:17px}
+  .nt-grp{display:flex;align-items:stretch;min-width:0;background:#FCFCFD;
+          border-right:1px solid #EEF0F2;border-left:1px solid #EEF0F2}
+  .nt-grp .nt-sub{border-right:0}
+  .nt-x{align-self:center;color:#C4C7CE;font-size:.64rem;padding:9px 0 0;flex-shrink:0}
+  .nt-hint{font-size:.65rem;color:#9CA3AF;margin:5px 0 7px;flex-shrink:0}
+  .nt-hd{display:flex;gap:4px;align-items:center;padding:0 22px 3px 23px;font-size:.6rem;font-weight:700;
+         color:#C4C7CE;border-bottom:1px solid #F1F2F4;margin-bottom:2px}
+  .nt-hd span+span{border-left:1px solid #F4F5F7;padding-left:6px}
+  .nt-row{display:flex;gap:4px;align-items:center;padding:3px 5px;font-size:.76rem;color:#1A1A2E;
+          border-bottom:1px solid #F6F7F8;border-left:3px solid transparent;line-height:1.3}
+  .nt-row:hover{background:#FAFBFC}
+  .nt-row span+span{border-left:1px solid #F7F8F9;padding-left:6px}
+  .nt-row.sell{border-left-color:#EF4444}
+  .nt-row.buy{border-left-color:#2563EB}
+  .nt-row.memo{border-left-color:#F5A623;color:#6B7280}
+  .nt-row.done{opacity:.42}
+  .nt-row.done span{text-decoration:line-through}
+  .nt-ck{width:13px;height:13px;accent-color:#F5A623;flex-shrink:0;cursor:pointer;border-left:0 !important}
+  .nt-row .g{display:flex;align-items:center;gap:6px;justify-content:flex-end;padding-left:8px}
+  .nt-row .g .amt{flex:1;text-align:right;min-width:0;border-left:0}
+  .nt-row .g .x{font-style:normal;color:#C4C7CE;font-size:.68rem;flex-shrink:0;border-left:0}
+  .nt-row .g .rt{width:56px;text-align:right;font-weight:500;color:#6B7280;flex-shrink:0;border-left:0}
+  .pill{display:inline-block;font-size:.66rem;font-weight:800;border-radius:.3rem;padding:2px 6px;font-style:normal;
+        width:38px;text-align:center;flex-shrink:0;border-left:0 !important}
+  .pill.sell{background:#FEF2F2;color:#DC2626}
+  .pill.buy{background:#EFF6FF;color:#2563EB}
+  /* 지점 구분 머리 */
+  .br-hd{display:flex;align-items:center;gap:6px;font-size:.75rem;font-weight:800;color:#1A1A2E;padding:8px 0 4px}
+  .br-hd:first-child{padding-top:0}
+  .br-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .br-hd-h .br-dot{background:#F5A623}.br-hd-y .br-dot{background:#2563EB}.br-hd-e .br-dot{background:#C4C7CE}
+  .br-hd-e{color:#9CA3AF}
+  .br-n{font-size:.68rem;font-weight:700;color:#9CA3AF;background:#F3F4F6;border-radius:.3rem;padding:1px 6px}
+  .br-sum{margin-left:auto;font-size:.68rem;font-weight:600;color:#9CA3AF}
+  /* 콤보 팝업 */
+  .cmb-pop{position:fixed;z-index:120;display:none;background:#fff;border:1px solid #E5E7EB;border-radius:.45rem;
+           box-shadow:0 8px 22px rgba(0,0,0,.12);max-height:230px;overflow-y:auto;padding:3px}
+  .cmb-op{padding:5px 10px;font-size:.8rem;color:#1A1A2E;border-radius:.3rem;cursor:pointer;white-space:nowrap}
+  .cmb-op:hover{background:#F6F7F8}
+  .cmb-op.on{background:#FFF4E0;color:#B45309;font-weight:700}
+  /* ── 체크리스트 2종 ── */
+  .ck{padding-top:10px}
+  .ck .widget-title{font-size:.78rem;padding-bottom:7px;margin-bottom:8px}
+  .ck-ic{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:.25rem;
+         font-size:.58rem;margin-right:5px;vertical-align:-2px}
+  .ck-ic-my{background:#ECFDF5;color:#047857}
+  .ck-ic-cal{background:#FFF4E0}
+  .ck-my{border-top:2px solid #10B981}
+  .ck-cal{border-top:2px solid #F5A623;height:auto;overflow:visible}
+  .ck-cal .widget-body{flex:0 0 auto;min-height:0;max-height:260px;overflow-y:auto}
+  .ck-load{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-shrink:0}
+  .ck-btn{border:1px solid #FDE8C4;background:#FFFBF2;color:#B45309;font-size:.74rem;font-weight:700;
+          border-radius:.42rem;padding:7px 11px;white-space:nowrap;cursor:pointer}
+  .ck-btn:hover{background:#FFF4E0;border-color:#F5A623}
+  .ck-share{margin-left:6px;font-size:.6rem;font-weight:700;color:#047857;background:#ECFDF5;border-radius:.25rem;padding:1px 5px;vertical-align:1px}
+  .ck-when{font-size:.66rem;color:#C4C7CE}
+  .ck-empty{color:#C4C7CE;font-size:.7rem;padding:2px 0 0}
+  .ck-foot{display:none;font-size:.66rem;color:#B9BDC6;padding-top:7px;border-top:1px solid #F4F5F7;margin-top:6px;flex-shrink:0}
+  .ck-cal.has .ck-foot{display:block}
+  .dt-by{font-size:.6rem;font-weight:700;color:#047857;background:#ECFDF5;border-radius:.25rem;padding:1px 4px;flex-shrink:0;max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dt-br{font-size:.6rem;font-weight:800;color:#047857;background:#ECFDF5;border-radius:.25rem;padding:1px 4px;flex-shrink:0}
+  .ck-late{background:#FEF2F2;border-radius:.35rem}
+  .date{font-size:.68rem;color:#F5A623;font-weight:700;flex-shrink:0;width:40px}
+  .cmb-ko{margin-left:8px;font-size:.68rem;font-weight:500;color:#9CA3AF}
 </style>
 </head>
 <body class="bg-[#F5F7FA]">
@@ -83,12 +165,12 @@
 <div id="mb-header"></div>
 
 <main class="pt-[92px] pb-6" style="overflow-x:auto;padding-left:16px;padding-right:16px">
-  <!-- ─── 주간 메모 · 이슈 (상단) ─── -->
+  <!-- ─── 금일 출근자 · 주간 메모 (상단, 한 카드) ─── -->
   <div style="max-width:1600px;margin:0 auto 16px">
     <div class="widget" style="height:auto;padding:.8rem 1rem">
-      <div class="widget-title flex items-center justify-between" style="padding-bottom:.35rem;margin-bottom:.45rem">
+      <div class="widget-title flex items-center justify-between" style="padding-bottom:.35rem;margin-bottom:.55rem">
         <div class="flex items-baseline gap-2">
-          <span>주간 메모 · 이슈</span>
+          <span>금일 출근자 · 주간 메모</span>
           <span id="cal-range" style="font-size:.72rem;font-weight:500;color:#9CA3AF"></span>
         </div>
         <div class="flex items-center gap-1">
@@ -97,48 +179,69 @@
           <button class="cal-nav" onclick="calMove(1)" title="다음주">▶</button>
         </div>
       </div>
-      <div id="cal-grid" class="cal-grid"></div>
+      <div style="display:flex;gap:12px;align-items:stretch">
+        <div id="attendance-grid" class="grid grid-cols-2 gap-2 content-start"
+             style="width:330px;flex-shrink:0"></div>
+        <div id="cal-grid" class="cal-grid" style="flex:1;min-width:0"></div>
+      </div>
     </div>
   </div>
+
   <div class="flex gap-4 dash-row">
 
-    <!-- 왼쪽 컬럼 -->
-    <div class="dash-col" style="flex:1;display:flex;flex-direction:column;gap:16px">
-
-      <!-- 금일 출근자 -->
-      <div class="widget" style="height:220px">
-        <div class="widget-title">금일 출근자</div>
-        <div class="widget-body">
-          <div id="attendance-grid" class="grid grid-cols-2 gap-2 content-start"></div>
-        </div>
-      </div>
-
-      <!-- 당일거래 전달사항 (지점간 이동과 위치 교체 — 넓은 자리로) -->
-      <div class="widget" style="height:560px">
+    <!-- 1열 : 당일거래 전달사항 (지점 분리 · 방문시간순) -->
+    <div class="dash-col" style="flex:1.75;min-width:0">
+      <div class="widget" style="height:660px">
         <div class="widget-title flex items-center justify-between">
           <span>당일거래 전달사항</span>
           <div class="flex items-center gap-2">
-            <span class="text-[10px] text-[#10B981] font-normal">● 실시간</span>
+            <span class="text-[10px] text-[#9CA3AF] font-normal">지점별 · 방문시간순</span>
             <button onclick="resetTradeNotices()" class="text-[10px] text-[#9CA3AF] hover:text-[#EF4444] border border-[#E5E7EB] hover:border-[#EF4444] rounded px-1.5 py-0.5 font-normal">초기화</button>
           </div>
         </div>
-        <div class="widget-form">
-          <div class="flex gap-2">
-            <textarea id="tn-content" rows="1" class="input-base resize-none flex-1" placeholder="실시간 전달..."></textarea>
-            <button onclick="addTradeNotice()" class="btn-add">등록</button>
+
+        <!-- 입력 : 지점 · 시간 · 외화 · [수량 ✕ 환율 구분] · 뒷번호 · 특이사항 -->
+        <div class="nt-in" style="flex-shrink:0">
+          <div class="nt-f" style="width:64px"><span class="nt-lab">지점</span>
+            <input class="nt-c cmb" id="tn-branch" data-cmb="branch" placeholder="ㅎ" autocomplete="off" spellcheck="false"
+              oninput="cmbInput(this)" onchange="cmbCommit(this)" onclick="cmbOpen(this)" onblur="cmbBlur(this)" onkeydown="tnKey(event,this)"></div>
+          <div class="nt-f" style="width:60px"><span class="nt-lab">시간</span>
+            <input class="nt-c" id="tn-time" placeholder="14:30" maxlength="5" onkeydown="tnKey(event,this)" oninput="tnTimeIn(this)" onblur="tnTimeFix(this)"></div>
+          <div class="nt-f" style="width:60px"><span class="nt-lab">외화</span>
+            <input class="nt-c cmb" id="tn-cur" data-cmb="cur" placeholder="u" autocomplete="off" spellcheck="false"
+              oninput="cmbInput(this)" onchange="cmbCommit(this)" onclick="cmbOpen(this)" onblur="cmbBlur(this)" onkeydown="tnKey(event,this)"></div>
+          <div class="nt-grp" style="flex:1.5;min-width:206px">
+            <div class="nt-f nt-sub" style="flex:1.1;min-width:74px"><span class="nt-lab">수량</span>
+              <input class="nt-c r" id="tn-amt" inputmode="numeric" placeholder="0" onkeydown="tnKey(event,this)" oninput="numIn(this)" onblur="numFmt(this)"></div>
+            <span class="nt-x">✕</span>
+            <div class="nt-f nt-sub" style="flex:1;min-width:64px"><span class="nt-lab">환율</span>
+              <input class="nt-c r" id="tn-rate" inputmode="decimal" placeholder="0" onkeydown="tnKey(event,this)" oninput="numIn(this)" onblur="numFmt(this)"></div>
+            <div class="nt-f nt-sub" style="width:62px"><span class="nt-lab">구분</span>
+              <input class="nt-c cmb" id="tn-side" data-cmb="side" placeholder="ㅁ" autocomplete="off" spellcheck="false"
+                oninput="cmbInput(this)" onchange="cmbCommit(this)" onclick="cmbOpen(this)" onblur="cmbBlur(this)" onkeydown="tnKey(event,this)"></div>
           </div>
+          <div class="nt-f" style="width:62px"><span class="nt-lab">뒷번호</span>
+            <input class="nt-c" id="tn-phone" maxlength="4" inputmode="numeric" placeholder="0000"
+              onkeydown="tnKey(event,this)" oninput="this.value=this.value.replace(/\D/g,'')"></div>
+          <div class="nt-f" style="flex:1;min-width:86px"><span class="nt-lab">특이사항</span>
+            <input class="nt-c" id="tn-content" placeholder="메모 · 칸 없이 이것만 적어도 됩니다" onkeydown="tnKey(event,this)"></div>
+          <button class="btn-add" onclick="addTradeNotice()" style="white-space:nowrap;border-radius:0">등록</button>
         </div>
+        <div class="nt-hint">
+          <b>ㅎ</b>+Enter → 홍대 · <b>ㅇ</b> → 연남 · <b>u</b> → USD · <b>ㅁㅇ</b> → 매입 · Enter 로 다음 칸, 마지막 칸에서 바로 등록
+        </div>
+
         <div class="widget-body" id="trade-notices-list" style="overflow-y:auto"></div>
       </div>
-
     </div>
 
-    <!-- 가운데 컬럼 (5:5) -->
-    <div class="dash-col" style="flex:1;display:flex;flex-direction:column;gap:16px;height:796px">
-
-      <!-- 전달사항 -->
-      <div class="widget" style="flex:1">
-        <div class="widget-title">전달사항</div>
+    <!-- 2열 : 전달사항 -->
+    <div class="dash-col" style="flex:0.85;min-width:0">
+      <div class="widget" style="height:660px">
+        <div class="widget-title flex items-center justify-between">
+          <span>전달사항</span>
+          <span class="text-[10px] text-[#9CA3AF] font-normal">교대 인계</span>
+        </div>
         <div class="widget-form space-y-1.5">
           <textarea id="ho-content" rows="1" class="input-base resize-none" placeholder="전달 내용..."></textarea>
           <div class="flex gap-2">
@@ -153,96 +256,42 @@
           <button class="page-btn" id="ho-next" onclick="pg('ho',1)">▶</button>
         </div>
       </div>
-
-      <!-- 주요 거래 -->
-      <div class="widget" style="flex:1">
-        <div class="widget-title flex items-center justify-between">
-          <span>주요 거래 (오늘)</span>
-          <button onclick="resetMainTrades()" class="text-[10px] text-[#9CA3AF] hover:text-[#EF4444] border border-[#E5E7EB] hover:border-[#EF4444] rounded px-1.5 py-0.5 font-normal">초기화</button>
-        </div>
-        <div class="widget-form">
-          <div style="display:flex;gap:3px;align-items:center">
-            <select id="mt-time" class="input-base" style="width:82px;flex-shrink:0"></select>
-            <select id="mt-currency" class="input-base" style="width:72px;flex-shrink:0"></select>
-            <div style="flex:1"></div>
-            <input type="number" id="mt-amount" placeholder="금액" class="input-base" style="width:128px;flex-shrink:0">
-            <input type="number" id="mt-rate" placeholder="환율" class="input-base" style="width:90px;flex-shrink:0">
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
-            <input type="text" id="mt-note" placeholder="비고" class="input-base" style="flex:1">
-            <button onclick="addMainTrade()" class="btn-add" style="white-space:nowrap">등록</button>
-          </div>
-        </div>
-        <div class="widget-body">
-          <table class="w-full" style="table-layout:fixed;font-size:13px">
-            <thead class="text-[#6B7280] border-b sticky top-0 bg-white">
-              <tr>
-                <th class="py-1 text-left" style="width:54px;padding-right:12px">시간</th>
-                <th class="text-left" style="width:44px;padding-right:12px">권종</th>
-                <th class="text-left" style="width:80px;padding-right:12px">금액</th>
-                <th class="text-left" style="width:70px;padding-right:12px">환율</th>
-                <th class="text-left">비고</th>
-                <th style="width:18px"></th>
-              </tr>
-            </thead>
-            <tbody id="main-trades-list"></tbody>
-          </table>
-        </div>
-        <div class="page-ctrl">
-          <button class="page-btn" id="mt-prev" onclick="pg('mt',-1)">◀</button>
-          <span class="page-info" id="mt-pi"></span>
-          <button class="page-btn" id="mt-next" onclick="pg('mt',1)">▶</button>
-        </div>
-      </div>
-
     </div>
 
-    <!-- 오른쪽 컬럼 (5:5) -->
-    <div class="dash-col" style="flex:1;display:flex;flex-direction:column;gap:16px;height:796px">
+    <!-- 3열 : 캘린더 업무 체크리스트 / 내 업무 체크리스트 -->
+    <div class="dash-col" style="flex:0.95;min-width:0;display:flex;flex-direction:column;gap:16px;height:660px">
 
-      <!-- 당일 업무 처리건 -->
-      <div class="widget" style="flex:1">
-        <div class="widget-title flex items-center justify-between">
-          <span>당일 업무 처리건</span>
-          <button onclick="resetDailyTasks()" class="text-[10px] text-[#9CA3AF] hover:text-[#EF4444] border border-[#E5E7EB] hover:border-[#EF4444] rounded px-1.5 py-0.5 font-normal">초기화</button>
+      <div class="widget ck ck-cal" style="flex:0 0 auto">
+        <div class="widget-title ck-hd">
+          <span class="ck-nm"><span class="ck-ic ck-ic-cal">📅</span>캘린더 업무</span>
+          <button class="ck-btn" onclick="calTaskLoad()" title="주간 메모에서 오늘 일정과 지난 미완료를 가져옵니다">⟳ 불러오기</button>
+          <span class="ck-when" id="ck-cal-when">안 불러옴</span>
+          <span id="ck-cal-cnt" class="ck-cnt">0 / 0</span>
+        </div>
+        <div class="widget-body" id="cal-task-list" style="overflow-y:auto"></div>
+        <div class="ck-foot">체크하면 위 주간 메모에도 완료로 표시됩니다</div>
+      </div>
+
+      <div class="widget ck ck-my" style="flex:1 1 auto;min-height:0">
+        <div class="widget-title ck-hd">
+          <span class="ck-nm"><span class="ck-ic ck-ic-my">✓</span>업무<span class="ck-share">공용</span></span>
+          <select id="dt-branch" class="ck-sel" title="불러올 지점"></select>
+          <button class="ck-btn" onclick="taskLoad()" title="업무관리에 적어둔 그 지점 업무를 가져옵니다">⟳ 불러오기</button>
+          <span class="ck-when" id="ck-my-when"></span>
+          <span id="ck-my-cnt" class="ck-cnt">0 / 0</span>
+          <button onclick="resetDailyTasks()" class="ck-reset">초기화</button>
         </div>
         <div class="widget-form">
           <div class="flex gap-2">
-            <input type="text" id="dt-content" class="input-base flex-1" placeholder="처리할 업무...">
-            <button onclick="addDailyTask()" class="btn-add">등록</button>
+            <input type="text" id="dt-content" class="input-base flex-1" placeholder="할 일 추가">
+            <button onclick="addDailyTask()" class="btn-add">추가</button>
           </div>
         </div>
-        <div class="widget-body" id="daily-tasks-list"></div>
+        <div class="widget-body" id="daily-tasks-list" style="overflow-y:auto"></div>
         <div class="page-ctrl">
           <button class="page-btn" id="dt-prev" onclick="pg('dt',-1)">◀</button>
           <span class="page-info" id="dt-pi"></span>
           <button class="page-btn" id="dt-next" onclick="pg('dt',1)">▶</button>
-        </div>
-      </div>
-
-      <!-- 지점간 이동 (당일거래 전달사항과 위치 교체 — 좁은 자리로) -->
-      <div class="widget" style="flex:1">
-        <div class="widget-title flex items-center justify-between">
-          <span>지점간 이동</span>
-          <button onclick="resetTransfers()" class="text-[10px] text-[#9CA3AF] hover:text-[#EF4444] border border-[#E5E7EB] hover:border-[#EF4444] rounded px-1.5 py-0.5 font-normal">초기화</button>
-        </div>
-        <div class="widget-form">
-          <div style="display:flex;gap:6px;align-items:flex-start">
-            <textarea id="tr-memo" rows="1" placeholder="메모 입력 (여러 줄 OK)" class="input-base"
-              style="flex:1;min-width:0;resize:none;font-family:inherit;line-height:1.45;max-height:160px;overflow-y:auto"
-              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'"></textarea>
-            <button onclick="addTransfer()" class="btn-add" style="flex-shrink:0;margin-top:1px">저장</button>
-          </div>
-        </div>
-        <div class="widget-body text-xs" style="overflow-y:auto">
-          <table class="w-full">
-            <tbody id="transfer-list"></tbody>
-          </table>
-        </div>
-        <div class="page-ctrl">
-          <button class="page-btn" id="tr-prev" onclick="pg('tr',-1)">◀</button>
-          <span class="page-info" id="tr-pi"></span>
-          <button class="page-btn" id="tr-next" onclick="pg('tr',1)">▶</button>
         </div>
       </div>
 
@@ -256,36 +305,46 @@
 <script>
 mbBoot('index.html');
 
-document.getElementById('mt-currency').innerHTML = MB.CURRENCIES.map(c=>`<option value="${c}">${c}</option>`).join('');
 document.getElementById('ho-date').value = today();
 
-// 시간 선택: 정시/30분 only
-(function() {
-  const now = new Date();
-  const curH = now.getHours(), curM = now.getMinutes();
-  const sel = document.getElementById('mt-time');
-  let opts = '', defVal = '';
-  for (let h = 0; h < 24; h++) {
-    const hh = String(h).padStart(2,'0');
-    ['00','30'].forEach(mm => {
-      const val = `${hh}:${mm}`;
-      opts += `<option value="${val}">${val}</option>`;
-      if (!defVal || (h < curH) || (h === curH && Number(mm) <= (curM < 30 ? 0 : 30))) defVal = val;
-    });
-  }
-  sel.innerHTML = opts;
-  sel.value = defVal;
+//  업무 불러오기 지점 — 로그인한 사람 지점을 기본으로 고른다
+(function(){
+  const sel = document.getElementById('dt-branch');
+  if (!sel) return;
+  const bs = taskBranches();
+  sel.innerHTML = bs.map(b => `<option value="${_escA(b)}">${_esc(b)}</option>`).join('');
+  const me = getCurrentUser();
+  if (me && me.branch && bs.indexOf(me.branch) >= 0) sel.value = me.branch;
 })();
 
-// ─── 초기화 ───
-function resetWidget(key, label, clearFn) {
-  if (!confirm(`정말 [${label}] 데이터를 초기화 하겠습니까?`)) return;
-  clearFn();
+
+// ─── 삭제 공통 ───
+//  ✕ 하나를 지울 때: 확인창을 띄우고, 지우기 전에 기록 로그에 원본을 남긴다(30일 안에 되돌릴 수 있음).
+//  예전에는 전달사항·주요거래·당일업무가 확인창도 없이 즉시 지워졌고, 되돌릴 방법이 아예 없었다.
+function delOne(label, storeKey, id, descFn, after) {
+  const it = mbGetOrDefault(storeKey, []).find(x => x.id === id);
+  if (!it) return;
+  let d = '';
+  try { d = descFn(it) || ''; } catch (e) { d = ''; }
+  if (!confirm(`[${label}] 삭제할까요?\n\n${d}\n\n기록 로그에서 30일 안에 되돌릴 수 있습니다.`)) return;
+  if (typeof mbLogDelete === 'function') mbLogDelete(`${label} 삭제`, storeKey, [it], descFn);
+  mbRemove(storeKey, x => x.id === id);
+  if (after) after();
 }
-function resetTradeNotices() { resetWidget('tn','당일거래 전달사항', () => { mbSet(MB.TRADE_NOTICES_KEY, []); _pg.tn=0; renderTradeNotices(); }); }
-function resetDailyTasks()   { resetWidget('dt','당일 업무 처리건',  () => { mbSet(MB.DAILY_TASKS_KEY, []); _pg.dt=0; renderDailyTasks(); }); }
-function resetMainTrades()   { resetWidget('mt','주요 거래',         () => { mbSet(MB.MAIN_TRADES_KEY, mbGetOrDefault(MB.MAIN_TRADES_KEY,[]).filter(x=>x.date!==today())); _pg.mt=0; renderMainTrades(); }); }
-function resetTransfers()    { resetWidget('tr','지점간 이동',       () => { mbSet(MB.TRANSFERS_KEY, mbGetOrDefault(MB.TRANSFERS_KEY,[]).filter(x=>x.date!==today())); _pg.tr=0; renderTransfers(); }); }
+
+// ─── 초기화 ───
+//  여러 건을 한 번에 지우므로 몇 건인지 먼저 알려주고, 원본 전체를 기록 로그에 남긴다.
+function resetWidget(label, storeKey, pickFn, descFn) {
+  const all  = mbGetOrDefault(storeKey, []);
+  const gone = all.filter(pickFn);
+  if (!gone.length) { alert(`[${label}] 에 지울 내용이 없습니다.`); return false; }
+  if (!confirm(`[${label}] ${gone.length}건을 모두 지웁니다.\n\n기록 로그에서 30일 안에 되돌릴 수 있습니다.\n\n진행할까요?`)) return false;
+  if (typeof mbLogDelete === 'function') mbLogDelete(`${label} 초기화`, storeKey, gone, descFn);
+  mbSet(storeKey, all.filter(x => gone.indexOf(x) < 0));
+  return true;
+}
+function resetTradeNotices() { if (resetWidget('당일거래 전달사항', MB.TRADE_NOTICES_KEY, () => true,             x => x.content || ''))                                 { _pg.tn=0; renderTradeNotices(); if (tradeBC) tradeBC.postMessage('update'); } }
+function resetDailyTasks()   { if (resetWidget('당일 업무 처리건',  MB.DAILY_TASKS_KEY,  () => true,             x => x.content || ''))                                 { _pg.dt=0; renderDailyTasks(); } }
 
 // ─── 페이지네이션 ───
 const _pg = { ho:0, tn:0, mt:0, dt:0, tr:0 };
@@ -293,7 +352,7 @@ const PG5 = 5, PG10 = 10;
 
 function pg(key, d) {
   _pg[key] += d;
-  ({ ho: renderHandovers, tn: renderTradeNotices, mt: renderMainTrades, dt: renderDailyTasks, tr: renderTransfers })[key]();
+  ({ ho: renderHandovers, tn: renderTradeNotices, dt: renderDailyTasks })[key]();
 }
 
 function applyPg(key, total, size) {
@@ -349,11 +408,7 @@ function addHandover() {
   renderHandovers();
 }
 function toggleHandover(id) { mbUpdate(MB.HANDOVERS_KEY, x=>x.id===id, x=>x.done=!x.done); renderHandovers(); }
-function deleteHandover(id) {
-  if (!confirm('삭제하시겠습니까?')) return;
-  mbRemove(MB.HANDOVERS_KEY, x => x.id===id);
-  renderHandovers();
-}
+function deleteHandover(id) { delOne('인계사항', MB.HANDOVERS_KEY, id, x => x.content || '', renderHandovers); }
 function _esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function renderHandovers() {
   const t   = today();
@@ -374,68 +429,308 @@ function renderHandovers() {
 const tradeBC = ('BroadcastChannel' in window) ? new BroadcastChannel('mb_trade_notices') : null;
 if (tradeBC) tradeBC.onmessage = () => renderTradeNotices();
 
+/* ───────── 당일거래 전달사항 ─────────
+   레코드:  { id, content, createdBy, createdAt, done,
+             branch?, time?, currency?, amount?, rate?, side?, phone4? }
+   칸(branch 등)은 **새로 등록하는 것에만** 붙는다. 예전에 쌓인 전달사항은
+   content 문장만 있는 그대로 두고 '지점 미지정' 으로 보여준다 — 기존 데이터를 고쳐 쓰지 않는다. */
+const TN_BRANCHES = ['홍대','연남'];
+const TN_SIDES    = ['매입','매각'];
+
+/* 공용 콤보박스 — 리스트·거래관리와 같은 동작 (ㅎ→홍대, u→USD) */
+const CMB = {
+  branch: { list: () => TN_BRANCHES, upper:false },
+  side:   { list: () => TN_SIDES,    upper:false },
+  cur:    { list: () => (MB.CURRENCIES || []).filter(c => c !== 'KRW'), upper:true, ko:true },
+};
+let _cmbEl=null, _cmbIdx=-1, _cmbItems=[], _cmbFilt=false, _cmbPicked=null;
+//  한글 초성 검색 — 'ㅎ' 로 '홍대', 'ㅁㅇ' 로 '매입' 을 찾게 한다.
+//  '홍대'.indexOf('ㅎ') 는 -1 이다(초성은 완성된 글자의 앞부분이 아니다). 그래서 따로 풀어 준다.
+const _CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+function _choOf(s) {
+  return String(s == null ? '' : s).split('').map(function (ch) {
+    const c = ch.charCodeAt(0);
+    return (c >= 0xAC00 && c <= 0xD7A3) ? _CHO[Math.floor((c - 0xAC00) / 588)] : ch;
+  }).join('');
+}
+//  앞글자로 시작하거나, 초성으로 시작하면 후보로 본다
+function _startsKo(item, q) {
+  return item.indexOf(q) === 0 || _choOf(item).indexOf(q) === 0;
+}
+//  통화는 한글 이름으로도 찾게 한다 — '미국'·'ㅁㄱ'·'달러' → USD.
+//  코드(USD)·한글 이름 어느 쪽이 걸려도 후보로 본다. 이름 안쪽 단어도 걸린다('달러' → 달러 쓰는 나라들).
+function _curHit(code, q) {
+  if (_startsKo(code, q)) return true;
+  const ko = (typeof MB !== 'undefined' && MB.CUR_KO) ? (MB.CUR_KO[code] || '') : '';
+  if (!ko) return false;
+  if (ko.indexOf(q) >= 0) return true;
+  const cq = _choOf(q);
+  //  초성으로 친 경우에만 초성 비교를 한다(완성된 글자를 친 건 위에서 이미 걸렀다)
+  return cq === q && _choOf(ko).indexOf(cq) >= 0;
+}
+//  그 칸이 통화 칸인지에 따라 매칭 방식을 고른다
+//  찾은 순서 — 친 글자로 '시작하는' 나라를 위로 올린다.
+//  'ㄷ' 을 치면 대만이 맨 위, 그 다음 달러 쓰는 나라들. 안 그러면 대만이 9번째로 묻힌다.
+function _curRank(code, q) {
+  if (_startsKo(code, q)) return 0;                                  // 코드가 그 글자로 시작 (u → USD)
+  const ko = (typeof MB !== 'undefined' && MB.CUR_KO) ? (MB.CUR_KO[code] || '') : '';
+  const words = ko.split(' ').filter(Boolean);
+  const cq = _choOf(q);
+  const starts = s => s.indexOf(q) === 0 || _choOf(s).indexOf(cq) === 0;
+  if (words.length && starts(words[0])) return 1;                    // 나라 이름이 그 글자로 시작 (ㄷ → 대만)
+  if (words.some(starts)) return 2;                                  // 뒷 단어가 시작 (ㄷ → 달러)
+  return 3;                                                          // 어딘가 들어 있음
+}
+function _curSort(list, q) {
+  return list.map((c, i) => ({ c, i, r: _curRank(c, q) }))
+             .sort((a, b) => a.r - b.r || a.i - b.i)
+             .map(x => x.c);
+}
+function _cmbHit(el, c, q) { return (cmbKind(el).ko ? _curHit(c, q) : _startsKo(c, q)); }
+function cmbKind(el){ return CMB[el && el.dataset ? el.dataset.cmb : ''] || CMB.cur; }
+function cmbList(el){ return cmbKind(el).list(); }
+function cmbNorm(el,v){ const s=String(v==null?'':v).trim(); return cmbKind(el).upper ? s.toUpperCase() : s; }
+function cmbPop(){ return document.getElementById('cmb-pop'); }
+function cmbOpened(){ const p=cmbPop(); return !!(p && p.style.display==='block'); }
+function cmbInit(){
+  if (document.getElementById('cmb-pop')) return;
+  const p=document.createElement('div'); p.id='cmb-pop'; p.className='cmb-pop'; document.body.appendChild(p);
+  p.addEventListener('mousedown', e=>e.preventDefault());
+  p.addEventListener('click', e=>{ const d=e.target.closest('.cmb-op'); if(d) cmbPick(d.dataset.c); });
+  window.addEventListener('scroll', cmbPos, true);
+  window.addEventListener('resize', cmbPos);
+}
+function cmbRender(){
+  if(!_cmbEl) return;
+  const kind=cmbKind(_cmbEl), all=cmbList(_cmbEl), v=cmbNorm(_cmbEl,_cmbEl.value);
+  _cmbItems = (_cmbFilt && v) ? all.filter(c=>_cmbHit(_cmbEl, c, v)) : all.slice();
+  if (_cmbFilt && v && kind.ko) _cmbItems = _curSort(_cmbItems, v);
+  // 맞는 게 없으면 전체를 보여주되 아무 줄도 고르지 않는다 (Enter 한 번에 엉뚱한 값이 들어가는 걸 막는다)
+  if(!_cmbItems.length){ _cmbItems=all.slice(); _cmbIdx=-1; }
+  const p=cmbPop(); if(!_cmbItems.length){ p.style.display='none'; return; }
+  _cmbIdx = (_cmbIdx<0) ? -1 : Math.max(0, Math.min(_cmbItems.length-1,_cmbIdx));
+  p.innerHTML=_cmbItems.map((c,i)=>`<div class="cmb-op${i===_cmbIdx?' on':''}" data-c="${_escA(c)}"><b>${_esc(c)}</b>${kind.ko&&MB.curName(c)?`<span class="cmb-ko">${_esc(MB.curName(c))}</span>`:''}</div>`).join('');
+  p.style.display='block'; cmbPos();
+  const on=p.querySelector('.cmb-op.on'); if(on&&on.scrollIntoView) on.scrollIntoView({block:'nearest'});
+}
+function cmbPos(){
+  const p=cmbPop(); if(!_cmbEl||!p||p.style.display!=='block') return;
+  const r=_cmbEl.getBoundingClientRect();
+  if(r.bottom<0||r.top>innerHeight){ cmbClose(); return; }
+  p.style.minWidth=Math.max(72,Math.round(r.width))+'px';
+  p.style.left=Math.round(Math.min(r.left,innerWidth-p.offsetWidth-8))+'px';
+  p.style.top=(r.bottom+2+p.offsetHeight>innerHeight) ? Math.round(r.top-p.offsetHeight-2)+'px' : Math.round(r.bottom+2)+'px';
+}
+function cmbOpen(el){
+  if(cmbOpened()&&_cmbEl===el) return;
+  cmbInit(); _cmbEl=el; _cmbFilt=false;
+  _cmbIdx = cmbList(el).indexOf(cmbNorm(el,el.value));
+  cmbRender();
+}
+function cmbClose(){ const p=cmbPop(); if(p) p.style.display='none'; _cmbEl=null; _cmbIdx=-1; _cmbFilt=false; }
+function cmbPick(c){ const el=_cmbEl; cmbClose(); if(!el) return; el.value=c; el.dataset.prev=c; el.dispatchEvent(new Event('change',{bubbles:true})); }
+function cmbInput(el){
+  const up=cmbKind(el).upper ? String(el.value||'').toUpperCase() : el.value;
+  if(up!==el.value){ const p=el.selectionStart; el.value=up; try{el.setSelectionRange(p,p);}catch(e){} }
+  //  타이핑 중에는 아무 줄도 미리 고르지 않는다(-1).
+  //  0 으로 두면 'T'+Enter 한 번에 목록 첫 줄(TWD)이 들어가 태국(THB)을 치려다 대만이 저장된다.
+  //  'ㅁ'+Enter 도 매입이 들어가 돈의 방향이 뒤바뀐다. 후보가 하나뿐일 때만 Enter 로 바로 확정한다.
+  _cmbEl=el; _cmbIdx=-1; _cmbFilt=true; _cmbPicked=null; cmbInit(); cmbRender();
+}
+function cmbBlur(el){ if(_cmbEl===el) cmbClose(); _cmbPicked=null; cmbCommit(el); }
+function cmbCommit(el){
+  const all=cmbList(el), v=cmbNorm(el,el.value);
+  let hit='';
+  if(v!==''){
+    if (all.indexOf(v) >= 0) hit = v;
+    else {
+      const m = all.filter(c => _startsKo(c, v));
+      //  후보가 딱 하나면 채워 주고(jp → JPY, ㅁㅇ → 매입),
+      //  여럿이면 **비운다**. 'ㅁ' 은 매입·매각 둘 다라, 멋대로 고르면 돈의 방향이 뒤바뀐다.
+      //  아예 못 알아본 입력(오타·잘못 누름)이면 원래 값을 지킨다 — 칸이 비면 그게 저장된다.
+      //  대시보드 전달사항은 '직전 값 되살리기' 를 쓰지 않는다.
+      //  등록 후 지점칸을 일부러 남겨두기 때문에, 'ㄴ' 처럼 못 알아듣는 글자를 치면
+      //  직전 지점(홍대)이 조용히 되살아나 연남 손님이 홍대 밑으로 들어갔다.
+      hit = (m.length === 1) ? m[0] : '';
+    }
+  }
+  el.value=hit; el.dataset.prev=hit;
+}
+
+/* 입력칸 Enter 이동 — 마지막 칸에서 바로 등록 */
+const TN_IDS = ['tn-branch','tn-time','tn-cur','tn-amt','tn-rate','tn-side','tn-phone','tn-content'];
+function tnKey(e, el){
+  if (mbComposing(e)) return;
+  if (el.dataset.cmb){                       // 콤보 칸은 목록 조작이 우선
+    if (e.key==='ArrowDown'||e.key==='ArrowUp'){
+      if(!cmbOpened()) return;
+      if(_cmbIdx<0) _cmbIdx = (e.key==='ArrowDown')?0:_cmbItems.length-1;
+      else _cmbIdx += (e.key==='ArrowDown'?1:-1);
+      cmbRender(); e.preventDefault(); return;
+    }
+    if (e.key==='Escape'){ if(cmbOpened()) cmbClose(); return; }
+    //  Enter 와 Tab 둘 다 '고른 값 확정' 으로 쓴다. ↓ 로 골라 놓고 Tab 을 눌렀는데
+    //  그 선택이 날아가면 빠르게 치다가 엉뚱한 값이 들어간다.
+    if ((e.key==='Enter'||e.key==='Tab') && cmbOpened()){
+      const p = (_cmbIdx >= 0 ? _cmbItems[_cmbIdx] : (_cmbItems.length === 1 ? _cmbItems[0] : null));
+      if(p) cmbPick(p); else cmbClose();
+      if (e.key==='Enter'){ e.preventDefault(); _cmbPicked=el; return; }
+      // Tab 은 여기서 막지 않는다 — 아래 공통 이동으로 넘어간다
+    }
+    if (e.key==='Enter' && _cmbPicked===el){ _cmbPicked=null; }
+  }
+  //  Tab 도 Enter 와 똑같이 다음 칸으로 — 손에 익은 쪽 아무거나 쓰면 된다.
+  //  Shift+Tab 은 브라우저 기본(뒤로)에 맡긴다.
+  if (e.key!=='Enter' && !(e.key==='Tab' && !e.shiftKey)) return;
+  const i=TN_IDS.indexOf(el.id);
+  if (i<0) return;
+  if (i===TN_IDS.length-1){
+    //  마지막 칸: Enter 는 바로 등록, Tab 은 등록 버튼으로 (실수로 등록되지 않게)
+    e.preventDefault();
+    if (e.key==='Enter') addTradeNotice();
+    else { const b=document.querySelector('.nt-in .btn-add'); if(b) b.focus(); }
+    return;
+  }
+  e.preventDefault();
+  const n=document.getElementById(TN_IDS[i+1]);
+  if(n){ n.focus(); if(n.select) try{n.select();}catch(err){} }
+}
+function tnTimeIn(el){
+  let v=el.value.replace(/[^\d:]/g,'');
+  if(v.length===2 && v.indexOf(':')<0) v=v+':';     // 두 자리 치면 콜론을 붙여 준다
+  el.value=v.slice(0,5);
+}
+//  칸을 빠져나갈 때 모양을 맞춘다. 빠르게 치면 콜론이 안 들어가 '1530' 으로 남는다.
+//  1530 → 15:30, 930 → 09:30, 9 → 09:00. 범위를 넘으면 잘라 준다(25:99 → 23:59).
+function tnTimeFix(el){
+  const d=String(el.value).replace(/\D/g,'');
+  if(!d){ el.value=''; return; }
+  let h, m;
+  if(d.length<=2){ h=Number(d); m=0; }
+  else if(d.length===3){ h=Number(d[0]); m=Number(d.slice(1)); }
+  else { h=Number(d.slice(0,2)); m=Number(d.slice(2,4)); }
+  if(h>23) h=23; if(m>59) m=59;
+  el.value=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+}
+function numIn(el){ el.value=el.value.replace(/[^\d.,]/g,''); }
+//  소수점을 깎지 않는다. 기본값이 소수 3자리라 VND·IDR 환율(0.0566)이 0.057 로 바뀌어 저장됐다.
+function numFmt(el){ const n=Number(String(el.value).replace(/,/g,'')); el.value=(el.value.trim()===''||isNaN(n))?'':n.toLocaleString('ko-KR',{maximumFractionDigits:6}); }
+function rateTxt(v){ return v ? Number(v).toLocaleString('ko-KR',{maximumFractionDigits:6}) : '-'; }
+function numVal(el){ const n=Number(String(el.value).replace(/,/g,'')); return isNaN(n)?0:n; }
+
 function toggleTradeNotice(id) { mbUpdate(MB.TRADE_NOTICES_KEY, x=>x.id===id, x=>x.done=!x.done); renderTradeNotices(); if (tradeBC) tradeBC.postMessage('update'); }
 function addTradeNotice() {
-  const content = document.getElementById('tn-content').value.trim();
-  if (!content) return;
-  mbPush(MB.TRADE_NOTICES_KEY, { id:uid(), content, createdBy:getCurrentUser().name, createdAt:nowTs(), done:false });
-  document.getElementById('tn-content').value = '';
+  const g = id => document.getElementById(id);
+  //  콤보 칸은 읽기 전에 한 번 확정한다. 'ㅎ' 처럼 고르다 만 값이 그대로 저장되면
+  //  지점이 'ㅎ' 인 레코드가 생겨 어느 그룹에도 안 들어간다.
+  const raw = { 'tn-branch':'지점', 'tn-cur':'외화', 'tn-side':'구분' };
+  const typed = {};
+  Object.keys(raw).forEach(id => { typed[id] = g(id).value.trim(); cmbCommit(g(id)); });
+  //  글자는 쳤는데 못 알아들어 칸이 비었으면, 조용히 넘어가지 말고 알려 준다
+  for (const id of Object.keys(raw)) {
+    if (typed[id] && !g(id).value) {
+      alert(`${raw[id]}을(를) 알아듣지 못했습니다: "${typed[id]}"
+목록에서 골라 주세요.`);
+      g(id).focus(); return;
+    }
+  }
+  const branch  = g('tn-branch').value.trim();
+  const time    = g('tn-time').value.trim();
+  const currency= g('tn-cur').value.trim().toUpperCase();
+  const amount  = numVal(g('tn-amt'));
+  const rate    = numVal(g('tn-rate'));
+  const side    = g('tn-side').value.trim();
+  const phone4  = g('tn-phone').value.trim();
+  const content = g('tn-content').value.trim();
+  // 칸을 하나도 안 채우고 메모만 적어도 등록된다 (예약·연락처럼 칸으로 안 떨어지는 건)
+  if (!content && !branch && !currency && !amount) { g('tn-branch').focus(); return; }
+  const rec = { id:uid(), date:today(), content, createdBy:getCurrentUser().name, createdAt:nowTs(), done:false };
+  if (branch)   rec.branch = branch;
+  if (time)     rec.time = time;
+  if (currency) rec.currency = currency;
+  if (amount)   rec.amount = amount;
+  if (rate)     rec.rate = rate;
+  if (side)     rec.side = side;
+  if (phone4)   rec.phone4 = phone4;
+  mbPush(MB.TRADE_NOTICES_KEY, rec);
+  ['tn-time','tn-cur','tn-amt','tn-rate','tn-side','tn-phone','tn-content'].forEach(id=>{
+    const el=g(id); el.value=''; delete el.dataset.prev;        // 지점은 그대로 둬야 연달아 넣기 편하다
+  });
   _pg.tn = 0;
   renderTradeNotices();
+  g('tn-time').focus();
   if (tradeBC) tradeBC.postMessage('update');
 }
 function deleteTradeNotice(id) {
-  mbRemove(MB.TRADE_NOTICES_KEY, x => x.id===id);
-  renderTradeNotices();
-  if (tradeBC) tradeBC.postMessage('update');
+  delOne('당일거래 전달사항', MB.TRADE_NOTICES_KEY, id, tnDesc,
+    () => { renderTradeNotices(); if (tradeBC) tradeBC.postMessage('update'); });
 }
+function tnDesc(n){
+  if (n.currency || n.amount) return `${n.branch||''} ${n.time||''} ${n.currency||''} ${fmtNum(n.amount)} ${n.side||''}`.trim();
+  return n.content || '';
+}
+//  시간이 적혀 있으면 그 순서로, 없으면 맨 뒤로
+function tnTimeKey(n){ return (n.time && /^\d{1,2}:\d{2}$/.test(n.time)) ? n.time.padStart(5,'0') : '~~~~~'; }
+
 function renderTradeNotices() {
-  const all  = mbGetOrDefault(MB.TRADE_NOTICES_KEY, []).sort((a,b) => b.createdAt - a.createdAt);
-  document.getElementById('trade-notices-list').innerHTML = all.length === 0
-    ? '<p class="text-xs text-[#9CA3AF] text-center py-4">전달 없음</p>'
-    : all.map(n => {
-        const ts = new Date(n.createdAt);
-        const tf = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
-        return `<div class="list-item" style="padding:.5rem .75rem;gap:.625rem">
-          <input type="checkbox" ${n.done?'checked':''} onchange="toggleTradeNotice('${n.id}')" class="w-3.5 h-3.5 accent-[#F5A623] shrink-0 cursor-pointer">
-          <span class="text-xs text-[#9CA3AF] shrink-0">${tf}</span>
-          <span class="text-sm truncate flex-1 ${n.done?'line-through text-[#9CA3AF]':'text-[#1A1A2E]'}">${n.content}</span>
-          <button onclick="deleteTradeNotice('${n.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-sm shrink-0 ml-auto">✕</button>
-        </div>`;
-      }).join('');
+  const all = mbGetOrDefault(MB.TRADE_NOTICES_KEY, []);
+  const host = document.getElementById('trade-notices-list');
+  if (!host) return;
+  if (!all.length) { host.innerHTML = '<p class="text-xs text-[#9CA3AF] text-center py-4">전달 없음</p>'; return; }
+
+  //  오늘 건만 지점별로 보여주고, 지난 날짜 미완료는 맨 아래 따로 묶는다.
+  //  (날짜 칸이 없는 예전 레코드는 등록 시각으로 판단한다 — 기존 데이터를 고쳐 쓰지 않는다)
+  const t0 = new Date(today() + 'T00:00:00').getTime();
+  const isToday = n => n.date ? n.date === today() : (n.createdAt || 0) >= t0;
+  const cur = all.filter(isToday);
+  const old = all.filter(n => !isToday(n) && !n.done);
+  const groups = [
+    { key:'홍대', cls:'h', rows: cur.filter(n => n.branch === '홍대') },
+    { key:'연남', cls:'y', rows: cur.filter(n => n.branch === '연남') },
+    { key:'지점 미지정', cls:'e', rows: cur.filter(n => n.branch !== '홍대' && n.branch !== '연남') },
+    { key:'지난 전달사항 (아직 안 끝남)', cls:'o', rows: old, past:true },
+  ];
+  const hd = `<div class="nt-hd">
+      <span style="width:54px">시간</span><span style="width:56px">외화</span>
+      <span class="g" style="flex:1.5;min-width:190px;text-align:center">수량 ✕ 환율 · 구분</span>
+      <span style="width:58px">뒷번호</span><span style="flex:1;min-width:82px">특이사항</span>
+      <span style="width:18px"></span></div>`;
+
+  host.innerHTML = groups.filter(g => g.rows.length).map(g => {
+    g.rows.sort((a,b) => tnTimeKey(a).localeCompare(tnTimeKey(b)) || (a.createdAt||0)-(b.createdAt||0));
+    const buy  = g.rows.filter(n => n.side === '매입').length;
+    const sell = g.rows.filter(n => n.side === '매각').length;
+    const sum  = [sell?`매각 ${sell}`:'', buy?`매입 ${buy}`:''].filter(Boolean).join(' · ');
+    const head = `<div class="br-hd br-hd-${g.cls}"><span class="br-dot"></span>${_esc(g.key)}
+        <span class="br-n">${g.rows.length}건</span><span class="br-sum">${_esc(sum)}</span></div>`;
+    const structured = g.rows.some(n => n.currency || n.amount);
+    const body = g.rows.map(n => {
+      const chk = `<input type="checkbox" ${n.done?'checked':''} onchange="toggleTradeNotice('${n.id}')" class="nt-ck">`;
+      const del = `<span style="width:18px;text-align:center"><button onclick="deleteTradeNotice('${n.id}')" class="text-[#D1D5DB] hover:text-[#EF4444]">✕</button></span>`;
+      const cls = `nt-row ${n.side==='매각'?'sell':n.side==='매입'?'buy':'memo'}${n.done?' done':''}`;
+      //  시간을 안 적었으면 등록 시각을 흐리게 보여준다 — 날짜·시각이 통째로 비는 줄이 없게
+      const ts = new Date(n.createdAt || 0);
+      const auto = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
+      const tcell = n.time ? `<b>${_esc(n.time)}</b>` : `<span style="color:#C4C7CE">${n.createdAt?auto:''}</span>`;
+      const dbadge = g.past && n.date ? `<span class="nt-dt">${_esc(n.date.slice(5).replace('-','/'))}</span>` : '';
+      if (!(n.currency || n.amount)) {              // 칸으로 안 떨어지는 건 — 문장 그대로
+        return `<div class="${cls}">${chk}<span style="width:54px">${dbadge}${tcell}</span>
+          <span style="flex:1">${_esc(n.content||'')}</span>${del}</div>`;
+      }
+      const pill = n.side ? `<em class="pill ${n.side==='매각'?'sell':'buy'}">${_esc(n.side)}</em>` : '';
+      return `<div class="${cls}">${chk}
+        <span style="width:54px">${dbadge}${tcell}</span>
+        <span style="width:56px"><b>${_esc(n.currency||'')}</b></span>
+        <span class="g" style="flex:1.5;min-width:190px"><b class="amt">${fmtNum(n.amount)}</b><i class="x">✕</i><b class="rt">${rateTxt(n.rate)}</b>${pill}</span>
+        <span style="width:58px">${_esc(n.phone4||'')}</span>
+        <span style="flex:1;min-width:82px">${_esc(n.content||'')}</span>${del}</div>`;
+    }).join('');
+    return head + (structured ? hd : '') + body;
+  }).join('');
 }
 setInterval(renderTradeNotices, 5000);
 
 // ─── 주요 거래 ───
-function addMainTrade() {
-  const time   = document.getElementById('mt-time').value;
-  const amount = Number(document.getElementById('mt-amount').value);
-  const rate   = Number(document.getElementById('mt-rate').value) || 0;
-  if (!amount) { alert('금액을 입력하세요.'); return; }
-  mbPush(MB.MAIN_TRADES_KEY, { id:uid(), date:today(), time, currency:document.getElementById('mt-currency').value, rate, amount, note:document.getElementById('mt-note').value });
-  document.getElementById('mt-amount').value = '';
-  document.getElementById('mt-rate').value = '';
-  document.getElementById('mt-note').value = '';
-  _pg.mt = 0;
-  renderMainTrades();
-}
-function deleteMainTrade(id) { mbRemove(MB.MAIN_TRADES_KEY, x => x.id===id); renderMainTrades(); }
-function renderMainTrades() {
-  const all = mbGetOrDefault(MB.MAIN_TRADES_KEY, []).filter(x => x.date===today()).sort((a,b) => a.time.localeCompare(b.time));
-  const { s, e } = applyPg('mt', all.length, PG10);
-  document.getElementById('main-trades-list').innerHTML = all.length === 0
-    ? '<tr><td colspan="6" class="text-center text-[#9CA3AF] py-4 text-xs">오늘 거래 없음</td></tr>'
-    : all.slice(s, e).map(t => `
-      <tr class="border-b">
-        <td class="py-1 text-left" style="padding-right:12px">${t.time}</td>
-        <td class="text-left font-medium" style="padding-right:12px">${t.currency}</td>
-        <td class="text-left font-medium text-[#1A1A2E]" style="padding-right:12px">${fmtNum(t.amount)}</td>
-        <td class="text-left text-[#6B7280]" style="padding-right:12px">${t.rate ? fmtNum(t.rate) : '-'}</td>
-        <td class="text-[#6B7280] truncate text-left">${t.note||''}</td>
-        <td class="text-right w-5"><button onclick="deleteMainTrade('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444]">✕</button></td>
-      </tr>`).join('');
-}
-
 // ─── 당일 업무 ───
 function addDailyTask() {
   const content = document.getElementById('dt-content').value.trim();
@@ -445,70 +740,140 @@ function addDailyTask() {
   _pg.dt = 0;
   renderDailyTasks();
 }
-function toggleDailyTask(id) { mbUpdate(MB.DAILY_TASKS_KEY, x=>x.id===id, x=>x.done=!x.done); renderDailyTasks(); }
-function deleteDailyTask(id)  { mbRemove(MB.DAILY_TASKS_KEY, x=>x.id===id); renderDailyTasks(); }
+//  홍대·연남이 같이 보는 체크리스트다. 누가 체크했는지 남겨야 서로 알아본다.
+//  (mb_daily_tasks 는 이미 동기화 대상이라 체크는 바로 상대 지점 화면에도 간다)
+function toggleDailyTask(id) {
+  const me = (getCurrentUser() || {}).name || '-';
+  mbUpdate(MB.DAILY_TASKS_KEY, x => x.id === id, x => {
+    x.done = !x.done;
+    if (x.done) { x.doneBy = me; x.doneAt = nowTime(); }
+    else { delete x.doneBy; delete x.doneAt; }
+  });
+  renderDailyTasks();
+}
+function deleteDailyTask(id)  { delOne('당일 업무', MB.DAILY_TASKS_KEY, id, x => x.content || '', renderDailyTasks); }
+//  업무관리(tasks.html)에 적어둔 지점 업무를 그대로 가져온다.
+//  업무관리 쪽 자료(mb_task_template_v2)는 **읽기만** 한다 — 거기서 고친 건 그대로 두고
+//  여기엔 복사본만 만든다. 이미 가져온 건은 다시 안 넣는다(srcId 로 구분).
+function taskBranches(){
+  const t = mbGetOrDefault('mb_task_template_v2', null);
+  return (t && typeof t === 'object') ? Object.keys(t) : ['홍대','연남'];
+}
+function taskRowsOf(branch){
+  const t = mbGetOrDefault('mb_task_template_v2', null);
+  const blocks = (t && t[branch]) ? t[branch] : [];
+  const out = [];
+  blocks.forEach(b => (b && b.tasks ? b.tasks : []).forEach(x => {
+    if (x && x.text) out.push({ id: x.id, time: x.time || '', text: x.text, block: (b.label || '') });
+  }));
+  return out;
+}
+function taskLoad(){
+  const sel = document.getElementById('dt-branch');
+  const br  = sel ? sel.value : '';
+  const rows = taskRowsOf(br);
+  const when = document.getElementById('ck-my-when');
+  if (!rows.length) { alert(`업무관리에 [${br}] 업무가 없습니다.`); return; }
+  const list = mbGetOrDefault(MB.DAILY_TASKS_KEY, []);
+  const have = new Set(list.filter(x => x.createdDate === today()).map(x => x.srcId).filter(Boolean));
+  const add  = rows.filter(r => !have.has(r.id));
+  if (!add.length) { if (when) when.textContent = `${br} · 이미 다 불러옴`; alert(`[${br}] 업무는 이미 다 불러왔습니다.`); return; }
+  if (!confirm(`[${br}] 업무 ${add.length}건을 체크리스트로 가져옵니다.
+이미 가져온 건은 빼고 넣습니다.
+
+진행할까요?`)) return;
+  add.forEach(r => list.push({
+    id: uid(), createdDate: today(), done: false,
+    content: (r.time ? r.time + ' ' : '') + r.text,
+    src: 'task', srcId: r.id, branch: br,
+  }));
+  mbSet(MB.DAILY_TASKS_KEY, list);
+  if (when) when.textContent = `${br} · ${add.length}건 불러옴`;
+  _pg.dt = 0;
+  renderDailyTasks();
+}
+
 function renderDailyTasks() {
   const all = mbGetOrDefault(MB.DAILY_TASKS_KEY, []).filter(x => x.createdDate===today());
+  const cnt = document.getElementById('ck-my-cnt');
+  if (cnt) cnt.textContent = `${all.filter(x => x.done).length} / ${all.length}`;
   const { s, e } = applyPg('dt', all.length, PG10);
   document.getElementById('daily-tasks-list').innerHTML = all.length === 0
     ? '<p class="text-xs text-[#9CA3AF] text-center py-4">업무 없음</p>'
     : all.slice(s, e).map(t => `
       <div class="list-item ${t.done?'faded':''}">
         <input type="checkbox" ${t.done?'checked':''} onchange="toggleDailyTask('${t.id}')" class="w-3 h-3 accent-[#F5A623] shrink-0">
-        <span class="text-xs truncate flex-1 ${t.done?'line-through text-[#9CA3AF]':'text-[#1A1A2E]'}">${t.content}</span>
+        ${t.src==='task'&&t.branch?`<span class="dt-br">${_esc(t.branch)}</span>`:''}
+        <span class="text-xs truncate flex-1 ${t.done?'line-through text-[#9CA3AF]':'text-[#1A1A2E]'}" title="${_escA(t.content||'')}">${_esc(t.content)}</span>
+        ${t.done&&t.doneBy?`<span class="dt-by" title="${_escA(t.doneBy+' · '+(t.doneAt||''))}">${_esc(t.doneBy)}</span>`:''}
         <button onclick="deleteDailyTask('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs shrink-0">✕</button>
       </div>`).join('');
 }
 
-// ─── 지점간 이동 ───
-function addTransfer() {
-  const memo = document.getElementById('tr-memo').value.trim();
-  if (!memo) { alert('내용을 입력하세요.'); return; }
-  mbPush(MB.TRANSFERS_KEY, { id:uid(), date:today(), memo, createdBy:getCurrentUser().name, createdAt:nowTs() });
-  const ta = document.getElementById('tr-memo');
-  ta.value = ''; ta.style.height = 'auto';
-  _pg.tr = 0;
-  renderTransfers();
+// ─── 캘린더 업무 체크리스트 ───
+//  주간 메모(mb_calendar_events)에서 '불러오기' 를 눌렀을 때만 가져온다.
+//  메모 레코드를 고쳐 쓰지 않는다 — 체크 상태는 그 메모의 done 칸에만 붙이고,
+//  칸이 없는 예전 메모는 '안 함' 으로 본다(기존 데이터 무손상).
+let _calTaskOn = false;      // 불러왔는가
+let _calTaskAt = '';         // 언제 불러왔는가
+
+function calTaskLoad(){
+  _calTaskOn = true;
+  _calTaskAt = nowTime();
+  renderCalTasks();
 }
-function deleteTransfer(id) {
-  if (!confirm('삭제하시겠습니까?')) return;
-  mbRemove(MB.TRANSFERS_KEY, x=>x.id===id);
-  mbRemove(MB.TRANSACTIONS_KEY, x=>x._transferId===id); // 예전 기록(거래관리 연동분) 정리
-  renderTransfers();
-}
-function renderTransfers() {
-  const all = mbGetOrDefault(MB.TRANSFERS_KEY, []).filter(x=>x.date===today()).sort((a,b)=>b.createdAt-a.createdAt);
-  const { s, e } = applyPg('tr', all.length, PG10);
-  document.getElementById('transfer-list').innerHTML = all.length === 0
-    ? '<tr><td colspan="2" class="text-center text-[#9CA3AF] py-4 text-xs">오늘 이동 없음</td></tr>'
-    : all.slice(s, e).map(t => {
-        const content = (t.memo != null && t.memo !== '') ? t.memo : (t.direction ? `${t.direction} ${fmtNum(t.amount)}` : '');
-        return `<tr class="border-b">
-          <td style="padding:3px 3px;vertical-align:top">
-            <textarea class="tr-edit" onchange="updateTransfer('${t.id}', this.value)"
-              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,140)+'px'"
-              style="width:100%;border:none;background:transparent;resize:none;font-size:.75rem;color:#374151;line-height:1.45;outline:none;font-family:inherit;overflow:hidden;padding:1px 2px;word-break:break-word">${_esc(content)}</textarea>
-          </td>
-          <td class="text-right" style="width:18px;vertical-align:top"><button onclick="deleteTransfer('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs">✕</button></td>
-        </tr>`;
-      }).join('');
-  document.querySelectorAll('#transfer-list .tr-edit').forEach(ta => {
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
+function toggleCalTask(id){
+  //  체크한 '그 날' 은 목록에 남겨 둔다(doneAt). 안 그러면 지난 건을 한 번 체크하는 순간
+  //  줄이 사라져 잘못 누른 체크를 풀 방법이 없어진다.
+  mbUpdate(MB.CALENDAR_KEY, x => x.id === id, x => {
+    x.done = !x.done;
+    if (x.done) x.doneAt = today(); else delete x.doneAt;
   });
+  renderCalTasks();
+  renderCalendar();                                   // 주간 메모 쪽 표시도 같이
 }
-// 메모 인라인 수정 (내용을 비우면 삭제)
-function updateTransfer(id, memo) {
-  const list = mbGetOrDefault(MB.TRANSFERS_KEY, []);
-  const idx = list.findIndex(x => x.id === id);
-  if (idx < 0) return;
-  const v = (memo || '').trim();
-  if ((list[idx].memo || '') === v) return;          // 변경 없음
-  if (v === '') { list.splice(idx, 1); mbSet(MB.TRANSFERS_KEY, list); renderTransfers(); return; }
-  list[idx].memo = v;
-  mbSet(MB.TRANSFERS_KEY, list);                      // DOM에 이미 반영돼 재렌더 불필요
+//  오늘 것 + 지난 날짜 중 아직 안 한 것
+function calTaskRows(){
+  const t = today();
+  return mbGetOrDefault(MB.CALENDAR_KEY, [])
+    .filter(m => m && m.date && (m.date === t || (m.date < t && (!m.done || m.doneAt === t))))
+    .sort((a,b) => (a.date||'').localeCompare(b.date||''));
+}
+function renderCalTasks(){
+  const host = document.getElementById('cal-task-list');
+  const card = document.querySelector('.ck-cal');
+  if (!host) return;
+  const cnt  = document.getElementById('ck-cal-cnt');
+  const when = document.getElementById('ck-cal-when');
+  if (!_calTaskOn){
+    host.innerHTML = '<div class="ck-empty">아직 불러온 일정이 없습니다</div>';
+    if (card) card.classList.remove('has');
+    if (cnt)  cnt.textContent = '0 / 0';
+    if (when) when.textContent = '아직 안 불러옴';
+    return;
+  }
+  const rows = calTaskRows();
+  if (card) card.classList.add('has');
+  if (when) when.textContent = rows.length ? `${rows.length}건 · ${_calTaskAt}` : `없음 · ${_calTaskAt}`;
+  if (cnt)  cnt.textContent = `${rows.filter(m=>m.done).length} / ${rows.length}`;
+  const t = today();
+  host.innerHTML = rows.length === 0
+    ? '<div class="ck-empty">오늘 할 일이 없습니다</div>'
+    : rows.map(m => {
+        const late = m.date < t;
+        const d = m.date === t ? '오늘' : m.date.slice(5).replace('-','.');
+        return `<div class="list-item ${m.done?'faded':''}${late?' ck-late':''}">
+          <input type="checkbox" ${m.done?'checked':''} onchange="toggleCalTask('${m.id}')" class="w-3 h-3 accent-[#F5A623] shrink-0">
+          <span class="date" ${late?'style="color:#DC2626"':''}>${_esc(d)}</span>
+          <span class="text-xs truncate flex-1 ${m.done?'line-through text-[#9CA3AF]':'text-[#1A1A2E]'}">${_esc(m.text||'')}</span>
+          ${late?'<span class="pill sell">지남</span>':''}
+        </div>`;
+      }).join('');
 }
 
+//  지점간 이동 위젯은 2026-11-18 대시보드 개편에서 제거했다.
+//  그 삭제 함수가 거래관리 기록(_transferId 로 묶인 옛 레코드)까지 지우고 있었는데,
+//  2026-06-30 이후로는 그런 기록이 아예 만들어지지 않아 죽은 코드였다. 함께 지웠다.
 // ═══ 주간 메모 · 이슈 캘린더 ════════════════════════════════
 //  날짜별로 이슈·특이사항을 미리 적어두는 메모장 (mb_calendar_events)
 const CAL_DOW = ['월','화','수','목','금','토','일'];
@@ -535,7 +900,7 @@ function renderCalendar(){
     const ds = calYmd(d), dow = (d.getDay()+6)%7, isToday = ds === todayStr;
     const list = memos.filter(m => m.date === ds).map(m =>
       // ✕ 가 텍스트보다 앞에 와야 float 이 첫 줄에 걸린다. 줄바꿈/들여쓰기가 공백으로 새지 않게 한 줄로.
-      `<div class="cal-memo" data-id="${m.id}" onclick="calEdit('${m.id}')" title="${_escA(m.text + (m.createdBy ? '\n— ' + m.createdBy + ' 등록' : ''))}"`
+      `<div class="cal-memo${m.done?' done':''}" data-id="${m.id}" onclick="calEdit('${m.id}')" title="${_escA(m.text + (m.createdBy ? '\n— ' + m.createdBy + ' 등록' : ''))}"`
       + `><span class="cal-x" title="삭제" onclick="event.stopPropagation();calDel('${m.id}')">✕</span>`
       + `<span class="cal-t">${_esc(m.text)}</span></div>`).join('');
     return `<div class="cal-day${isToday?' today':''}${dow>=5?' weekend':''}">
@@ -612,10 +977,9 @@ function dashAll() {
   renderAttendance();
   renderHandovers();
   renderTradeNotices();
-  renderMainTrades();
   renderDailyTasks();
-  renderTransfers();
   renderCalendar();
+  renderCalTasks();
 }
 dashAll();
 
@@ -634,9 +998,6 @@ mbOnDataChange(dashAll);
   });
   bind(['ho-content', 'ho-date'],             addHandover);
   bind(['dt-content'],                        addDailyTask);
-  bind(['tr-memo'],                           addTransfer);
-  bind(['mt-amount', 'mt-rate', 'mt-note'],   addMainTrade);
-  bind(['tn-content'],                        addTradeNotice);
 })();
 </script>
 </body>

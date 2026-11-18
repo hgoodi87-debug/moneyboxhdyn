@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="favicon.png?v=65">
+<link rel="apple-touch-icon" href="favicon.png?v=65">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>MoneyBox 리스트</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="css/mb.css?v=65">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js?v=65"></script>
+<script src="js/mb-data.js?v=65"></script>
+<script src="js/mb-sync.js?v=65"></script>
+<style>
+  body { font-family:'Pretendard',-apple-system,system-ui,sans-serif; }
+
+  /* 간격 체계 — 이 값들만 쓴다 */
+  :root { --pad:20px; --gap:16px; --gap-s:10px; --row:34px; }
+
+  .card { background:#fff; border-radius:.875rem; padding:var(--pad); box-shadow:0 1px 3px rgba(0,0,0,.06); }
+
+  /* 요약 띠 */
+  .stat { background:#fff; border-radius:.75rem; padding:14px 18px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .stat-l { font-size:.72rem; color:#6B7280; font-weight:600; margin-bottom:5px; }
+  .stat-v { font-size:1.35rem; font-weight:800; color:#1A1A2E; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+
+  /* 빠른 입력 줄 */
+  .q-wrap { display:flex; align-items:flex-end; gap:var(--gap-s); flex-wrap:nowrap; }
+  .q-f { display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .q-lab { font-size:.68rem; font-weight:700; color:#6B7280; padding-left:2px; white-space:nowrap; }
+  .q-in { border:1px solid #E5E7EB; border-radius:.5rem; height:38px; padding:0 .6rem; font-size:.83rem;
+          outline:none; box-sizing:border-box; width:100%; background:#fff; font-family:inherit; color:#1A1A2E; }
+  .q-in:focus { background:#FFF8EC; box-shadow:inset 0 0 0 2px #F5A623; border-color:#F5A623; }
+  .q-in.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .q-in.type-매입 { color:#DC2626; font-weight:700; }
+  .q-in.type-매각 { color:#2563EB; font-weight:700; }
+  .q-in.cur-in { text-transform:uppercase; text-align:center; font-weight:700; }
+  .q-btn { height:38px; padding:0 1.15rem; border-radius:.5rem; background:#F5A623; color:#fff;
+           font-size:.85rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; }
+  .q-btn:hover { background:#E0940F; }
+  .q-hint { font-size:.7rem; color:#9CA3AF; margin-top:9px; }
+
+  /* 기록 대기 — 대시보드 전달사항을 보면서 기록하라고 띄워 두는 카드 */
+  .pq-card { border-left:4px solid #F5A623; }
+  .pq-head { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .pq-ttl  { font-size:.9rem; font-weight:800; color:#1A1A2E; }
+  .pq-ttl b { color:#F5A623; }
+  .pq-sub  { font-size:.7rem; color:#9CA3AF; }
+  .pq-row  { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:.45rem;
+             border:1px solid #F1F2F4; margin-bottom:6px; transition:background .12s,border-color .12s; }
+  .pq-row:last-child { margin-bottom:0; }
+  .pq-row .pq-txt { flex:1; font-size:.82rem; color:#1A1A2E; cursor:pointer; line-height:1.45;
+                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pq-row .pq-who { font-size:.68rem; color:#9CA3AF; white-space:nowrap; }
+  .pq-row:hover { background:#FFFBF4; border-color:#FDE8C4; }
+  .pq-row.on    { background:#FFF7ED; border-color:#F5A623; }
+  .pq-row.on .pq-txt { font-weight:700; color:#B45309; }
+  .pq-done { height:26px; padding:0 .6rem; border-radius:.4rem; border:1px solid #E5E7EB;
+             background:#fff; color:#6B7280; font-size:.7rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .pq-done:hover { border-color:#10B981; color:#10B981; background:#F0FDF4; }
+  .pq-pick { margin-top:8px; font-size:.72rem; color:#B45309; background:#FFF7ED;
+             border:1px solid #FDE8C4; border-radius:.4rem; padding:6px 9px; }
+  .pq-pick button { margin-left:8px; border:0; background:none; color:#9CA3AF;
+                    font-size:.72rem; font-weight:700; cursor:pointer; text-decoration:underline; }
+  /* 드롭다운 화살표 — 거래관리와 동일 */
+  .q-in[data-cmb] {
+    -webkit-appearance:none; appearance:none;
+    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%239CA3AF'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 7px center; padding-right:18px;
+  }
+
+  /* 공용 드롭다운 패널 (거래관리와 동일) */
+  #cur-pop { display:none; position:fixed; z-index:70; background:#fff; border:1px solid #E5E7EB;
+             border-radius:.45rem; box-shadow:0 8px 24px rgba(0,0,0,.16); max-height:220px; overflow-y:auto; padding:3px; }
+  .cur-op { padding:.3rem .6rem; font-size:.8rem; font-weight:600; color:#1A1A2E; border-radius:.3rem;
+            cursor:pointer; white-space:nowrap; letter-spacing:.02em; }
+  .cur-op:hover { background:#F5F7FA; }
+  .cur-op.on { background:#FFF4E0; color:#92400E; }
+
+  /* 툴바 */
+  .tb-in { border:1px solid #E5E7EB; border-radius:.5rem; height:36px; padding:0 .65rem; font-size:.82rem; outline:none; background:#fff; color:#1A1A2E; }
+  .tb-in:focus { border-color:#F5A623; }
+  .chip { height:36px; padding:0 .85rem; border-radius:.5rem; border:1px solid #E5E7EB; background:#fff;
+          font-size:.8rem; font-weight:600; color:#6B7280; cursor:pointer; }
+  .chip.on { background:#1E2A3A; border-color:#1E2A3A; color:#fff; }
+
+  /* 표 */
+  /*  PC 폭(1200px+)에서는 래퍼에 overflow 를 주지 않는다 — overflow-x:auto 를 걸면 그 래퍼가
+      스크롤 컨테이너가 되어 버려서 아래 thead 의 position:sticky 가 먹지 않는다(실측 확인).
+      좁은 화면에서만 가로 스크롤로 바꾸고 sticky 는 포기한다. */
+  .lt { width:100%; border-collapse:collapse; table-layout:fixed; }
+  @media (max-width: 1199px) {
+    .lt-wrap { overflow-x:auto; }
+    .lt { min-width:1180px; }
+  }
+  /* 고객이 많아져 스크롤해도 컬럼명이 남아 있게 — 상단 헤더(60px) 아래에 붙인다 */
+  .lt thead th { background:#F5F7FA; color:#6B7280; font-size:.72rem; font-weight:700; text-align:left;
+                 padding:10px 10px; border-bottom:1px solid #E5E7EB; white-space:nowrap;
+                 position:sticky; top:60px; z-index:5; }
+  .lt thead th.c { text-align:center; } .lt thead th.r { text-align:right; }
+  .lt tbody td { border-bottom:1px solid #F3F4F6; padding:0 10px; height:48px; font-size:.83rem; color:#1A1A2E; vertical-align:middle; }
+  .lt tbody tr.main:hover td { background:#FCFCFD; }
+  .lt tbody tr.main { cursor:pointer; }
+  .lt tbody tr.open td { background:#FFFDF8; }
+  .ph { font-variant-numeric:tabular-nums; font-weight:800; letter-spacing:.06em; }
+  .sub { font-size:.68rem; color:#9CA3AF; margin-top:1px; }
+  .r { text-align:right; font-variant-numeric:tabular-nums; }
+  .c { text-align:center; }
+
+  /* 마지막 방문 경과 신호 */
+  .gap { display:inline-block; font-size:.66rem; font-weight:800; padding:2px 7px; border-radius:.3rem; margin-left:6px; white-space:nowrap; }
+  .g0 { background:#ECFDF5; color:#047857; }   /* 7일 이내 */
+  .g1 { background:#F3F4F6; color:#6B7280; }   /* 30일 이내 */
+  .g2 { background:#FFF4E0; color:#92400E; }   /* 60일 이내 */
+  .g3 { background:#FFEDD5; color:#C2410C; }   /* 90일 이내 */
+  .g4 { background:#FEF2F2; color:#B91C1C; }   /* 90일 초과 */
+  .bar { display:inline-block; width:4px; height:30px; border-radius:2px; vertical-align:middle; margin-right:9px; }
+  .cv { display:inline-block; width:12px; color:#C4C7CE; font-size:.7rem; vertical-align:middle; }
+
+  /* 매입/매각 */
+  .sd { font-size:.72rem; font-weight:800; font-variant-numeric:tabular-nums; }
+  .sd-b { color:#DC2626; } .sd-s { color:#2563EB; }
+  .sdbar { height:5px; border-radius:99px; overflow:hidden; background:#F1F2F4; display:flex; margin-top:5px; width:84px; }
+  .sdbar i { display:block; height:100%; }
+
+  /* 통화 배지 */
+  .cb { display:inline-flex; align-items:baseline; gap:4px; font-size:.71rem; font-weight:700; padding:3px 6px;
+        border-radius:.32rem; margin:1px 3px 1px 0; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .cb-b { background:#FEF2F2; color:#B91C1C; } .cb-s { background:#EFF6FF; color:#1D4ED8; } .cb-n { background:#F3F4F6; color:#4B5563; }
+  .cb em { font-style:normal; font-weight:800; }
+  .cbs { white-space:nowrap; overflow:hidden; }
+
+  /* 인라인 편집 */
+  .ed { width:100%; border:1px solid transparent; border-radius:.35rem; background:transparent; font-size:.8rem;
+        padding:5px 6px; outline:none; color:#1A1A2E; font-family:inherit; box-sizing:border-box; }
+  .ed:hover { border-color:#E5E7EB; }
+  .ed:focus { background:#FFF8EC; border-color:#F5A623; box-shadow:inset 0 0 0 1px #F5A623; }
+  .ed::placeholder { color:#D1D5DB; }
+
+  .xbtn { border:none; background:transparent; color:#D1D5DB; font-size:.95rem; cursor:pointer; padding:4px 6px; border-radius:.3rem; }
+  .xbtn:hover { color:#DC2626; background:#FEF2F2; }
+  .dupb { border:none; background:#FEF3C7; color:#B45309; font-size:.72rem; cursor:pointer; padding:2px 5px;
+          border-radius:.3rem; margin-left:5px; vertical-align:middle; font-weight:800; }
+  .dupb:hover { background:#FDE68A; }
+  .lt tbody tr.orphan td { background:#FAFAFB; }
+
+  /* 펼친 방문 이력 */
+  .vt { width:100%; border-collapse:collapse; table-layout:fixed; background:#FBFCFD; }
+  .vt th { font-size:.66rem; font-weight:700; color:#9CA3AF; text-align:left; padding:7px 10px; border-bottom:1px solid #EEF0F3; white-space:nowrap; }
+  .vt th.r { text-align:right; } .vt th.c { text-align:center; }
+  .vt td { font-size:.78rem; color:#374151; padding:0 10px; height:34px; border-bottom:1px solid #F3F4F6; font-variant-numeric:tabular-nums; }
+  .vt tr:last-child td { border-bottom:none; }
+  /* 보기 전환 (고객별 / 일별) */
+  .seg { display:inline-flex; background:#F1F2F4; border-radius:.55rem; padding:3px; gap:3px; flex-shrink:0; }
+  .sg { height:30px; padding:0 .9rem; border-radius:.42rem; border:none; background:transparent;
+        font-size:.8rem; font-weight:700; color:#6B7280; cursor:pointer; font-family:inherit; }
+  .sg.on { background:#fff; color:#1A1A2E; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+
+  /* 드롭다운 필터 — 화살표는 입력 줄 콤보박스와 같은 모양 */
+  select.tb-in {
+    -webkit-appearance:none; appearance:none; cursor:pointer; font-family:inherit; font-weight:600;
+    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%239CA3AF'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 9px center; padding-right:24px;
+  }
+  select.tb-in.act { border-color:#F5A623; background-color:#FFF8EC; color:#92400E; }
+
+  /* 월 통화별 요약 */
+  .mhead { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--gap); margin-bottom:14px; }
+  .mtit { font-size:.95rem; font-weight:800; color:#1A1A2E; }
+  .mmeta { font-size:.76rem; color:#6B7280; margin-top:5px; }
+  .mmeta b { color:#1A1A2E; font-weight:800; font-variant-numeric:tabular-nums; }
+  .mnav { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .mbtn { width:30px; height:30px; border-radius:.45rem; border:1px solid #E5E7EB; background:#fff;
+          color:#6B7280; cursor:pointer; font-size:.72rem; line-height:1; font-family:inherit; }
+  .mbtn:hover { background:#F5F7FA; color:#1A1A2E; }
+  .mlab { font-size:.92rem; font-weight:800; color:#1A1A2E; min-width:84px; text-align:center; font-variant-numeric:tabular-nums; }
+  .mnow { height:30px; padding:0 .7rem; border-radius:.45rem; border:1px solid #E5E7EB; background:#fff;
+          font-size:.75rem; font-weight:700; color:#6B7280; cursor:pointer; font-family:inherit; }
+  .mnow:hover { background:#F5F7FA; color:#1A1A2E; }
+  .mt { width:100%; border-collapse:collapse; table-layout:fixed; }
+  .mt th { font-size:.68rem; font-weight:700; color:#9CA3AF; text-align:left; padding:6px 10px;
+           border-bottom:1px solid #EEF0F3; white-space:nowrap; }
+  .mt td { font-size:.82rem; padding:0 10px; height:34px; border-bottom:1px solid #F7F8F9;
+           font-variant-numeric:tabular-nums; color:#374151; white-space:nowrap; }
+  .mt th.r { text-align:right; } .mt th.c { text-align:center; }
+  .mt tbody tr:hover td { background:#FCFCFD; }
+  .mt .cur { font-weight:800; color:#1A1A2E; letter-spacing:.03em; }
+  .mt .b { color:#B91C1C; } .mt .s { color:#1D4ED8; }
+  .mt tfoot td { font-weight:800; color:#1A1A2E; border-top:1px solid #E5E7EB; border-bottom:none; background:#FBFCFD; }
+  @media (max-width: 1199px) { .m-wrap { overflow-x:auto; } .mt { min-width:760px; } }
+
+  /* 방문 횟수 흔적 — 10회를 넘긴 손님은 지나간 기록만으로도 표시가 남는다 */
+  .mile { display:inline-flex; align-items:center; gap:2px; font-size:.64rem; font-weight:800;
+          padding:2px 6px; border-radius:.3rem; margin-left:6px; white-space:nowrap; vertical-align:middle; }
+  .m10 { background:#ECFDF5; color:#047857; }
+  .m20 { background:#D1FAE5; color:#065F46; }
+  .m30 { background:#FEF3C7; color:#B45309; }
+  .m50 { background:#FFEDD5; color:#C2410C; }
+  .vcnt { font-weight:800; font-size:.92rem; font-variant-numeric:tabular-nums; }
+  .subv { font-size:.66rem; color:#9CA3AF; margin-top:1px; white-space:nowrap; }
+  /* 점선 테두리로 '여기 직접 적는 칸' 이라는 걸 알린다 */
+  .ed.pv { width:36px; display:inline-block; text-align:center; padding:1px 2px; font-size:.68rem;
+           font-weight:800; color:#6B7280; vertical-align:baseline; border:1px dashed #D7DBE0; border-radius:.25rem; }
+  .ed.pv:hover { border-style:solid; border-color:#F5A623; }
+  .ed.pv:focus { background:#FFF8EC; border:1px solid #F5A623; box-shadow:inset 0 0 0 1px #F5A623; }
+
+  /* 일별 보기 */
+  .dh td { background:#F3F6F9; font-weight:800; font-size:.8rem; color:#1E2A3A; height:38px;
+           border-top:1px solid #E5E7EB; border-bottom:1px solid #E5E7EB; }
+  .dh .dow { color:#9CA3AF; font-weight:700; margin-left:4px; }
+  .dh .meta { font-weight:600; color:#6B7280; font-size:.74rem; margin-left:12px; font-variant-numeric:tabular-nums; }
+  .lt tbody tr.dr:hover td { background:#FCFCFD; }
+  .lnk2 { color:#1D4ED8; font-weight:800; cursor:pointer; font-variant-numeric:tabular-nums; letter-spacing:.06em; }
+  .lnk2:hover { text-decoration:underline; }
+  .lnk { border:none; background:#FFF4E0; color:#B45309; font-size:.64rem; font-weight:800;
+         border-radius:.28rem; padding:1px 5px; cursor:pointer; font-family:inherit; margin-left:3px; }
+  .lnk:hover { background:#FDE68A; }
+
+  /* 기록 직후 알림 — 몇 번째 방문인지 바로 보여준다 */
+  #toast { display:none; position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:90;
+           background:#1E2A3A; color:#fff; font-size:.84rem; padding:11px 18px; border-radius:.6rem;
+           box-shadow:0 10px 28px rgba(0,0,0,.22); white-space:nowrap; letter-spacing:-.01em; }
+
+  .empty-note { text-align:center; color:#9CA3AF; font-size:.84rem; padding:46px 0; }
+  .cmb-ko{margin-left:8px;font-size:.68rem;font-weight:500;color:#9CA3AF}
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<div id="mb-header"></div>
+
+<main class="pt-[92px] min-h-screen pb-10 px-6">
+  <!-- 관리자 전용 — 메뉴를 숨기는 것만으로는 주소를 직접 치면 열린다 -->
+  <div id="deny-wrap" style="display:none;max-width:420px;margin:80px auto 0;background:#fff;border-radius:1rem;padding:2.5rem;box-shadow:0 8px 24px rgba(0,0,0,.08);text-align:center">
+    <div style="font-size:2rem;margin-bottom:1rem">🔒</div>
+    <div style="font-weight:700;font-size:1.05rem;color:#1E2A3A;margin-bottom:.5rem">관리자 전용 메뉴</div>
+    <p style="font-size:.875rem;color:#6B7280;margin-bottom:1.5rem">이 목록은 관리자만 볼 수 있습니다.</p>
+    <a href="index.html" style="display:inline-block;background:#1E2A3A;color:#fff;border-radius:.5rem;padding:.6rem 1.5rem;font-size:.875rem;font-weight:600;text-decoration:none">대시보드로</a>
+  </div>
+
+  <div id="list-wrap" style="display:none;max-width:1600px;margin:0 auto">
+
+    <div class="mb-5">
+      <h2 class="text-xl font-bold text-[#1A1A2E]">리스트</h2>
+      <p class="text-sm text-[#6B7280] mt-0.5">방문 기록. 마지막으로 온 날과 누적 방문 횟수를 한눈에 봅니다. 이름·연락처는 저장하지 않고 <b>전화 뒷자리와 별칭</b>으로만 구분합니다. (자동 저장)</p>
+    </div>
+
+    <!-- 이번 달 통화별 매입 · 매각 — 월은 ◀ ▶ 로 옮길 수 있다 -->
+    <div class="card" style="margin-bottom:var(--gap)">
+      <div class="mhead">
+        <div style="min-width:0">
+          <div class="mtit">통화별 매입 · 매각</div>
+          <div class="mmeta" id="m-meta">—</div>
+        </div>
+        <div class="mnav">
+          <button class="mbtn" onclick="shiftMonth(-1)" title="이전 달">◀</button>
+          <span class="mlab" id="m-label">—</span>
+          <button class="mbtn" onclick="shiftMonth(1)" title="다음 달">▶</button>
+          <button class="mnow" id="m-now" onclick="thisMonth()">이번 달</button>
+        </div>
+      </div>
+      <div class="m-wrap" id="m-body"></div>
+    </div>
+
+    <!-- 기록 대기 — 대시보드 '당일거래 전달사항' 중 아직 완료가 아닌 것 -->
+    <div class="card pq-card" id="pq-card" style="display:none;margin-bottom:var(--gap)">
+      <div class="pq-head">
+        <span class="pq-ttl">📌 기록 대기 <b id="pq-n">0</b>건</span>
+        <span class="pq-sub">대시보드 <b>당일거래 전달사항</b> 입니다. 줄을 누르면 특이사항에 들어갑니다.</span>
+      </div>
+      <div id="pq-body"></div>
+    </div>
+
+    <!-- 빠른 입력 -->
+    <div class="card" style="margin-bottom:var(--gap)">
+      <div class="q-wrap" id="q-row">
+        <div class="q-f" style="width:92px"><span class="q-lab">뒷번호</span>
+          <input class="q-in ph" id="q-phone" maxlength="4" inputmode="numeric" placeholder="0000"
+                 onkeydown="qKey(event,this)" oninput="this.value=this.value.replace(/\D/g,''); qFromPhone()"></div>
+        <div class="q-f" style="flex:1.3"><span class="q-lab">별칭</span>
+          <input class="q-in" id="q-alias" data-cmb="cust" placeholder="예: USD 신권 · 대만 여행사"
+                 onkeydown="cmbKey(event,this); if(!event.defaultPrevented) qKey(event,this)"
+                 oninput="cmbInput(this)" onclick="cmbOpen(this)" onblur="cmbBlur(this); qFromAlias()" onchange="qFromAlias()"></div>
+        <!-- 방문일 — 기본은 오늘. 클릭해서 바꿀 수 있고, 기록을 누르면 다시 오늘로 돌아온다.
+             Tab 흐름에서는 빼 둔다: type="date" 는 월/일/년 세 조각이라 Tab 을 세 번 먹는다. -->
+        <div class="q-f" style="width:150px"><span class="q-lab">방문일<button type="button" class="lnk" id="q-today" onclick="setToday()" style="display:none">오늘로</button></span>
+          <input class="q-in" id="q-date" type="date" tabindex="-1" title="클릭해서 날짜를 바꿀 수 있습니다" onchange="datePaint()"></div>
+
+        <div class="q-f" style="width:94px"><span class="q-lab">지점</span>
+          <input class="q-in" id="q-branch" data-cmb="branch" placeholder="선택"
+                 onkeydown="cmbKey(event,this); if(!event.defaultPrevented) qKey(event,this)"
+                 oninput="cmbInput(this)" onclick="cmbOpen(this)" onblur="cmbBlur(this)"></div>
+        <div class="q-f" style="width:100px"><span class="q-lab">구분</span>
+          <input class="q-in" id="q-side" data-cmb="side" placeholder="선택"
+                 onkeydown="cmbKey(event,this); if(!event.defaultPrevented) qKey(event,this)"
+                 oninput="cmbInput(this)" onclick="cmbOpen(this)" onblur="cmbBlur(this); sidePaint(this)" onchange="sidePaint(this)"></div>
+        <div class="q-f" style="width:92px"><span class="q-lab">통화</span>
+          <input class="q-in cur-in" id="q-cur" data-cmb="cur" placeholder="USD"
+                 onkeydown="cmbKey(event,this); if(!event.defaultPrevented) qKey(event,this)"
+                 oninput="cmbInput(this)" onclick="cmbOpen(this)" onblur="cmbBlur(this)"></div>
+        <div class="q-f" style="flex:.9"><span class="q-lab">외화 금액</span>
+          <input class="q-in num" id="q-amt" inputmode="numeric" placeholder="0" onkeydown="qKey(event,this)" oninput="numIn(this)" onblur="numFmt(this)"></div>
+        <div class="q-f" style="width:100px"><span class="q-lab">환율</span>
+          <input class="q-in num" id="q-rate" inputmode="decimal" placeholder="0" onkeydown="qKey(event,this)" oninput="numIn(this)" onblur="numFmt(this)"></div>
+        <div class="q-f" style="flex:1.1"><span class="q-lab">특이사항</span>
+          <input class="q-in" id="q-memo" placeholder="메모" onkeydown="qKey(event,this)"></div>
+        <button class="q-btn" onclick="addVisit()">기록</button>
+      </div>
+      <div class="q-hint">뒷번호를 치면 아는 고객의 별칭이 따라옵니다 · Enter 로 다음 칸, 마지막 칸에서 Enter 치면 바로 기록 · 통화는 <b>jp</b> 처럼 쳐도 JPY 로 좁혀집니다<br>방문일은 늘 <b>오늘</b>로 시작하고, 지난 날짜로 바꾸면 주황색으로 표시된 뒤 기록하면 다시 오늘로 돌아옵니다</div>
+    </div>
+
+    <!-- 목록 -->
+    <div class="card" style="padding-bottom:6px">
+      <div class="flex items-center justify-between" style="gap:var(--gap-s);margin-bottom:var(--gap);flex-wrap:wrap">
+        <div class="flex items-center" style="gap:var(--gap-s);flex-wrap:wrap">
+          <div class="seg">
+            <button class="sg on" id="v-cust" onclick="setView('cust')">고객별</button>
+            <button class="sg"    id="v-day"  onclick="setView('day')">일별</button>
+          </div>
+          <input class="tb-in" id="f-q" style="width:200px" placeholder="뒷번호 · 별칭 · 메모 검색" oninput="renderAll()">
+          <select class="tb-in" id="f-cur" onchange="setCur(this.value)" style="width:118px"><option value="">통화 전체</option></select>
+          <select class="tb-in" id="f-side" onchange="setSide(this.value)" style="width:132px">
+            <option value="">매입 · 매각 전체</option>
+            <option value="매입">매입만</option>
+            <option value="매각">매각만</option>
+          </select>
+          <select class="tb-in" id="f-flag" onchange="setFlag(this.value)" style="width:160px">
+            <option value="">고객 조건 전체</option>
+            <option value="m10">방문 10회 이상</option>
+            <option value="m20">방문 20회 이상</option>
+            <option value="m30">방문 30회 이상</option>
+            <option value="cold">60일 이상 안 온 고객</option>
+            <option value="new">이번 달 처음 온 고객</option>
+          </select>
+        </div>
+        <div class="flex items-center" style="gap:var(--gap-s)">
+          <span id="f-count" style="font-size:.76rem;color:#9CA3AF;font-variant-numeric:tabular-nums"></span>
+          <span style="font-size:.76rem;color:#9CA3AF">정렬</span>
+          <select class="tb-in" id="f-sort" onchange="renderAll()" style="width:168px"></select>
+        </div>
+      </div>
+
+      <!-- 좁아지면 칸이 찌그러지는 대신 가로 스크롤 (대시보드 .dash-row 와 같은 방식) -->
+      <div class="lt-wrap" id="lt-host"></div>
+      <div id="toast"></div>
+      <div id="empty" class="empty-note" style="display:none">아직 기록이 없습니다. 위 줄에 입력하고 <b>기록</b>을 누르세요.</div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+mbBoot('list.html');
+
+/* ───────── 데이터 ─────────
+   고객:  mb_customers     { id, phone4, alias, note, createdAt }
+   방문:  mb_cust_visits   { id, customerId, date, branch, tradeType, currency, amount, rate, memo }
+
+   고객 정보는 최소로만 남긴다 — 이름·연락처 전체는 저장하지 않고
+   전화 뒷 4자리와 별칭만으로 구분한다. 둘 중 하나만 있어도 기록할 수 있다.
+   두 배열 모두 레코드에 id 가 있어야 mb-sync 의 칸 단위 병합이 걸린다 (_recKey). */
+const CUST_KEY  = MB.CUSTOMERS_KEY || 'mb_customers';
+const VISIT_KEY = MB.VISITS_KEY    || 'mb_cust_visits';
+const BRANCHES  = ['홍대','연남'];
+const SIDES     = ['매입','매각'];
+
+function getCusts()  { return mbGetOrDefault(CUST_KEY, []); }
+function getVisits() { return mbGetOrDefault(VISIT_KEY, []); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+//  onclick="fn('...')" 처럼 HTML 속성 안의 자바스크립트 문자열에 넣을 때 쓴다.
+//  별칭은 자유 입력이라 ' 가 들어올 수 있는데, esc 만 거치면 따옴표가 그대로 남아
+//  핸들러가 깨지거나(링크가 죽음) 그 뒤 글자가 코드로 실행된다.
+//  자바스크립트용으로 먼저 막고(\ ' ), 그다음 HTML 속성용으로 막는다. 순서가 중요하다.
+function escJs(s){ return esc(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
+
+let _view = 'cust';    // 'cust' = 고객별 · 'day' = 일별
+let _side = '';        // 매입 / 매각
+let _cur  = '';        // 통화(권종)
+let _flag = '';        // 고객 조건: m10 · m20 · m30 · cold · new
+let _ym   = today().slice(0, 7);   // 위쪽 통화별 요약이 보고 있는 달
+const _open = new Set();
+
+//  방문 횟수 흔적 — 지금까지 쌓인 기록만으로 자동 계산되므로
+//  예전에 이미 10회를 넘긴 손님도 따로 손댈 것 없이 바로 표시가 붙는다.
+//  idx = 고객별 '기록된' 방문 수. renderAll 이 매번 새로 넣는다.
+let _idx = new Map();
+//  prevVisits = 시스템을 쓰기 전부터 오던 손님의 지난 횟수. 사장이 직접 적는다.
+//  총 횟수 = 이월 + 기록 이고, 흔적(✓ 배지)과 고객 조건 필터는 전부 이 총 횟수를 본다.
+function prevOf(c) { const n = Number((c && c.prevVisits) || 0); return n > 0 ? Math.floor(n) : 0; }
+function recOf(c)  { return ((_idx.get(c && c.id) || { n: 0 }).n); }
+function totalOf(c){ return prevOf(c) + recOf(c); }
+
+const MILES = [50, 30, 20, 10];
+function mileOf(n) { for (let i = 0; i < MILES.length; i++) if (n >= MILES[i]) return MILES[i]; return 0; }
+function mileBadge(n) {
+  const m = mileOf(n);
+  return m ? `<span class="mile m${m}" title="지금까지 ${n}회 방문">✓ ${m}회</span>` : '';
+}
+
+/* ───────── 공용 콤보박스 (거래관리 trading.html 과 같은 동작) ───────── */
+const CMB = {
+  cur:    { list: () => MB.CURRENCIES, upper: true, ko: true },
+  side:   { list: () => SIDES,         upper: false },
+  branch: { list: () => BRANCHES,      upper: false },
+  cust:   { list: () => getCusts().map(c => c.alias).filter(Boolean), upper: false, free: true, loose: true },
+};
+//  한글 초성 검색 — 'ㅎ' 로 '홍대', 'ㅁㅇ' 로 '매입' 을 찾게 한다.
+//  '홍대'.indexOf('ㅎ') 는 -1 이다(초성은 완성된 글자의 앞부분이 아니다). 그래서 따로 풀어 준다.
+const _CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+function _choOf(s) {
+  return String(s == null ? '' : s).split('').map(function (ch) {
+    const c = ch.charCodeAt(0);
+    return (c >= 0xAC00 && c <= 0xD7A3) ? _CHO[Math.floor((c - 0xAC00) / 588)] : ch;
+  }).join('');
+}
+//  앞글자로 시작하거나, 초성으로 시작하면 후보로 본다
+function _startsKo(item, q) {
+  return item.indexOf(q) === 0 || _choOf(item).indexOf(q) === 0;
+}
+//  통화는 한글 이름으로도 찾게 한다 — '미국'·'ㅁㄱ'·'달러' → USD.
+//  코드(USD)·한글 이름 어느 쪽이 걸려도 후보로 본다. 이름 안쪽 단어도 걸린다('달러' → 달러 쓰는 나라들).
+function _curHit(code, q) {
+  if (_startsKo(code, q)) return true;
+  const ko = (typeof MB !== 'undefined' && MB.CUR_KO) ? (MB.CUR_KO[code] || '') : '';
+  if (!ko) return false;
+  if (ko.indexOf(q) >= 0) return true;
+  const cq = _choOf(q);
+  //  초성으로 친 경우에만 초성 비교를 한다(완성된 글자를 친 건 위에서 이미 걸렀다)
+  return cq === q && _choOf(ko).indexOf(cq) >= 0;
+}
+//  그 칸이 통화 칸인지에 따라 매칭 방식을 고른다
+//  찾은 순서 — 친 글자로 '시작하는' 나라를 위로 올린다.
+//  'ㄷ' 을 치면 대만이 맨 위, 그 다음 달러 쓰는 나라들. 안 그러면 대만이 9번째로 묻힌다.
+function _curRank(code, q) {
+  if (_startsKo(code, q)) return 0;                                  // 코드가 그 글자로 시작 (u → USD)
+  const ko = (typeof MB !== 'undefined' && MB.CUR_KO) ? (MB.CUR_KO[code] || '') : '';
+  const words = ko.split(' ').filter(Boolean);
+  const cq = _choOf(q);
+  const starts = s => s.indexOf(q) === 0 || _choOf(s).indexOf(cq) === 0;
+  if (words.length && starts(words[0])) return 1;                    // 나라 이름이 그 글자로 시작 (ㄷ → 대만)
+  if (words.some(starts)) return 2;                                  // 뒷 단어가 시작 (ㄷ → 달러)
+  return 3;                                                          // 어딘가 들어 있음
+}
+function _curSort(list, q) {
+  return list.map((c, i) => ({ c, i, r: _curRank(c, q) }))
+             .sort((a, b) => a.r - b.r || a.i - b.i)
+             .map(x => x.c);
+}
+function _cmbHit(el, c, q) { return (cmbKind(el).ko ? _curHit(c, q) : _startsKo(c, q)); }
+function cmbKind(el) { return CMB[el && el.dataset ? el.dataset.cmb : ''] || CMB.cur; }
+function cmbList(el) { return cmbKind(el).list(); }
+function cmbNorm(el, v) { const s = String(v == null ? '' : v).trim(); return cmbKind(el).upper ? s.toUpperCase() : s; }
+
+let _cmbEl = null, _cmbIdx = 0, _cmbItems = [], _cmbFilt = false;
+let _cmbPicked = null;
+function cmbPop() { return document.getElementById('cur-pop'); }
+function cmbOpened() { const p = cmbPop(); return !!(p && p.style.display === 'block'); }
+function cmbInit() {
+  if (cmbPop()) return;
+  const p = document.createElement('div');
+  p.id = 'cur-pop';
+  p.addEventListener('mousedown', e => e.preventDefault());
+  p.addEventListener('click', e => { const d = e.target.closest ? e.target.closest('.cur-op') : null; if (d) cmbPick(d.dataset.c); });
+  document.body.appendChild(p);
+  // 목록 안에서 굴린 스크롤은 무시, 바깥이 스크롤되면 닫지 말고 위치만 따라감
+  window.addEventListener('scroll', function (e) {
+    const pop = cmbPop();
+    if (!pop || pop.style.display !== 'block') return;
+    const t = e.target;
+    if (t === pop || (t && t.nodeType === 1 && pop.contains(t))) return;
+    cmbPos();
+  }, true);
+  window.addEventListener('resize', cmbPos);
+}
+function cmbRender() {
+  if (!_cmbEl) return;
+  const kind = cmbKind(_cmbEl);
+  const all = cmbList(_cmbEl);
+  const v = cmbNorm(_cmbEl, _cmbEl.value);
+  _cmbItems = (_cmbFilt && v)
+    ? all.filter(c => kind.loose ? c.indexOf(v) >= 0 : _cmbHit(_cmbEl, c, v))
+    : all.slice();
+  if (_cmbFilt && v && kind.ko) _cmbItems = _curSort(_cmbItems, v);
+  //  일치하는 게 하나도 없으면 전체를 보여주되 **아무 줄도 고르지 않는다**(-1).
+  //  하이라이트가 0번에 남아 있으면 Enter 한 번에 엉뚱한 첫 항목이 조용히 들어간다.
+  if (!_cmbItems.length) { _cmbItems = kind.free ? [] : all.slice(); _cmbIdx = -1; }
+  const p = cmbPop();
+  if (!_cmbItems.length) { p.style.display = 'none'; return; }
+  _cmbIdx = (_cmbIdx < 0) ? -1 : Math.max(0, Math.min(_cmbItems.length - 1, _cmbIdx));
+  p.innerHTML = _cmbItems.map((c, i) => `<div class="cur-op${i === _cmbIdx ? ' on' : ''}" data-c="${esc(c)}"><b>${esc(c)}</b>${kind.ko&&MB.curName(c)?`<span class="cmb-ko">${esc(MB.curName(c))}</span>`:''}</div>`).join('');
+  p.style.display = 'block';
+  cmbPos();
+  const on = p.querySelector('.cur-op.on');
+  if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
+}
+function cmbPos() {
+  const p = cmbPop();
+  if (!_cmbEl || !p || p.style.display !== 'block') return;
+  const r = _cmbEl.getBoundingClientRect();
+  if (r.bottom < 0 || r.top > innerHeight) { cmbClose(); return; }
+  p.style.minWidth = Math.max(80, Math.round(r.width)) + 'px';
+  p.style.left = Math.round(Math.min(r.left, innerWidth - p.offsetWidth - 8)) + 'px';
+  p.style.top = (r.bottom + 2 + p.offsetHeight > innerHeight)
+    ? Math.round(r.top - p.offsetHeight - 2) + 'px'
+    : Math.round(r.bottom + 2) + 'px';
+}
+function cmbOpen(el) {
+  if (cmbOpened() && _cmbEl === el) return;
+  cmbInit(); _cmbEl = el; _cmbFilt = false;
+  //  칸에 든 값이 목록에 있으면 그 줄을 고르고, 없으면(빈칸 포함) 아무 줄도 고르지 않는다.
+  //  예전엔 0번으로 두어서, 빈 통화칸에서 Enter 를 눌렀을 뿐인데 KRW 가 들어갔다.
+  _cmbIdx = cmbList(el).indexOf(cmbNorm(el, el.value));
+  cmbRender();
+}
+function cmbClose() { const p = cmbPop(); if (p) p.style.display = 'none'; _cmbEl = null; _cmbIdx = 0; _cmbFilt = false; }
+function cmbPick(c) {
+  const el = _cmbEl;
+  cmbClose();
+  if (!el) return;
+  el.value = c; el.dataset.prev = c;
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function cmbKey(e, el) {
+  if (mbComposing(e)) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!cmbOpened()) return;
+    // 아무것도 안 골라진 상태(-1)에서는 ↓ 가 첫 줄, ↑ 가 마지막 줄로 간다
+    if (_cmbIdx < 0) _cmbIdx = (e.key === 'ArrowDown') ? 0 : _cmbItems.length - 1;
+    else _cmbIdx += (e.key === 'ArrowDown' ? 1 : -1);
+    cmbRender(); e.preventDefault(); e.stopPropagation(); return;
+  }
+  if (e.key === 'Escape') { if (cmbOpened()) { cmbClose(); e.stopPropagation(); } return; }
+  if (e.key === 'Tab') { if (cmbOpened()) { const p = (_cmbIdx >= 0 ? _cmbItems[_cmbIdx] : (_cmbItems.length === 1 ? _cmbItems[0] : null)); if (p) cmbPick(p); else cmbClose(); } _cmbPicked = null; return; }
+  if (e.key === 'Enter') {
+    if (cmbOpened()) {
+      const p = (_cmbIdx >= 0 ? _cmbItems[_cmbIdx] : (_cmbItems.length === 1 ? _cmbItems[0] : null));
+      if (p) cmbPick(p); else cmbClose();
+      _cmbPicked = el; e.preventDefault(); e.stopPropagation(); return;
+    }
+    if (_cmbPicked === el) { _cmbPicked = null; return; }   // 확정 직후 Enter → 다음 칸
+    //  별칭처럼 자유 입력인 칸에 **목록에 없는 새 값**을 치고 Enter → 목록을 열지 않고 그대로 다음 칸.
+    //  여기서 목록을 열면 이어지는 Enter 에 엉뚱한 단골 별칭이 들어가 기록이 남의 밑으로 간다.
+    const kd = cmbKind(el);
+    if (kd.free && String(el.value || '').trim() && cmbList(el).indexOf(cmbNorm(el, el.value)) < 0) return;
+    cmbOpen(el);
+    if (cmbOpened()) { e.preventDefault(); e.stopPropagation(); }
+  }
+}
+function cmbInput(el) {
+  const up = cmbKind(el).upper ? String(el.value || '').toUpperCase() : el.value;
+  if (up !== el.value) { const p = el.selectionStart; el.value = up; try { el.setSelectionRange(p, p); } catch (e) {} }
+  //  타이핑 중에는 아무 줄도 미리 고르지 않는다(-1).
+  //  0 으로 두면 'T'+Enter 한 번에 목록 첫 줄(TWD)이 들어가 태국(THB)을 치려다 대만이 저장된다.
+  //  'ㅁ'+Enter 도 매입이 들어가 돈의 방향이 뒤바뀐다. 후보가 하나뿐일 때만 Enter 로 바로 확정한다.
+  _cmbEl = el; _cmbIdx = -1; _cmbFilt = true; _cmbPicked = null; cmbInit(); cmbRender();
+}
+function cmbBlur(el) { if (_cmbEl === el) cmbClose(); _cmbPicked = null; cmbCommit(el); }
+function cmbCommit(el) {
+  const kind = cmbKind(el), all = cmbList(el);
+  const v = cmbNorm(el, el.value);
+  if (kind.free) { el.value = v; el.dataset.prev = v; return; }   // 새 별칭처럼 자유 입력
+  let hit = '';
+  if (v !== '') {
+    if (all.indexOf(v) >= 0) hit = v;
+    else {
+      const m = all.filter(c => _startsKo(c, v));
+      //  후보가 딱 하나면 채워 주고(jp → JPY, ㅁㅇ → 매입),
+      //  여럿이면 **비운다**. 'ㅁ' 은 매입·매각 둘 다라, 멋대로 고르면 돈의 방향이 뒤바뀐다.
+      //  아예 못 알아본 입력이면 원래 값을 지킨다.
+      hit = (m.length === 1) ? m[0] : (m.length > 1 ? '' : (el.dataset.prev || ''));
+    }
+  }
+  el.value = hit; el.dataset.prev = hit;
+}
+function sidePaint(el) { el.className = 'q-in' + (el.value ? ' type-' + el.value : ''); }
+
+/* ───────── 빠른 입력 ───────── */
+// 날짜 칸은 건너뛴다 — type="date" 는 월/일/년 세 조각이라 Tab 을 세 번 먹어 흐름이 끊긴다
+function qEls() { return [...document.querySelectorAll('#q-row .q-in')].filter(el => el.id !== 'q-date'); }
+//  Tab 도 Enter 와 똑같이 다음 칸으로 — 손에 익은 쪽 아무거나 쓰면 된다.
+//  Shift+Tab 은 브라우저 기본(뒤로)에 맡긴다.
+function qKey(e, el) {
+  if (mbComposing(e)) return;
+  if (e.key !== 'Enter' && !(e.key === 'Tab' && !e.shiftKey)) return;
+  const ins = qEls(), i = ins.indexOf(el);
+  if (i < 0) return;
+  if (i === ins.length - 1) {
+    //  마지막 칸: Enter 는 바로 기록, Tab 은 기록 버튼으로 (실수로 기록되지 않게)
+    e.preventDefault();
+    if (e.key === 'Enter') addVisit();
+    else { const b = document.querySelector('#q-row ~ * .q-btn, .q-btn'); if (b) b.focus(); }
+    return;
+  }
+  e.preventDefault();
+  const n = ins[i + 1];
+  n.focus(); if (n.select) { try { n.select(); } catch (err) {} }
+}
+function numIn(el) { el.value = el.value.replace(/[^\d.,]/g, ''); }
+function numFmt(el) {
+  const n = Number(String(el.value).replace(/,/g, ''));
+  el.value = (el.value.trim() === '' || isNaN(n)) ? '' : n.toLocaleString('ko-KR');
+}
+function numVal(el) { const n = Number(String(el.value).replace(/,/g, '')); return isNaN(n) ? 0 : n; }
+
+/* 뒷번호 ↔ 별칭 양방향 자동 채움 — 어느 쪽을 먼저 쳐도 나머지가 따라온다.
+   이미 손으로 쓴 칸은 덮어쓰지 않는다. */
+function qFromPhone() {
+  const ph = document.getElementById('q-phone').value.trim();
+  const al = document.getElementById('q-alias');
+  if (ph.length !== 4 || al.value.trim()) return;
+  const hit = getCusts().filter(c => c.phone4 === ph);
+  if (hit.length === 1 && hit[0].alias) { al.value = hit[0].alias; al.dataset.prev = hit[0].alias; }
+}
+function qFromAlias() {
+  const al = document.getElementById('q-alias').value.trim();
+  const ph = document.getElementById('q-phone');
+  if (!al || ph.value.trim()) return;
+  const hit = getCusts().filter(c => c.alias === al);
+  if (hit.length === 1 && hit[0].phone4) ph.value = hit[0].phone4;
+}
+/* 어떤 고객의 기록인지 찾는다 — 못 찾으면 null (= 새 고객) */
+function findCust(phone4, alias) {
+  const cs = getCusts();
+  if (phone4 && alias) {
+    const both = cs.find(c => c.phone4 === phone4 && c.alias === alias);
+    if (both) return both;
+    //  뒷번호가 주 식별자다. 뒷번호가 딱 한 명과 맞으면 별칭이 달라도 그 손님으로 본다.
+    //  (별칭은 아래 addVisit 이 '비어 있을 때만' 채우므로 이미 적힌 별칭은 안 덮인다.)
+    //  예전엔 별칭 주인을 먼저 찾아서, 뒷번호 주인이 따로 있는데도 엉뚱한 사람에게
+    //  방문이 들어가고 그 사람에게 남의 뒷번호까지 써 버려 되돌릴 수 없는 중복이 생겼다.
+    const byPhone = cs.filter(c => c.phone4 === phone4);
+    if (byPhone.length === 1) return byPhone[0];
+    if (byPhone.length > 1) return null;                     // 뒷번호가 갈라져 있음 → 섣불리 고르지 않는다
+    //  그 뒷번호가 아직 아무에게도 없을 때만, 별칭만 있던 손님에게 뒷번호를 붙여 준다
+    const byAlias = cs.filter(c => c.alias === alias && !c.phone4);
+    return byAlias.length === 1 ? byAlias[0] : null;
+  }
+  const m = phone4 ? cs.filter(c => c.phone4 === phone4) : cs.filter(c => c.alias === alias);
+  return m.length === 1 ? m[0] : null;                         // 여럿이면 구분이 안 되므로 새로 만들지 않는다
+}
+
+function addVisit() {
+  const phone4 = document.getElementById('q-phone').value.trim();
+  const alias = document.getElementById('q-alias').value.trim();
+  const date = document.getElementById('q-date').value || today();
+  const branch = document.getElementById('q-branch').value.trim();
+  const side = document.getElementById('q-side').value.trim();
+  const cur = document.getElementById('q-cur').value.trim().toUpperCase();
+  const amt = numVal(document.getElementById('q-amt'));
+  const rate = numVal(document.getElementById('q-rate'));
+  const memo = document.getElementById('q-memo').value.trim();
+
+  if (!phone4 && !alias) { alert('뒷번호나 별칭 중 하나는 적어야 합니다.'); document.getElementById('q-phone').focus(); return; }
+  if (!side)  { alert('매입 / 매각을 선택하세요.'); document.getElementById('q-side').focus(); return; }
+  if (!cur)   { alert('통화를 선택하세요.'); document.getElementById('q-cur').focus(); return; }
+
+  // 뒷번호 + 별칭으로 기존 고객을 찾고, 없으면 새로 만든다
+  let c = findCust(phone4, alias);
+  if (!c) {
+    //  등록일은 '입력한 날' 이 아니라 '첫 방문일' 로 잡는다.
+    //  지난 날짜로 소급 입력한 손님이 '이번 달 처음 온 고객' 에 잡히던 문제.
+    c = { id: uid(), phone4, alias, note: '', createdAt: (date && date < today()) ? date : today() };
+    mbPush(CUST_KEY, c);
+  } else {
+    // 비어 있던 쪽만 채워 준다 (이미 적힌 값은 덮어쓰지 않음)
+    if ((phone4 && !c.phone4) || (alias && !c.alias)) {
+      mbUpdate(CUST_KEY, x => x.id === c.id, x => {
+        if (phone4 && !x.phone4) x.phone4 = phone4;
+        if (alias && !x.alias) x.alias = alias;
+      });
+    }
+  }
+
+  //  '기록 대기' 에서 고른 건이면 어느 전달사항에서 나온 기록인지 남긴다.
+  //  고르지 않았으면 이 칸 자체를 만들지 않는다 — 옛 기록과 같은 모양을 유지한다.
+  const v = {
+    id: uid(), customerId: c.id, date, branch,
+    tradeType: side, currency: cur, amount: amt, rate, memo,
+  };
+  const picked = _pick;
+  if (picked) v.src = picked;
+  mbPush(VISIT_KEY, v);
+  //  기록이 끝났으니 그 전달사항도 완료로 넘긴다 (다른 지점이 이미 지웠으면 건너뛴다)
+  if (picked) doneNotice(picked, true);
+
+  // 몇 번째 방문인지 바로 알려준다 — 10·20·30·50회를 넘긴 순간도 같이 띄운다
+  const rec = getVisits().filter(v => v.customerId === c.id).length;
+  const prv = prevOf(getCusts().find(x => x.id === c.id) || c);
+  const vn = prv + rec;                 // 이월을 더한 총 방문 횟수
+  const ms = mileOf(vn);
+  toast(`<b>${esc(custLabel(c))}</b> · <b style="color:#F5A623">${vn}번째</b> 방문`
+      + (prv ? `<span style="color:#9CA3AF;margin-left:6px">(이월 ${prv} + 기록 ${rec})</span>` : '')
+      + (vn === ms ? ` <span style="color:#6EE7B7;font-weight:800;margin-left:4px">✓ ${ms}회 달성</span>` : '')
+      + (picked ? ` <span style="color:#9CA3AF;margin-left:6px">· 전달사항 1건 완료</span>` : ''));
+
+  // 다음 손님을 위해 비우기 — 지점은 그대로 두는 게 빠르다.
+  // 날짜는 오늘로 되돌린다: 지난 날짜로 한 건 넣고 그대로 두면 다음 기록이 조용히 그 날짜로 들어간다.
+  ['q-phone','q-alias','q-cur','q-amt','q-rate','q-memo'].forEach(id => {
+    const el = document.getElementById(id); el.value = ''; delete el.dataset.prev;
+  });
+  const sideEl = document.getElementById('q-side');
+  //  dataset.prev 까지 지워야 한다. 값만 비우면, 다음 손님 때 구분칸에 목록에 없는 글자가
+  //  들어간 채 칸을 빠져나갈 때 cmbCommit 이 '직전 거래의 매입/매각'을 되살려 넣는다.
+  //  색까지 정상으로 칠해지고 검사도 통과해서, 환전 방향이 반대로 기록된다.
+  sideEl.value = ''; delete sideEl.dataset.prev; sidePaint(sideEl);
+  setToday();
+  _open.add(c.id);
+  renderAll();
+  document.getElementById('q-phone').focus();
+}
+
+/* ───────── 기록 대기 (대시보드 당일거래 전달사항) ─────────
+   대시보드에 적어둔 전달사항 중 아직 완료가 아닌 것을 여기 띄워 둔다.
+   보면서 기록하라는 용도다 — 금액·통화를 문장에서 자동으로 뽑지는 않는다.
+   "김사장님 USD 5000" 에서 5000 이 수량인지 환율인지 알 방법이 없고,
+   틀리게 들어가면 안 쓰느니만 못하다. 사람이 보고 직접 친다. */
+const NOTICE_KEY = MB.TRADE_NOTICES_KEY || 'mb_trade_notices';
+let _pick = null;              // 지금 '기록 중' 으로 고른 전달사항 id
+
+function getNotices() { return mbGetOrDefault(NOTICE_KEY, []); }
+function pendingNotices() { return getNotices().filter(n => n && !n.done); }
+
+function renderPending() {
+  const host = document.getElementById('pq-body');
+  const card = document.getElementById('pq-card');
+  const list = pendingNotices();
+  if (!list.length) { card.style.display = 'none'; _pick = null; return; }
+  card.style.display = '';
+  document.getElementById('pq-n').textContent = fmtNum(list.length);
+
+  // 고른 줄이 그 사이 사라졌으면(다른 지점이 처리) 선택을 푼다
+  if (_pick && !list.some(n => n.id === _pick)) _pick = null;
+
+  host.innerHTML = list.map(n => `
+    <div class="pq-row${n.id === _pick ? ' on' : ''}">
+      <span class="pq-txt" title="${esc(n.content)}" onclick="pickNotice('${escJs(n.id)}')">${esc(n.content)}</span>
+      <span class="pq-who">${esc(n.createdBy || '')}</span>
+      <button class="pq-done" onclick="doneNotice('${escJs(n.id)}')" title="기록을 마쳤거나 더 안 해도 되는 건이면 눌러서 치웁니다">완료</button>
+    </div>`).join('')
+    + (_pick ? `<div class="pq-pick">이 건으로 기록하는 중입니다 — <b>기록</b> 을 누르면 이 줄도 같이 완료됩니다.
+         <button onclick="pickNotice('')">해제</button></div>` : '');
+}
+
+//  줄을 누르면 그 내용이 특이사항 칸에 들어가고 '기록 중' 으로 표시된다.
+//  이 상태에서 기록하면 그 방문에 출처가 남고 전달사항도 같이 완료된다.
+function pickNotice(id) {
+  _pick = (!id || _pick === id) ? null : id;
+  const memo = document.getElementById('q-memo');
+  if (_pick) {
+    const n = getNotices().find(x => x.id === _pick);
+    if (n) { memo.value = n.content || ''; }
+    document.getElementById('q-phone').focus();
+  } else if (memo) {
+    // 해제하면 내가 채워 넣었던 문장만 지운다 (사장이 직접 쓴 메모는 건드리지 않는다)
+    const txts = getNotices().map(x => x.content || '');
+    if (txts.indexOf(memo.value) >= 0) memo.value = '';
+  }
+  renderPending();
+}
+
+//  전달사항을 완료 처리한다. 지우는 게 아니라 '완료' 로만 바꾸므로 대시보드에서 다시 볼 수 있다.
+//  다른 지점이 그 사이 지웠으면 아무것도 하지 않는다 — 지운 것을 되살리면 안 된다.
+function doneNotice(id, silent) {
+  if (!getNotices().some(n => n.id === id)) { renderPending(); return false; }
+  mbUpdate(NOTICE_KEY, x => x.id === id, x => { x.done = true; });
+  if (_pick === id) _pick = null;
+  renderPending();
+  if (!silent) toast('전달사항 1건을 완료로 옮겼습니다');
+  return true;
+}
+
+/* ───────── 집계 ───────── */
+function daysAgo(dateStr) {
+  if (!dateStr) return null;
+  const a = new Date(dateStr + 'T00:00:00'), b = new Date(today() + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+function gapClass(d) {
+  if (d === null) return 'g1';
+  if (d <= 7) return 'g0';
+  if (d <= 30) return 'g1';
+  if (d <= 60) return 'g2';
+  if (d <= 90) return 'g3';
+  return 'g4';
+}
+function gapText(d) {
+  if (d === null) return '기록 없음';
+  if (d === 0) return '오늘';
+  if (d === 1) return '어제';
+  return d + '일 전';
+}
+function barColor(d) {
+  if (d === null) return '#E5E7EB';
+  if (d <= 7) return '#10B981';
+  if (d <= 30) return '#D1D5DB';
+  if (d <= 60) return '#F5A623';
+  if (d <= 90) return '#F97316';
+  return '#EF4444';
+}
+// 고객별 통계 — 저장하지 않고 방문 기록에서 계산한다
+function statsFor(visits) {
+  const s = { n: visits.length, last: '', buy: 0, sell: 0, krw: 0, cur: {} };
+  visits.forEach(v => {
+    if (!s.last || (v.date || '') > s.last) s.last = v.date || '';
+    if (v.tradeType === '매입') s.buy++; else if (v.tradeType === '매각') s.sell++;
+    s.krw += Math.abs(Number(v.amount || 0) * Number(v.rate || 0));
+    const k = v.currency || '-';
+    if (!s.cur[k]) s.cur[k] = { amt: 0, buy: 0, sell: 0 };
+    s.cur[k].amt += Math.abs(Number(v.amount || 0));
+    if (v.tradeType === '매입') s.cur[k].buy += Math.abs(Number(v.amount || 0));
+    else s.cur[k].sell += Math.abs(Number(v.amount || 0));
+  });
+  s.days = daysAgo(s.last);
+  return s;
+}
+function buildRows(vis) {
+  const byCust = new Map();
+  vis.forEach(v => {
+    if (!byCust.has(v.customerId)) byCust.set(v.customerId, []);
+    byCust.get(v.customerId).push(v);
+  });
+  const cs = getCusts();
+  const rows = cs.map(c => {
+    const vs = (byCust.get(c.id) || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const s = statsFor(vs);
+    //  마지막 방문일과 경과일만은 필터와 무관하게 '전체' 기준으로 쓴다.
+    //  (거래액·건수는 필터 기준이 맞다 — USD 만 봤을 때 그 줄 금액이 USD 여야 하니까)
+    //  예전엔 여기도 필터 기준이라, 필터를 걸면 어제 온 단골이 빨강으로 떠서
+    //  '오래 안 온 손님이 한눈에 보인다' 가 정반대로 뒤집혔다.
+    const all = _idx.get(c.id);
+    if (all && all.last) { s.last = all.last; s.days = daysAgo(all.last); }
+    return { c, vs, s };
+  });
+  //  고객 레코드가 없는 방문(한쪽만 복구했거나 아직 안 내려온 경우)은 버리지 않고 한 줄로 모아 보여준다.
+  //  이걸 안 하면 기록이 에러도 경고도 없이 화면에서 사라진다.
+  const known = new Set(cs.map(c => c.id));
+  const orphan = vis.filter(v => !known.has(v.customerId));
+  if (orphan.length) {
+    const vs = orphan.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    rows.push({
+      c: { id: '__orphan', phone4: '', alias: '고객 정보 없는 기록', note: '기록 로그에서 고객을 복구하면 제자리로 돌아갑니다', orphan: true },
+      vs, s: statsFor(vs),
+    });
+  }
+  return rows;
+}
+
+/* ───────── 날짜 칸 ───────── */
+let _todayVal = '';   // 마지막으로 '오늘' 이라고 자동으로 넣어 둔 날짜
+function setToday() { const el = document.getElementById('q-date'); el.value = today(); _todayVal = el.value; datePaint(); }
+//  오늘이 아닌 날짜면 눈에 띄게 물들인다 — 지난 날짜가 남아 있는 걸 모르고 계속 기록하는 게 제일 위험하다
+function datePaint() {
+  const el = document.getElementById('q-date');
+  const off = !!el.value && el.value !== today();
+  el.style.background  = off ? '#FFF7ED' : '';
+  el.style.borderColor = off ? '#F97316' : '';
+  el.style.color       = off ? '#C2410C' : '';
+  el.style.fontWeight  = off ? '700' : '';
+  document.getElementById('q-today').style.display = off ? 'inline' : 'none';
+}
+
+/* ───────── 기록 직후 알림 ───────── */
+let _toastT = null;
+function toast(html) {
+  const el = document.getElementById('toast');
+  el.innerHTML = html;
+  el.style.display = 'block';
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+/* ───────── 위쪽 통화별 요약 ───────── */
+function shiftMonth(d) {
+  const p = _ym.split('-');
+  const dt = new Date(Number(p[0]), Number(p[1]) - 1 + d, 1);
+  _ym = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
+  renderAll();
+}
+function thisMonth() { _ym = today().slice(0, 7); renderAll(); }
+
+function renderMonth() {
+  const cm = today().slice(0, 7);
+  document.getElementById('m-label').textContent = _ym;
+  document.getElementById('m-now').style.visibility = (_ym === cm) ? 'hidden' : 'visible';
+
+  const agg = {};
+  getVisits().filter(v => (v.date || '').slice(0, 7) === _ym).forEach(v => {
+    const k = v.currency || '기타';
+    if (!agg[k]) agg[k] = { bAmt:0, bKrw:0, sAmt:0, sKrw:0, n:0 };
+    const a = Math.abs(Number(v.amount || 0)), krw = a * Math.abs(Number(v.rate || 0));
+    agg[k].n++;
+    if (v.tradeType === '매입')      { agg[k].bAmt += a; agg[k].bKrw += krw; }
+    else if (v.tradeType === '매각') { agg[k].sAmt += a; agg[k].sKrw += krw; }
+  });
+  const ks = Object.keys(agg).sort((a, b) => (agg[b].bKrw + agg[b].sKrw) - (agg[a].bKrw + agg[a].sKrw));
+  const host = document.getElementById('m-body');
+  if (!ks.length) {
+    host.innerHTML = `<div class="empty-note" style="padding:24px 0;font-size:.8rem">${_ym} 에는 기록이 없습니다.</div>`;
+  } else {
+    //  합계는 '화면에 찍힌 줄들' 을 그대로 더한다.
+    //  예전엔 반올림 안 한 원값을 더해서, 환율에 소수가 섞인 달(JPY 등)에
+    //  윗줄을 손으로 더한 값과 합계가 1~2원씩 어긋났다.
+    let bK = 0, sK = 0, N = 0;
+    ks.forEach(k => { bK += Math.round(agg[k].bKrw); sK += Math.round(agg[k].sKrw); N += agg[k].n; });
+    host.innerHTML = `<table class="mt">
+      <colgroup><col style="width:84px"><col><col><col><col><col style="width:58px"></colgroup>
+      <thead><tr><th>통화</th><th class="r">매입 외화</th><th class="r">매입 원화</th>
+        <th class="r">매각 외화</th><th class="r">매각 원화</th><th class="c">건</th></tr></thead>
+      <tbody>${ks.map(k => { const d = agg[k]; return `<tr>
+        <td class="cur">${esc(k)}</td>
+        <td class="r b">${d.bAmt ? fmtNum(d.bAmt) : '—'}</td>
+        <td class="r b" style="font-weight:700">${d.bKrw ? fmtNum(Math.round(d.bKrw)) : '—'}</td>
+        <td class="r s">${d.sAmt ? fmtNum(d.sAmt) : '—'}</td>
+        <td class="r s" style="font-weight:700">${d.sKrw ? fmtNum(Math.round(d.sKrw)) : '—'}</td>
+        <td class="c" style="color:#9CA3AF">${d.n}</td></tr>`; }).join('')}</tbody>
+      <tfoot><tr>
+        <td>합계</td><td class="r" style="color:#D1D5DB">—</td>
+        <td class="r b">${fmtNum(Math.round(bK))}</td>
+        <td class="r" style="color:#D1D5DB">—</td>
+        <td class="r s">${fmtNum(Math.round(sK))}</td>
+        <td class="c">${N}</td></tr></tfoot></table>`;
+  }
+}
+
+function renderMeta(idx) {
+  const cs = getCusts(), vs = getVisits();
+  const ym = today().slice(0, 7);
+  let cold = 0, reg = 0;
+  cs.forEach(c => {
+    const e = idx.get(c.id);
+    const d = e ? daysAgo(e.last) : null;
+    if (d !== null && d > 60) cold++;
+    if (prevOf(c) + (e ? e.n : 0) >= 10) reg++;
+  });
+  const mv = vs.filter(v => (v.date || '').slice(0, 7) === ym).length;
+  let krw = 0; vs.forEach(v => { krw += Math.abs(Number(v.amount || 0) * Number(v.rate || 0)); });
+  document.getElementById('m-meta').innerHTML =
+      `등록 고객 <b>${fmtNum(cs.length)}</b>명 · 이번 달 방문 <b>${fmtNum(mv)}</b>건 · `
+    + `<span style="color:#047857">10회 이상 <b>${fmtNum(reg)}</b>명</span> · `
+    + `<span style="color:#C2410C">60일 이상 안 온 고객 <b>${fmtNum(cold)}</b>명</span> · `
+    + `누적 거래액 <b>${fmtNum(Math.round(krw))}</b>원`;
+}
+
+/* ───────── 필터 · 보기 ───────── */
+function setSide(v) { _side = v; renderAll(); }
+function setCur(v)  { _cur  = v; renderAll(); }
+function setFlag(v) { _flag = v; renderAll(); }
+//  값이 들어간 드롭다운은 색으로 티를 낸다 — 걸어둔 필터를 잊고 "기록이 없다"고 오해하는 걸 막는다
+function paintFilters() {
+  [['f-cur', _cur], ['f-side', _side], ['f-flag', _flag]].forEach(p => {
+    const el = document.getElementById(p[0]);
+    if (el) { el.value = p[1]; el.classList.toggle('act', !!p[1]); }
+  });
+}
+function setView(v) {
+  _view = v;
+  document.getElementById('v-cust').classList.toggle('on', v === 'cust');
+  document.getElementById('v-day').classList.toggle('on', v === 'day');
+  syncSort();
+  renderAll();
+}
+//  정렬 항목은 보기마다 다르다. 'last'/'old' 는 양쪽에 다 있어 전환해도 뜻이 이어진다.
+function syncSort() {
+  const s = document.getElementById('f-sort');
+  const opts = (_view === 'day')
+    ? [['last','최신 날짜순'],['old','오래된 날짜순']]
+    : [['last','마지막 방문 최신순'],['old','마지막 방문 오래된순'],['count','방문 많은순'],['krw','거래액 큰순'],['alias','별칭순']];
+  const keep = s.value;
+  s.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join('');
+  s.value = opts.some(o => o[0] === keep) ? keep : opts[0][0];
+}
+//  통화 선택지는 실제로 기록된 통화만 — 19개를 다 늘어놓으면 고르기가 더 어렵다
+let _curSig = '';
+function syncCurFilter() {
+  const used = [];
+  getVisits().forEach(v => { if (v.currency && used.indexOf(v.currency) < 0) used.push(v.currency); });
+  const order = MB.CURRENCIES || [];
+  used.sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+  });
+  const sig = used.join(',');
+  if (sig !== _curSig) {
+    _curSig = sig;
+    document.getElementById('f-cur').innerHTML =
+      '<option value="">통화 전체</option>' + used.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  }
+  if (_cur && used.indexOf(_cur) < 0) _cur = '';
+}
+
+function toggleRow(id) { _open.has(id) ? _open.delete(id) : _open.add(id); renderAll(); }
+//  일별 보기에서 뒷번호를 누르면 그 고객의 고객별 줄로 건너뛴다
+function gotoCust(id, key) {
+  _open.add(id);
+  document.getElementById('f-q').value = key || '';
+  setView('cust');
+  const el = document.getElementById('row-' + id);
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+/*  고객별 누적 — 방문 횟수와 마지막 방문일은 필터와 무관하게 '전체' 기준으로 센다.
+    USD 만 걸어 놓았다고 10회 손님이 3회로 보이면 흔적의 뜻이 사라진다. */
+function custIndex() {
+  const idx = new Map();
+  getVisits().forEach(v => {
+    let e = idx.get(v.customerId);
+    if (!e) { e = { n:0, last:'', first:'' }; idx.set(v.customerId, e); }
+    e.n++;
+    if (!e.last || (v.date || '') > e.last) e.last = v.date || '';
+    if (v.date && (!e.first || v.date < e.first)) e.first = v.date;   // 첫 방문일 — '이번 달 신규' 판정에 쓴다
+  });
+  return idx;
+}
+function flagOk(c, idx) {
+  if (!_flag) return true;
+  if (!c) return false;                       // 고객 레코드가 없는 기록은 조건을 따질 수 없다
+  const e = idx.get(c.id) || { n:0, last:'', first:'' };
+  const tot = prevOf(c) + e.n;          // 이월을 포함한 총 방문 횟수
+  if (_flag === 'm10')  return tot >= 10;
+  if (_flag === 'm20')  return tot >= 20;
+  if (_flag === 'm30')  return tot >= 30;
+  //  드롭다운 글자가 '60일 이상' 이므로 정확히 60일 된 손님도 들어와야 한다 (예전엔 61일부터였다)
+  if (_flag === 'cold') { const d = daysAgo(e.last); return d !== null && d >= 60; }
+  //  '이번 달 처음' 은 고객을 만든 날이 아니라 '첫 방문일' 로 본다.
+  //  지난 날짜로 소급 입력한 손님이 이번 달 신규로 잡히던 문제.
+  if (_flag === 'new')  return String(e.first || c.createdAt || '').slice(0, 7) === today().slice(0, 7);
+  return true;
+}
+
+/*  검색 · 통화 · 매입매각은 '방문' 단위로 거른다.
+    그래야 USD 매각만 봤을 때 그 줄의 거래액·건수가 전부 그 조건 기준으로 맞는다. */
+function visitsFiltered(q, idx) {
+  const cmap = new Map(getCusts().map(c => [c.id, c]));
+  return getVisits().filter(v => {
+    if (_cur && (v.currency || '') !== _cur) return false;
+    if (_side && (v.tradeType || '') !== _side) return false;
+    const c = cmap.get(v.customerId);
+    if (_flag && !flagOk(c, idx)) return false;
+    if (!q) return true;
+    //  날짜는 '-' 를 넣고 검색할 때만 포함한다.
+    //  모든 기록에 '2026' 이 들어 있어서, 예전엔 '20'·'26'·'11' 같은 짧은 숫자가
+    //  전체 목록을 그대로 돌려줬다 — 뒷번호 일부로 손님 찾는 용도가 죽어 있었다.
+    const hay = [c ? c.phone4 : '', c ? c.alias : '', c ? c.note : '',
+                 v.memo, v.currency, v.branch,
+                 q.indexOf('-') >= 0 ? v.date : ''].join(' ').toLowerCase();
+    return hay.indexOf(q) >= 0;
+  });
+}
+
+function dowOf(d) {
+  if (!d) return '';
+  const x = new Date(d + 'T00:00:00');
+  return isNaN(x.getTime()) ? '' : ' (' + ['일','월','화','수','목','금','토'][x.getDay()] + ')';
+}
+function showEmpty(on, msg) {
+  const el = document.getElementById('empty');
+  el.style.display = on ? 'block' : 'none';
+  if (on && msg) el.innerHTML = msg;
+}
+
+/* ───────── 그리기 ───────── */
+function renderAll() {
+  const idx = custIndex();
+  _idx = idx;
+  renderPending();
+  renderMonth();
+  renderMeta(idx);
+  syncCurFilter();
+  paintFilters();
+  const q = (document.getElementById('f-q').value || '').trim().toLowerCase();
+  const vis = visitsFiltered(q, idx);
+  if (_view === 'day') renderDay(vis, idx); else renderCust(vis, q, idx);
+}
+
+function curBadges(s) {
+  const ks = Object.keys(s.cur).sort((a, b) => s.cur[b].amt - s.cur[a].amt);
+  const show = ks.slice(0, 2).map(k => {
+    const d = s.cur[k];
+    const cls = d.buy === d.sell ? 'cb-n' : (d.buy > d.sell ? 'cb-b' : 'cb-s');
+    return `<span class="cb ${cls}"><em>${esc(k)}</em>${fmtNum(d.amt)}</span>`;
+  }).join('');
+  const more = ks.length > 2 ? `<span class="cb cb-n">+${ks.length - 2}</span>` : '';
+  return show + more || '<span style="color:#D1D5DB">—</span>';
+}
+function sideCell(s) {
+  const t = s.buy + s.sell;
+  if (!t) return '<span style="color:#D1D5DB">—</span>';
+  const bp = Math.round(s.buy / t * 100);
+  return `<div><span class="sd sd-b">매입 ${s.buy}</span>
+      <span style="color:#D1D5DB;margin:0 4px">·</span>
+      <span class="sd sd-s">매각 ${s.sell}</span></div>
+    <div class="sdbar"><i style="width:${bp}%;background:#F87171"></i><i style="width:${100 - bp}%;background:#60A5FA"></i></div>`;
+}
+function visitTable(r) {
+  if (!r.vs.length) return '<div style="padding:14px;color:#9CA3AF;font-size:.78rem">조건에 맞는 방문 기록이 없습니다.</div>';
+  const n = r.vs.length;
+  return `<table class="vt">
+    <colgroup><col style="width:5%"><col style="width:13%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:13%"><col style="width:10%"><col style="width:13%"><col><col style="width:4%"></colgroup>
+    <thead><tr><th class="c">#</th><th>방문일</th><th>지점</th><th>구분</th><th>통화</th><th class="r">외화 금액</th><th class="r">환율</th><th class="r">거래액</th><th>특이사항</th><th></th></tr></thead>
+    <tbody>${r.vs.map((v, i) => {
+      const krw = Math.abs(Number(v.amount || 0) * Number(v.rate || 0));
+      const col = v.tradeType === '매입' ? '#DC2626' : v.tradeType === '매각' ? '#2563EB' : '#6B7280';
+      return `<tr>
+        <td class="c" style="color:#C4C7CE;font-weight:700">${n - i}</td>
+        <td>${esc(v.date)}<span style="color:#C4C7CE">${dowOf(v.date)}</span></td>
+        <td>${esc(v.branch || '-')}</td>
+        <td style="color:${col};font-weight:700">${esc(v.tradeType || '-')}</td>
+        <td style="font-weight:700">${esc(v.currency || '-')}</td>
+        <td class="r">${fmtNum(v.amount)}</td>
+        <td class="r" style="color:#6B7280">${v.rate ? Number(v.rate).toLocaleString('ko-KR') : '-'}</td>
+        <td class="r" style="font-weight:700">${krw ? fmtNum(Math.round(krw)) : '-'}</td>
+        <td><input class="ed" value="${esc(v.memo || '')}" placeholder="메모" onchange="saveVisit('${v.id}','memo',this.value)"></td>
+        <td class="c"><button class="xbtn" title="이 방문 삭제" onclick="delVisit('${v.id}')">✕</button></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+/* ── 고객별 ── */
+function renderCust(vis, q, idx) {
+  const sort = document.getElementById('f-sort').value;
+  const anyFilter = !!(q || _cur || _side || _flag);
+  const qHit = c => !q || [(c.phone4 || ''), (c.alias || ''), (c.note || '')].join(' ').toLowerCase().indexOf(q) >= 0;
+
+  let rows = buildRows(vis).filter(r => {
+    if (r.vs.length) return true;
+    if (!anyFilter) return true;                 // 필터가 없으면 방문 0건인 고객도 보여야 지울 수 있다
+    if (idx.has(r.c.id)) return false;           // 방문은 있는데 조건에 안 맞음 → 숨김
+    //  여기부터는 '기록이 0건인 고객'. 통화·매입매각은 방문을 거르는 조건이라 해당 없음.
+    //  하지만 고객 조건(10·20·30회)은 고객 자체를 보는 조건이고, 이월만 적어둔 손님이
+    //  바로 그 대상이다. 예전엔 여기서 숨겨버려서 ✓20회 배지가 붙은 손님을
+    //  '20회 이상' 필터로는 영영 못 찾았다 — 이월 기능이 통째로 무력해진다.
+    if (_cur || _side) return false;
+    if (_flag) return flagOk(r.c, idx) && qHit(r.c);
+    return qHit(r.c);                            // 방문이 아예 없는 고객은 검색으로 찾는다
+  });
+
+  rows.sort((a, b) => {
+    if (sort === 'count') return (b.c.orphan ? b.s.n : totalOf(b.c)) - (a.c.orphan ? a.s.n : totalOf(a.c));
+    if (sort === 'krw')   return b.s.krw - a.s.krw;
+    if (sort === 'alias') return (a.c.alias || '~').localeCompare(b.c.alias || '~', 'ko');
+    if (sort === 'old')   return (a.s.last || '9999').localeCompare(b.s.last || '9999');
+    return (b.s.last || '').localeCompare(a.s.last || '');
+  });
+
+  // 같은 손님이 두 줄로 갈라진 걸 ⚠ 로 알려 준다 (두 지점에서 동시에 처음 기록한 경우 등)
+  //  · 걸러진 rows 가 아니라 '고객 전체' 를 센다 — 필터를 걸면 경고가 사라지던 문제
+  //  · 뒷번호뿐 아니라 별칭 중복도 잡는다 — 뒷번호 없는 중복은 되돌릴 방법이 아예 없었다
+  const seen = {};
+  getCusts().forEach(c => {
+    if (c.phone4) seen['p:' + c.phone4] = (seen['p:' + c.phone4] || 0) + 1;
+    if (c.alias)  seen['a:' + c.alias]  = (seen['a:' + c.alias]  || 0) + 1;
+  });
+  const dupKeyOf = c => (c.phone4 && seen['p:' + c.phone4] > 1) ? 'p:' + c.phone4
+                      : (c.alias  && seen['a:' + c.alias]  > 1) ? 'a:' + c.alias : '';
+
+  let vn = 0; rows.forEach(r => { vn += r.s.n; });
+  document.getElementById('f-count').textContent = `고객 ${fmtNum(rows.length)}명 · 기록 ${fmtNum(vn)}건`;
+
+  const body = rows.map(r => {
+    const s = r.s, open = _open.has(r.c.id), ro = !!r.c.orphan;
+    const rec = ro ? s.n : ((idx.get(r.c.id) || { n: 0 }).n);   // 시스템에 기록된 방문 수
+    const prv = ro ? 0 : prevOf(r.c);                            // 사장이 직접 적은 이월 횟수
+    const part = !ro && rec !== s.n;              // 필터 때문에 일부만 보이는 중
+    const dk = ro ? '' : dupKeyOf(r.c);
+    const dupBtn = dk
+      ? `<button class="dupb" title="${dk.charAt(0) === 'p' ? '뒷번호' : '별칭'} ${esc(dk.slice(2))} 가 ${seen[dk]}줄로 나뉘어 있습니다 — 눌러서 한 명으로 합치기"
+                 onclick="event.stopPropagation(); mergeDup('${escJs(dk)}')">⚠</button>` : '';
+    const main = `<tr id="row-${r.c.id}" class="main${open ? ' open' : ''}${ro ? ' orphan' : ''}" onclick="if(!event.target.closest('input,button')) toggleRow('${r.c.id}')">
+      <td style="white-space:nowrap"><span class="cv">${open ? '▾' : '▸'}</span><span class="bar" style="background:${ro ? '#D1D5DB' : barColor(s.days)}"></span>
+          ${ro ? '<span class="ph" style="color:#9CA3AF">----</span>'
+               : `<input class="ed ph" style="width:56px;display:inline-block;vertical-align:middle" maxlength="4" inputmode="numeric"
+                 title="전화 뒷 4자리" value="${esc(r.c.phone4 || '')}" placeholder="----"
+                 oninput="this.value=this.value.replace(/\\D/g,'')"
+                 onchange="saveCust('${r.c.id}','phone4',this.value.replace(/\\D/g,''))">`}${dupBtn}</td>
+      <td>${ro ? `<span style="color:#9CA3AF;font-size:.8rem">${esc(r.c.alias)}</span>`
+               : `<input class="ed" value="${esc(r.c.alias || '')}" title="${esc(r.c.alias || '')}" placeholder="별칭 없음"
+            onchange="saveCust('${r.c.id}','alias',this.value)">`}</td>
+      <td>${sideCell(s)}</td>
+      <td class="cbs">${curBadges(s)}</td>
+      <td class="r" style="font-weight:700">${s.krw ? fmtNum(Math.round(s.krw)) : '—'}</td>
+      <td>${s.last ? esc(s.last.slice(5)) : '—'}<span class="gap ${gapClass(s.days)}">${gapText(s.days)}</span></td>
+      <td style="white-space:nowrap">${ro
+        ? `<span class="vcnt">${s.n}</span>`
+        : `<div><span class="vcnt" id="tot-${r.c.id}">${fmtNum(prv + rec)}</span><span id="mb-${r.c.id}">${mileBadge(prv + rec)}</span></div>
+           <div class="subv">이월 <input class="ed pv" id="pv-${r.c.id}" inputmode="numeric" maxlength="4"
+                 value="${prv || ''}" placeholder="0"
+                 title="시스템에 기록하기 전부터 오던 손님이면 지난 방문 횟수를 여기 직접 적으세요"
+                 onchange="savePrev('${r.c.id}',this.value)" onblur="renderAll()"> + 기록 ${fmtNum(rec)}${part ? ` · <b style="color:#B45309">조건 ${fmtNum(s.n)}</b>` : ''}</div>`}</td>
+      <td>${ro ? `<span style="color:#9CA3AF;font-size:.75rem">${esc(r.c.note)}</span>`
+               : `<input class="ed" value="${esc(r.c.note || '')}" title="${esc(r.c.note || '')}" placeholder="특이사항" onchange="saveCust('${r.c.id}','note',this.value)">`}</td>
+      <td class="c">${ro ? '' : `<button class="xbtn" title="고객 삭제" onclick="delCust('${r.c.id}')">✕</button>`}</td>
+    </tr>`;
+    const sub = open ? `<tr><td colspan="9" style="padding:0 10px 12px 10px;background:#FFFDF8">${visitTable(r)}</td></tr>` : '';
+    return main + sub;
+  }).join('');
+
+  document.getElementById('lt-host').innerHTML = rows.length ? `<table class="lt">
+    <colgroup>
+      <col style="width:9.5%"><col style="width:13%"><col style="width:11%"><col style="width:17.5%">
+      <col style="width:11%"><col style="width:12.5%"><col style="width:13%"><col style="width:9.5%"><col style="width:3%">
+    </colgroup>
+    <thead><tr>
+      <th>뒷번호</th><th>별칭</th><th>매입 / 매각</th><th>통화 · 누적 수량</th>
+      <th class="r">누적 거래액</th><th>마지막 방문</th><th title="이월 = 시스템에 기록하기 전부터 오던 횟수. 직접 적으면 총 횟수에 더해집니다">방문 횟수</th><th>특이사항</th><th></th>
+    </tr></thead>
+    <tbody>${body}</tbody></table>` : '';
+  showEmpty(!rows.length, anyFilter
+    ? '조건에 맞는 고객이 없습니다. 검색어나 필터를 지워 보세요.'
+    : '아직 기록이 없습니다. 위 줄에 입력하고 <b>기록</b>을 누르세요.');
+}
+
+/* ── 일별 ── */
+function renderDay(vis, idx) {
+  const sort = document.getElementById('f-sort').value;
+  const cmap = new Map(getCusts().map(c => [c.id, c]));
+  const g = new Map();
+  vis.forEach(v => { const d = v.date || ''; if (!g.has(d)) g.set(d, []); g.get(d).push(v); });
+  const days = [...g.keys()].sort((a, b) => sort === 'old' ? a.localeCompare(b) : b.localeCompare(a));
+
+  document.getElementById('f-count').textContent = `${fmtNum(days.length)}일 · 기록 ${fmtNum(vis.length)}건`;
+
+  const body = days.map(d => {
+    const list = g.get(d).slice().sort((a, b) => (a.branch || '').localeCompare(b.branch || '', 'ko'));
+    let bk = 0, sk = 0;
+    list.forEach(v => {
+      const k = Math.abs(Number(v.amount || 0) * Number(v.rate || 0));
+      if (v.tradeType === '매입') bk += k; else if (v.tradeType === '매각') sk += k;
+    });
+    const head = `<tr class="dh"><td colspan="10">${esc(d || '날짜 없음')}<span class="dow">${dowOf(d)}</span>
+      <span class="meta">${list.length}건 · <span style="color:#B91C1C">매입 ${fmtNum(Math.round(bk))}</span>
+      · <span style="color:#1D4ED8">매각 ${fmtNum(Math.round(sk))}</span></span></td></tr>`;
+    return head + list.map(v => {
+      const c = cmap.get(v.customerId);
+      const tot = c ? (prevOf(c) + (idx.get(c.id) || { n:0 }).n) : 0;
+      const krw = Math.abs(Number(v.amount || 0) * Number(v.rate || 0));
+      const col = v.tradeType === '매입' ? '#DC2626' : v.tradeType === '매각' ? '#2563EB' : '#6B7280';
+      const key = c ? (c.phone4 || c.alias || '') : '';
+      return `<tr class="dr">
+        <td style="white-space:nowrap">${c
+          ? `<span class="lnk2" onclick="gotoCust('${escJs(c.id)}','${escJs(key)}')" title="이 고객의 기록 전체 보기">${esc(c.phone4 || '····')}</span>`
+          : '<span class="ph" style="color:#D1D5DB">----</span>'}</td>
+        <td style="color:#4B5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(c ? (c.alias || '') : '')}">${c
+          ? esc(c.alias || '') + mileBadge(tot) : '<span style="color:#9CA3AF;font-size:.75rem">고객 정보 없는 기록</span>'}</td>
+        <td style="color:#6B7280">${esc(v.branch || '-')}</td>
+        <td style="color:${col};font-weight:700">${esc(v.tradeType || '-')}</td>
+        <td style="font-weight:800">${esc(v.currency || '-')}</td>
+        <td class="r">${fmtNum(v.amount)}</td>
+        <td class="r" style="color:#6B7280">${v.rate ? Number(v.rate).toLocaleString('ko-KR') : '-'}</td>
+        <td class="r" style="font-weight:700">${krw ? fmtNum(Math.round(krw)) : '-'}</td>
+        <td><input class="ed" value="${esc(v.memo || '')}" placeholder="메모" onchange="saveVisit('${v.id}','memo',this.value)"></td>
+        <td class="c"><button class="xbtn" title="이 기록 삭제" onclick="delVisit('${v.id}')">✕</button></td>
+      </tr>`;
+    }).join('');
+  }).join('');
+
+  document.getElementById('lt-host').innerHTML = days.length ? `<table class="lt">
+    <colgroup>
+      <col style="width:8%"><col style="width:16%"><col style="width:7%"><col style="width:7%"><col style="width:7%">
+      <col style="width:12%"><col style="width:9%"><col style="width:13%"><col><col style="width:3%">
+    </colgroup>
+    <thead><tr>
+      <th>뒷번호</th><th>별칭</th><th>지점</th><th>구분</th><th>통화</th>
+      <th class="r">외화 금액</th><th class="r">환율</th><th class="r">거래액</th><th>특이사항</th><th></th>
+    </tr></thead>
+    <tbody>${body}</tbody></table>` : '';
+  const anyF = !!(_cur || _side || _flag || (document.getElementById('f-q').value || '').trim());
+  showEmpty(!days.length, anyF
+    ? '조건에 맞는 기록이 없습니다. 검색어나 필터를 지워 보세요.'
+    : '아직 기록이 없습니다. 위 줄에 입력하고 <b>기록</b>을 누르세요.');
+}
+
+/* ───────── 수정 · 삭제 ───────── */
+//  저장 후 다시 그리지 않는다 — renderAll 은 tbody 를 innerHTML 로 통째 교체하므로,
+//  별칭 칸에서 Tab 을 누르면 change 가 먼저 떠서 넘어갈 칸이 사라지고 포커스가 body 로 빠진다.
+//  고친 값은 이미 화면에 있으니 다시 그릴 이유도 없다. (정렬/검색은 다음 렌더 때 반영)
+function saveCust(id, field, val) { mbUpdate(CUST_KEY, x => x.id === id, x => { x[field] = val; }); }
+/*  이월 횟수 — 기록하기 전부터 오던 손님을 사장이 직접 표시하는 칸.
+    저장한 뒤 renderAll 을 부르지 않고 그 줄의 숫자와 배지만 바꿔 쓴다
+    (다시 그리면 방금 친 칸이 사라져 포커스가 빠진다). */
+function savePrev(id, val) {
+  const raw = String(val == null ? '' : val).trim().replace(/,/g, '');
+  const inp = document.getElementById('pv-' + id);
+  //  숫자로 읽히지 않으면 아무것도 저장하지 않고 원래 숫자를 되돌려 놓는다.
+  //  예전엔 숫자 아닌 글자를 '지워버려서' 1.5 가 15 로 열 배가 되고,
+  //  한글이나 기호를 치면 적어둔 이월이 경고 없이 0 이 됐다.
+  if (raw !== '' && !isFinite(Number(raw))) {
+    const cur = prevOf(getCusts().find(x => x.id === id));
+    if (inp) inp.value = cur || '';
+    return;
+  }
+  const n = raw === '' ? 0 : Math.max(0, Math.min(9999, Math.floor(Number(raw))));
+  mbUpdate(CUST_KEY, x => x.id === id, x => { x.prevVisits = n; });
+  if (inp) inp.value = n || '';
+  const tot = n + ((_idx.get(id) || { n: 0 }).n);
+  const t = document.getElementById('tot-' + id);
+  if (t) t.textContent = fmtNum(tot);
+  const b = document.getElementById('mb-' + id);
+  if (b) b.innerHTML = mileBadge(tot);
+}
+function saveVisit(id, field, val) { mbUpdate(VISIT_KEY, x => x.id === id, x => { x[field] = val; }); }
+function delVisit(id) {
+  const v = getVisits().find(x => x.id === id);
+  if (!v || !confirm('이 방문 기록을 삭제할까요?')) return;
+  mbLogDelete('리스트 방문', VISIT_KEY, [v], x => `${x.date} ${x.tradeType || ''} ${x.currency || ''} ${fmtNum(x.amount)}`);
+  mbRemove(VISIT_KEY, x => x.id === id);
+  renderAll();
+}
+function custLabel(c) { return [c.phone4, c.alias].filter(Boolean).join(' · ') || '(빈 고객)'; }
+
+/* 같은 뒷번호로 갈라진 줄을 한 명으로 합친다.
+   먼저 만들어진 쪽을 남기고, 방문 기록을 전부 그쪽으로 옮긴 뒤 나머지 고객 레코드를 지운다.
+   별칭·특이사항은 남는 쪽이 비어 있을 때만 가져온다. */
+//  key 는 'p:뒷번호' 또는 'a:별칭'. 접두사가 없으면 예전처럼 뒷번호로 본다.
+function mergeDup(key) {
+  const byAlias = String(key).slice(0, 2) === 'a:';
+  const val = String(key).indexOf(':') === 1 ? String(key).slice(2) : String(key);
+  const dups = getCusts().filter(c => byAlias ? c.alias === val : c.phone4 === val);
+  if (dups.length < 2) { renderAll(); return; }
+  dups.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  const keep = dups[0], drop = dups.slice(1);
+  const moving = getVisits().filter(v => drop.some(d => d.id === v.customerId)).length;
+  const prvMax = Math.max.apply(null, dups.map(prevOf));
+  const msg = `${byAlias ? '별칭' : '뒷번호'} "${val}" — ${dups.length}줄로 나뉘어 있습니다.\n`
+    + dups.map(c => ` · ${custLabel(c)}${prevOf(c) ? ` (이월 ${prevOf(c)})` : ''}`).join('\n')
+    + `\n\n"${custLabel(keep)}" 으로 합치고 방문 ${moving}건을 옮깁니다.`
+    + (prvMax ? `\n이월 횟수는 가장 큰 값 ${prvMax} 로 남습니다.` : '')
+    + `\n진행할까요?`;
+  if (!confirm(msg)) return;
+
+  mbUpdate(VISIT_KEY, v => drop.some(d => d.id === v.customerId), v => { v.customerId = keep.id; });
+  mbUpdate(CUST_KEY, x => x.id === keep.id, x => {
+    drop.forEach(d => {
+      if (!x.alias && d.alias) x.alias = d.alias;
+      //  특이사항은 덮어쓰지 말고 이어 붙인다. 예전엔 남는 쪽에 메모가 있으면
+      //  지워지는 쪽 메모가 경고 없이 그냥 사라졌다.
+      if (d.note && String(x.note || '').indexOf(d.note) < 0)
+        x.note = [x.note, d.note].filter(Boolean).join(' / ');
+      //  이월 횟수도 가져온다. 어느 줄이 남는지(가장 먼저 만들어진 줄)는 화면 순서와 반대라서,
+      //  눈에 보이는 위 칸에 적어둔 이월이 합치는 순간 사라지곤 했다.
+      //  같은 사람의 '시스템 이전 방문 수'는 하나뿐이므로 더하지 않고 큰 쪽을 남긴다.
+      if (prevOf(d) > prevOf(x)) x.prevVisits = prevOf(d);
+    });
+  });
+  mbLogDelete('리스트 고객 합치기', CUST_KEY, drop, x => custLabel(x));
+  mbRemove(CUST_KEY, x => drop.some(d => d.id === x.id));
+  drop.forEach(d => _open.delete(d.id));
+  renderAll();
+}
+function delCust(id) {
+  const c = getCusts().find(x => x.id === id);
+  if (!c) return;
+  const vs = getVisits().filter(v => v.customerId === id);
+  if (!confirm(`${custLabel(c)} · 방문 기록 ${vs.length}건을 함께 삭제합니다.\n되돌리려면 기록 로그에서 복구해야 합니다. 삭제할까요?`)) return;
+  mbLogDelete('리스트 고객', CUST_KEY, [c], x => custLabel(x));
+  if (vs.length) mbLogDelete('리스트 방문', VISIT_KEY, vs, x => `${custLabel(c)} ${x.date} ${x.tradeType || ''} ${x.currency || ''}`);
+  mbRemove(VISIT_KEY, v => v.customerId === id);
+  mbRemove(CUST_KEY, x => x.id === id);
+  _open.delete(id);
+  renderAll();
+}
+
+/* ───────── 시작 ───────── */
+// 뒷번호·특이사항이 담겨 있어 관리자만 연다. 메뉴만 숨기면 주소를 직접 쳐서 들어올 수 있다.
+if (!isAdmin()) {
+  document.getElementById('deny-wrap').style.display = '';
+} else {
+  document.getElementById('list-wrap').style.display = '';
+  setToday();
+  syncSort();
+  const me = getCurrentUser();
+  if (me && me.branch) {
+    const b = document.getElementById('q-branch');
+    b.value = me.branch; b.dataset.prev = me.branch;   // prev 를 같이 넣어야 오타 후 blur 에서 되돌아온다
+  }
+  cmbInit();
+  renderAll();
+  mbOnDataChange(renderAll);   // mbOnDataChange 는 콜백을 1개만 보관하므로 한 번만 부른다
+
+  //  자정을 넘겨도 화면이 어제에 머무르지 않게 1분마다 날짜를 확인한다.
+  //  안 끄고 퇴근하면, 다음 날 아침 첫 기록이 아무 표시 없이 어제 날짜로 들어갔다.
+  //  ('어제'·'3일 전' 같은 경과일 표시도 하루 낡은 채로 남아 있었다)
+  setInterval(function () {
+    const d = today();
+    if (d === _todayVal) return;
+    const el = document.getElementById('q-date');
+    const prevMonth = _todayVal.slice(0, 7);
+    //  사장이 직접 바꿔 둔 날짜는 건드리지 않는다. 자동으로 넣어 둔 '오늘' 만 새 날짜로 올린다.
+    if (el && el.value === _todayVal) setToday();
+    else { _todayVal = d; datePaint(); }
+    if (_ym === prevMonth) _ym = d.slice(0, 7);   // 이번 달을 보고 있었으면 새 달로 따라간다
+    renderAll();
+  }, 60000);
+}
+</script>
+</body>
+</html>
