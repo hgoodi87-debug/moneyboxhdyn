@@ -38,6 +38,9 @@ const MB = {
   MARKETING_INFLOW_KEY: 'mb_marketing_inflow',
   WEEKLY_REPORTS_KEY: 'mb_weekly_reports',
   CALENDAR_KEY: 'mb_calendar_events',
+  SALES_GOAL_KEY: 'mb_sales_goals',   // 월 매출목표 (배열: {id,month,amount,basis,...})
+  ASSIGN_KEY: 'mb_assignments',       // 직원 배정 업무·데드라인 (배열: {id,content,assignee,due,...})
+  BRANCH_COUNT_KEY: 'mb_branch_counts', // 날짜×지점 건수 직접 입력 (배열: {id:'bc-날짜-지점',date,branch,count,by,at})
   CUSTOMERS_KEY: 'mb_customers',
   VISITS_KEY: 'mb_cust_visits',
   LOG_RETENTION_DAYS: 30,
@@ -45,6 +48,7 @@ const MB = {
   // 공통 헤더 네비게이션
   NAV: [
     { href: 'index.html',      label: '대시보드' },
+    { href: 'plan.html',       label: '목표·기획' },
     { href: 'attendance.html', label: '근태관리' },
     { href: 'tasks.html',      label: '업무관리' },
     { href: 'trading.html',    label: '거래관리' },

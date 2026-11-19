@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=65">
-<link rel="apple-touch-icon" href="favicon.png?v=65">
+<link rel="icon" type="image/png" href="favicon.png?v=67">
+<link rel="apple-touch-icon" href="favicon.png?v=67">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=65">
+<link rel="stylesheet" href="css/mb.css?v=67">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=65"></script>
-<script src="js/mb-data.js?v=65"></script>
-<script src="js/mb-sync.js?v=65"></script>
+<script src="js/firebase-config.js?v=67"></script>
+<script src="js/mb-data.js?v=67"></script>
+<script src="js/mb-sync.js?v=67"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
   .widget { background:#fff; border-radius:.875rem; padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.06); display:flex; flex-direction:column; height:100%; overflow:hidden; }
@@ -196,6 +196,18 @@
   .ck-sec.sc-cal{color:#B45309}  .ck-sec.sc-cal::after{background:#FDE8C4}
   .ck-sec.sc-task{color:#047857} .ck-sec.sc-task::after{background:#C7EFDC}
   .ck-sec.sc-own{color:#9CA3AF}
+
+  /* 체크리스트 제목줄 — 클래스만 붙어 있고 규칙이 없어서 제목·숫자·초기화가
+     한 줄로 흘러 있었다(초기화는 브라우저 기본 버튼 모양). 여기서 정의한다. */
+  .ck-hd{display:flex;align-items:center;gap:6px}
+  .ck-nm{display:flex;align-items:center;gap:5px;flex:1;min-width:0}
+  .ck-cnt{font-size:.68rem;font-weight:800;color:#9CA3AF;font-variant-numeric:tabular-nums;flex-shrink:0}
+  .ck-reset{font-size:.63rem;font-weight:500;color:#9CA3AF;border:1px solid #E5E7EB;border-radius:4px;
+            padding:1.5px 6px;line-height:1.5;flex-shrink:0;cursor:pointer}
+  .ck-reset:hover{color:#EF4444;border-color:#EF4444}
+  .ck-sel{font-size:.66rem;color:#4B5563;border:1px solid #E5E7EB;border-radius:.3rem;
+          padding:2px 4px;max-width:74px;min-width:0}
+  .ck-sel:focus{outline:none;border-color:#1E2A3A}
 </style>
 </head>
 <body class="bg-[#F5F7FA]">

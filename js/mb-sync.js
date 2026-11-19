@@ -30,7 +30,8 @@
     'mb_atm_gate', 'mb_atm_memo', 'mb_storage_sales', 'mb_storage_price',
     'mb_storage_monthly', 'mb_archive', 'mb_credentials', 'mb_audit_log',
     'mb_marketing_plans', 'mb_marketing_inflow', 'mb_weekly_reports', 'mb_biliber_support',
-    'mb_calendar_events', 'mb_customers', 'mb_cust_visits'
+    'mb_calendar_events', 'mb_customers', 'mb_cust_visits',
+    'mb_sales_goals', 'mb_assignments', 'mb_branch_counts'
   ];
 
   let app;

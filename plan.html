@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="favicon.png?v=67">
+<link rel="apple-touch-icon" href="favicon.png?v=67">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>MoneyBox 목표·기획</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="css/mb.css?v=67">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js?v=67"></script>
+<script src="js/mb-data.js?v=67"></script>
+<script src="js/mb-sync.js?v=67"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+  .card { background:#fff; border-radius:.875rem; padding:1.1rem 1.25rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .sec-title { font-weight:800; color:#1A1A2E; font-size:.95rem; letter-spacing:-.02em; }
+  .sec-sub { font-size:.7rem; color:#9CA3AF; font-weight:500; }
+  .row { display:flex; gap:16px; align-items:stretch; }
+  @media (max-width:1100px){ .row{ flex-direction:column } }
+
+  /* 달 이동 — 페이지 전체가 같은 달을 본다 */
+  .mo-nav{display:flex;align-items:center;gap:2px;flex-shrink:0}
+  .mo-btn{font-size:.72rem;color:#9CA3AF;padding:4px 7px;border-radius:5px;line-height:1;cursor:pointer;
+          border:1px solid #E5E7EB;background:#fff}
+  .mo-btn:hover{background:#F3F4F6;color:#1A1A2E}
+  .mo-lab{font-size:.9rem;font-weight:800;color:#1A1A2E;min-width:92px;text-align:center;letter-spacing:-.02em}
+  .tog{font-size:.66rem;font-weight:700;color:#4B5563;background:#fff;border:1px solid #E5E7EB;
+       border-radius:.38rem;padding:3.5px 9px;cursor:pointer;white-space:nowrap}
+  .tog:hover{border-color:#9CA3AF;color:#1A1A2E}
+  .tog.on{background:#1E2A3A;color:#fff;border-color:#1E2A3A}
+  .pill-src{font-size:.62rem;font-weight:700;color:#6B7280;background:#F3F4F6;border-radius:9px;padding:2.5px 8px;cursor:help;white-space:nowrap}
+  .btn-gear{font-size:.66rem;color:#9CA3AF;border:1px solid #E5E7EB;border-radius:5px;padding:2.5px 8px;line-height:1.3;cursor:pointer;white-space:nowrap}
+  .btn-gear:hover{color:#1A1A2E;border-color:#C4C7CE}
+  .btn-go{font-size:.74rem;font-weight:700;color:#fff;background:#1E2A3A;border-radius:.38rem;padding:6px 15px;cursor:pointer;flex-shrink:0;white-space:nowrap}
+  .btn-go:hover{background:#2C3E50}
+  .btn-go.wait{background:#F5A623}
+  .btn-go.ok{background:#10B981}
+
+  /* ── 매출목표 ── */
+  .g-big{font-size:2rem;font-weight:900;color:#1A1A2E;font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1}
+  .g-tgt{font-size:.85rem;color:#9CA3AF;font-variant-numeric:tabular-nums}
+  .g-pct{font-size:1.4rem;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+  .g-pace{font-size:.72rem;font-weight:700}
+  .g-rw{position:relative;height:18px;display:flex;align-items:center;margin:14px 0 6px}
+  .g-rail{width:100%;height:12px;border-radius:6px;background:#F1F3F5;overflow:hidden}
+  .g-fill{height:100%;border-radius:6px;transition:width .3s}
+  .g-tick{position:absolute;top:0;bottom:0;width:2px;background:#1A1A2E;border-radius:1px;opacity:.6}
+  .g-ticklab{position:absolute;top:19px;font-size:.58rem;color:#9CA3AF;white-space:nowrap;transform:translateX(-50%)}
+  .g-ok{color:#047857} .g-warn{color:#B45309} .g-bad{color:#DC2626} .g-mut{color:#9CA3AF}
+  .g-f-ok{background:#10B981} .g-f-warn{background:#F5A623} .g-f-bad{background:#EF4444} .g-f-mut{background:#D1D5DB}
+  .g-foot{display:flex;margin-top:18px;border-top:1px solid #F3F4F6;padding-top:11px;flex-wrap:wrap}
+  .g-cell{flex:1;min-width:92px;padding:0 10px;border-left:1px solid #F3F4F6}
+  .g-cell:first-child{border-left:0;padding-left:0}
+  .g-cl{font-size:.63rem;color:#9CA3AF;font-weight:600;white-space:nowrap}
+  .g-cv{font-size:.92rem;font-weight:800;color:#1A1A2E;font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap}
+  .g-cv small{font-size:.62rem;font-weight:600;color:#9CA3AF;margin-left:3px}
+  .g-none{font-size:.8rem;color:#9CA3AF;padding:26px 0;text-align:center;line-height:1.7}
+  .g-note{font-size:.62rem;color:#C4C7CE;margin-top:11px;border-top:1px solid #F7F8F9;padding-top:8px;line-height:1.5}
+
+  /* ── 최근 추이 ── */
+  .tr-wrap{display:flex;align-items:flex-end;gap:7px;height:116px;margin-top:6px}
+  .tr-col{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%;cursor:pointer}
+  .tr-col:hover .tr-m{color:#F5A623}
+  .tr-v{font-size:.6rem;font-weight:700;color:#6B7280;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tr-bar{width:100%;border-radius:3px 3px 0 0;background:#DDE3EA;min-height:3px;position:relative}
+  .tr-bar.on{background:#F5A623}
+  .tr-stack{width:100%;display:flex;flex-direction:column;justify-content:flex-end}
+  .tr-proj{width:100%;border-radius:3px 3px 0 0;border-top:1px dashed #E0B873;
+           background:repeating-linear-gradient(45deg,#FAE6C4 0 3px,transparent 3px 7px)}
+  .tr-v.pre{color:#D7DBE0;font-weight:600;font-size:.56rem}
+  .tr-m{font-size:.62rem;color:#9CA3AF;font-weight:600}
+  .tr-m.on{color:#1A1A2E;font-weight:800}
+  .tr-legend{font-size:.6rem;color:#C4C7CE;margin-top:9px;text-align:right}
+
+  /* ── 지점별 건수 ── */
+  .bc-in{display:flex;align-items:flex-end;gap:8px;background:#FAFBFC;border:1px solid #EEF0F3;
+         border-radius:.6rem;padding:10px 13px;margin-bottom:13px;flex-wrap:wrap}
+  .bc-f{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .bc-fl{font-size:.62rem;font-weight:700;color:#9CA3AF}
+  .bc-fi{border:1.5px solid #E5E7EB;border-radius:.38rem;padding:4px 8px;height:32px;font-size:.84rem;
+         color:#1A1A2E;font-variant-numeric:tabular-nums;background:#fff}
+  .bc-fi:focus{outline:none;border-color:#F5A623;background:#FFFBEB}
+  .bc-fi.n{width:88px;text-align:right}
+  .bc-fi::-webkit-outer-spin-button,.bc-fi::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .bc-fi[type=number]{-moz-appearance:textfield}
+  .bc-hint{font-size:.64rem;color:#9CA3AF;margin-left:auto;text-align:right;line-height:1.55}
+  .bc-tiles{display:flex;gap:12px}
+  .bc-tile{flex:1;min-width:0;background:#FAFBFC;border:1px solid #EEF0F3;border-radius:.6rem;padding:9px 12px}
+  .bc-tl{font-size:.66rem;font-weight:700;color:#9CA3AF}
+  .bc-tv{font-size:1.65rem;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.15;letter-spacing:-.03em}
+  .bc-tv small{font-size:.7rem;font-weight:700;color:#9CA3AF;margin-left:3px}
+  .bc-ts{font-size:.63rem;color:#9CA3AF;margin-top:2px;font-variant-numeric:tabular-nums}
+  .bc-hd{color:#F5A623} .bc-yn{color:#1E40AF} .bc-all{color:#1A1A2E}
+  .bc-share{display:flex;height:9px;border-radius:5px;overflow:hidden;margin-top:7px;background:#EEF0F3}
+  .bc-share i{display:block;height:100%}
+  .bc-cmp{display:flex;align-items:center;gap:9px;margin-top:12px;border-radius:.6rem;
+          padding:9px 13px;font-size:.74rem;border:1px solid;flex-wrap:wrap}
+  .bc-cmp b{font-variant-numeric:tabular-nums}
+  .bc-ok{background:#ECFDF5;border-color:#A7F3D0;color:#047857}
+  .bc-over{background:#FFFBEB;border-color:#FDE68A;color:#92400E}
+  .bc-under{background:#FEF2F2;border-color:#FECACA;color:#B91C1C}
+  .bc-none{background:#F8F9FB;border-color:#EEF0F3;color:#6B7280}
+  .bc-miss{font-size:.64rem;color:#9CA3AF;background:#fff;border:1px solid #EEF0F3;border-radius:9px;padding:1px 7px}
+  .bc-list{margin-top:11px;border:1px solid #EEF0F3;border-radius:.6rem;overflow:hidden;max-height:330px;overflow-y:auto}
+  .bc-r{display:grid;grid-template-columns:104px 64px 64px 56px 56px 62px 34px;align-items:center;
+        gap:7px;padding:4px 12px;border-top:1px solid #F5F6F7;min-height:31px}
+  .bc-r:first-child{border-top:0}
+  .bc-r.h{background:#F8F9FB;font-size:.63rem;font-weight:700;color:#6B7280;text-align:center;
+          position:sticky;top:0;z-index:1}
+  .bc-r.h span:first-child{text-align:left}
+  .bc-r.today{background:#FFFBEB}
+  .bc-r.gap{background:#FFF8F8}
+  .bc-r.sel{background:#EEF4FF;box-shadow:inset 2px 0 0 #1E40AF}
+  .bc-d{font-size:.74rem;font-weight:700;color:#374151;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bc-d.sa{color:#2563EB} .bc-d.su{color:#DC2626}
+  .bc-d small{font-size:.6rem;font-weight:600;color:#9CA3AF;margin-left:3px}
+  .bc-v{font-size:.76rem;color:#4B5563;text-align:center;font-variant-numeric:tabular-nums}
+  .bc-v.mut{color:#C4C7CE}
+  .bc-dif{font-size:.68rem;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+  .bc-dif.z{color:#C4C7CE;font-weight:500} .bc-dif.p{color:#B45309} .bc-dif.m{color:#DC2626}
+  .bc-ed{font-size:.68rem;color:#C4C7CE;cursor:pointer;text-align:center}
+  .bc-ed:hover{color:#1E40AF}
+  @media (max-width:860px){ .bc-tiles{flex-wrap:wrap} .bc-r{grid-template-columns:84px 52px 52px 44px 44px 50px 28px;gap:4px;padding:4px 7px} }
+
+  /* ── 마케팅 플랜 (주별) ── */
+  .mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(278px,1fr));gap:12px}
+  .mk-wk{border:1px solid #EEF0F3;border-radius:.6rem;padding:9px 11px 10px;background:#fff;display:flex;flex-direction:column}
+  .mk-wk.cur{border-color:#F5A623;background:#FFFDF5}
+  .mk-wh{display:flex;align-items:baseline;gap:5px;margin-bottom:5px}
+  .mk-wl{font-size:.8rem;font-weight:800;color:#1A1A2E}
+  .mk-now{font-size:.56rem;font-weight:800;color:#92400E;background:#FEF3C7;border-radius:8px;padding:1px 6px}
+  .mk-wr{font-size:.63rem;color:#9CA3AF;margin-left:auto;font-variant-numeric:tabular-nums}
+  .mk-it{display:flex;align-items:center;gap:5px;padding:3.5px 0;border-top:1px solid #F7F8F9;min-width:0}
+  .mk-box{width:13px;height:13px;accent-color:#10B981;cursor:pointer;flex-shrink:0}
+  .mk-tx{flex:1;min-width:0;font-size:.76rem;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mk-it.done .mk-tx{text-decoration:line-through;color:#9CA3AF}
+  .mk-by{font-size:.56rem;color:#9CA3AF;flex-shrink:0}
+  .mk-go,.mk-x{font-size:.64rem;color:#D1D5DB;cursor:pointer;flex-shrink:0;padding:0 1px;line-height:1}
+  .mk-go:hover{color:#7C3AED}  .mk-x:hover{color:#EF4444}
+  .mk-go.lock{color:#C7B9F0;cursor:default}
+  .mk-none{font-size:.68rem;color:#C0C4CC;padding:7px 0;text-align:center}
+  .mk-add{display:flex;gap:4px;margin-top:7px}
+  .mk-add input{flex:1;min-width:0;border:1px solid #E5E7EB;border-radius:.35rem;padding:3px 7px;font-size:.73rem}
+  .mk-add input:focus{outline:none;border-color:#F5A623}
+  .mk-btn{font-size:.7rem;font-weight:700;color:#fff;background:#F5A623;border-radius:.35rem;padding:3px 9px;cursor:pointer;flex-shrink:0}
+  .mk-btn:hover{background:#E0940F}
+  .mk-sum{display:flex;align-items:center;gap:10px;background:#FAFBFC;border-radius:.6rem;padding:8px 12px;margin-bottom:12px;flex-wrap:wrap}
+  .mk-bar{flex:1;min-width:120px;height:12px;border-radius:6px;background:#EEF0F3;overflow:hidden}
+  .mk-bar i{display:block;height:100%;background:#F5A623;border-radius:6px}
+  .mk-pc{font-size:.86rem;font-weight:900;color:#F5A623;font-variant-numeric:tabular-nums}
+
+  /* ── 멤버별 마케팅 ── */
+  .mb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(318px,1fr));gap:12px}
+  .mb-card{border:1px solid #EEF0F3;border-radius:.65rem;background:#fff;display:flex;flex-direction:column;overflow:hidden}
+  .mb-card.me{border-color:#A7F3D0}
+  .mb-card.non{border-color:#FBD5D5}
+  .mb-h{display:flex;align-items:center;gap:6px;padding:8px 11px;background:#FAFBFC;border-bottom:1px solid #EEF0F3}
+  .mb-av{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+         font-size:.68rem;font-weight:800;color:#fff;background:#94A3B8}
+  .mb-n{font-size:.82rem;font-weight:800;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mb-br{font-size:.58rem;font-weight:700;border-radius:3px;padding:1px 5px;line-height:1.5;flex-shrink:0}
+  .mb-cnt{margin-left:auto;font-size:.64rem;font-weight:700;color:#9CA3AF;font-variant-numeric:tabular-nums;flex-shrink:0}
+  .mb-cnt b{color:#B91C1C}
+  .mb-body{padding:3px 11px 0;flex:1;min-height:56px;max-height:224px;overflow-y:auto}
+  .mb-it{display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-top:1px solid #F7F8F9;min-width:0}
+  .mb-it:first-child{border-top:0}
+  .mb-box{width:13px;height:13px;accent-color:#7C3AED;cursor:pointer;flex-shrink:0;margin-top:2px}
+  .mb-tw{flex:1;min-width:0}
+  .mb-tx{font-size:.78rem;color:#374151;line-height:1.4;word-break:break-word}
+  .mb-it.done .mb-tx{text-decoration:line-through;color:#9CA3AF}
+  .mb-meta{display:flex;align-items:center;gap:5px;margin-top:2px;flex-wrap:wrap}
+  .mb-d{font-size:.58rem;font-weight:800;border-radius:3px;padding:1px 5px;line-height:1.5;font-variant-numeric:tabular-nums}
+  .mb-d-over{background:#FEE2E2;color:#B91C1C}
+  .mb-d-today{background:#FEF3C7;color:#B45309}
+  .mb-d-soon{background:#FEF9EC;color:#B45309}
+  .mb-d-far{background:#F3F4F6;color:#6B7280}
+  .mb-d-none{background:#F6F7F9;color:#C4C7CE}
+  .mb-who{font-size:.58rem;color:#C4C7CE}
+  .mb-ed,.mb-x{font-size:.66rem;color:#D9DCE1;cursor:pointer;flex-shrink:0;line-height:1;padding:2px 1px}
+  .mb-ed:hover{color:#1E40AF} .mb-x:hover{color:#EF4444}
+  .mb-none{font-size:.7rem;color:#C0C4CC;text-align:center;padding:14px 0}
+  .mb-add{display:flex;gap:4px;padding:7px 11px 9px;border-top:1px solid #F5F6F7}
+  .mb-add input[type=text]{flex:1;min-width:0;border:1px solid #E5E7EB;border-radius:.35rem;padding:3.5px 7px;font-size:.73rem}
+  .mb-add input[type=date]{width:118px;flex-shrink:0;border:1px solid #E5E7EB;border-radius:.35rem;padding:3.5px 5px;font-size:.68rem;color:#4B5563}
+  .mb-add input:focus{outline:none;border-color:#7C3AED}
+  .mb-pb{font-size:.7rem;font-weight:700;color:#fff;background:#7C3AED;border-radius:.35rem;padding:3.5px 9px;cursor:pointer;flex-shrink:0}
+  .mb-pb:hover{background:#6D28D9}
+
+  /* 목표 입력 작은 창 */
+  .gp{position:fixed;z-index:130;background:#fff;border:1px solid #E5E7EB;border-radius:.7rem;
+      box-shadow:0 10px 30px rgba(0,0,0,.14);padding:13px 14px;width:300px;display:none}
+  .gp.on{display:block}
+  .gp h4{font-size:.8rem;font-weight:800;color:#1A1A2E;margin-bottom:9px}
+  .gp label{display:block;font-size:.64rem;font-weight:700;color:#9CA3AF;margin:8px 0 3px}
+  .gp input,.gp select{width:100%;border:1px solid #E5E7EB;border-radius:.4rem;padding:5px 8px;
+                       font-size:.8rem;color:#1A1A2E;font-variant-numeric:tabular-nums}
+  .gp input:focus,.gp select:focus{outline:none;border-color:#1E2A3A}
+  .gp .gp-prev{font-size:.66rem;color:#6B7280;margin-top:4px;min-height:14px}
+  .gp .gp-row{display:flex;gap:6px;margin-top:11px}
+  .gp .gp-row button{flex:1;font-size:.74rem;font-weight:700;border-radius:.4rem;padding:5px 0;cursor:pointer}
+  .gp-save{background:#1E2A3A;color:#fff}  .gp-save:hover{background:#2C3E50}
+  .gp-cancel{background:#F3F4F6;color:#6B7280}  .gp-cancel:hover{background:#E5E7EB}
+  .gp-note{font-size:.6rem;color:#C4C7CE;margin-top:9px;line-height:1.45}
+</style>
+</head>
+<body class="bg-[#F5F7FA]">
+
+<div id="mb-header"></div>
+
+<main class="pt-[92px] min-h-screen pb-8" style="padding-left:16px;padding-right:16px">
+  <div style="max-width:1600px;margin:0 auto">
+
+    <div class="mb-5 flex items-end" style="gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <h2 class="text-xl font-bold text-[#1A1A2E]">목표 · 기획</h2>
+        <p class="text-xs text-[#6B7280] mt-0.5">월 매출목표와 지점별 건수, 마케팅 플랜, 멤버별 마케팅을 한곳에서 봅니다.</p>
+      </div>
+      <!-- 달 이동은 페이지에 하나뿐이다 — 목표는 10월인데 건수는 11월인 화면이 안 나오게 -->
+      <div class="mo-nav">
+        <button class="mo-btn" onclick="goalMove(-1)" title="지난달">◀</button>
+        <span class="mo-lab" id="mo-lab">—</span>
+        <button class="mo-btn" onclick="goalMove(1)" title="다음달">▶</button>
+        <button class="tog" style="margin-left:6px" onclick="goalToday()">이번달</button>
+      </div>
+    </div>
+
+    <!-- ─── 1. 매출목표 ─── -->
+    <div class="row" style="margin-bottom:16px">
+      <div class="card" style="flex:2.1;min-width:0;display:flex;flex-direction:column">
+        <div class="flex items-center" style="gap:9px;margin-bottom:14px;flex-wrap:wrap">
+          <span class="sec-title">매출목표</span>
+          <span class="sec-sub" id="g-mo"></span>
+          <span style="flex:1"></span>
+          <span class="pill-src" id="g-basis">—</span>
+          <button class="btn-gear" id="g-gear" onclick="goalPopOpen()" style="display:none">⚙ 목표</button>
+        </div>
+        <div id="g-body" style="flex:1"></div>
+      </div>
+
+      <div class="card" style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div class="flex items-baseline" style="gap:7px">
+          <span class="sec-title">최근 6개월 방문</span>
+          <span class="sec-sub" id="tr-basis"></span>
+        </div>
+        <div id="tr-body" style="flex:1;display:flex;flex-direction:column;justify-content:center"></div>
+      </div>
+    </div>
+
+    <!-- ─── 2. 지점별 건수 ─── -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="flex items-center" style="gap:9px;margin-bottom:12px;flex-wrap:wrap">
+        <span class="sec-title">지점별 건수</span>
+        <span class="sec-sub" id="bc-mo"></span>
+        <span style="flex:1"></span>
+        <button class="tog" id="bc-gap" onclick="bcToggleGap()" style="display:none">차이 나는 날만</button>
+        <button class="tog" id="bc-open" onclick="bcToggleList()">기록 보기</button>
+      </div>
+
+      <!-- 마감자가 하루 끝에 적고 '저장' 을 누른다 (적는 동안 저절로 저장되지 않는다) -->
+      <div class="bc-in">
+        <div class="bc-f"><span class="bc-fl">날짜</span>
+          <input class="bc-fi" type="date" id="bc-date" onchange="bcLoad()"></div>
+        <div class="bc-f"><span class="bc-fl" id="bc-l1">홍대</span>
+          <input class="bc-fi n" type="number" min="0" id="bc-v1" placeholder="0"
+                 oninput="bcDirty()" onkeydown="bcKey(event)" onwheel="this.blur()"></div>
+        <div class="bc-f"><span class="bc-fl" id="bc-l2">연남</span>
+          <input class="bc-fi n" type="number" min="0" id="bc-v2" placeholder="0"
+                 oninput="bcDirty()" onkeydown="bcKey(event)" onwheel="this.blur()"></div>
+        <div class="bc-f"><span class="bc-fl">&nbsp;</span>
+          <button class="btn-go" id="bc-save" onclick="bcSave()">저장</button></div>
+        <div class="bc-hint" id="bc-hint"></div>
+      </div>
+
+      <div class="bc-tiles" id="bc-tiles"></div>
+      <div id="bc-cmp"></div>
+      <div id="bc-list"></div>
+    </div>
+
+    <!-- ─── 3. 마케팅 플랜 (주별) ─── -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="flex items-center" style="gap:9px;margin-bottom:12px;flex-wrap:wrap">
+        <span class="sec-title">마케팅 플랜</span>
+        <span class="sec-sub" id="mk-mo"></span>
+        <span style="flex:1"></span>
+        <span class="sec-sub">주 단위로 저장됩니다 · 이번 주 플랜은 <a href="marketing.html" style="color:#6B7280;text-decoration:underline">마케팅 페이지</a>에서도 체크할 수 있습니다</span>
+      </div>
+      <div class="mk-sum" id="mk-sum"></div>
+      <div class="mk-grid" id="mk-grid"></div>
+    </div>
+
+    <!-- ─── 4. 멤버별 마케팅 ─── -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="flex items-center" style="gap:9px;margin-bottom:12px;flex-wrap:wrap">
+        <span class="sec-title">멤버별 마케팅</span>
+        <span class="sec-sub">누가 어떤 마케팅을 진행할지 적습니다 · 기한은 안 적어도 됩니다</span>
+        <span style="flex:1"></span>
+        <button class="tog" id="mb-done" onclick="mbToggleDone()">끝난 것도 보기</button>
+      </div>
+      <div class="mb-grid" id="mb-grid"></div>
+    </div>
+
+  </div>
+</main>
+
+<!-- 목표 금액 입력 (시니어 이상) -->
+<div class="gp" id="goal-pop">
+  <h4 id="gp-title">매출목표</h4>
+  <label>목표 금액 (원)</label>
+  <input id="gp-amt" inputmode="numeric" placeholder="예: 150,000,000" autocomplete="off"
+         oninput="gpAmtIn(this)" onkeydown="if(event.key==='Enter'&&!mbComposing(event))goalSave()">
+  <div class="gp-prev" id="gp-prev"></div>
+  <div class="gp-row">
+    <button class="gp-cancel" onclick="goalPopClose()">취소</button>
+    <button class="gp-save" onclick="goalSave()">저장</button>
+  </div>
+  <p class="gp-note">적어 둔 목표 금액은 이 장에 그대로 보입니다.<br>
+    달성률은 따지지 않습니다 — 실제 매출은 <b>거래관리</b>와 주간보고서에서 봅니다.</p>
+</div>
+
+<script>
+mbBoot('plan.html');
+
+// ─── 공통 작은 도구 ───
+function _esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _escA(s){ return _esc(s).replace(/"/g,'&quot;'); }
+function delOne(label, storeKey, id, descFn, after) {
+  const it = mbGetOrDefault(storeKey, []).find(x => x.id === id);
+  if (!it) return;
+  let d = '';
+  try { d = descFn(it) || ''; } catch (e) { d = ''; }
+  if (!confirm(`[${label}] 삭제할까요?\n\n${d}\n\n기록 로그에서 30일 안에 되돌릴 수 있습니다.`)) return;
+  if (typeof mbLogDelete === 'function') mbLogDelete(`${label} 삭제`, storeKey, [it], descFn);
+  mbRemove(storeKey, x => x.id === id);
+  if (after) after();
+}
+function ymdOf(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function shiftYmd(ds, n){ const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() + n); return ymdOf(d); }
+function mondayOf(ds){ const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return ymdOf(d); }
+
+// ═══ 매출목표 ══════════════════════════════════════════════
+//  매출은 거래관리(mb_transactions)에서 자동으로 집계한다 — 따로 입력받지 않는다.
+//  '외부거래1·2'(시트 2·3) 만 손님 상대 거래다. 지점간거래(1)·연남마감(4)·은행(6) 은
+//  같은 돈을 다시 적는 시트라 더하면 매출이 두 번 잡힌다. 그래서 뺀다.
+//  분할거래도 amount 에 총수량이 항상 유지되므로(trading.html 1659행) 그대로 쓴다.
+const SALES_SHEETS = [2, 3];
+let _gMonth = '';            // 보고 있는 달 (빈 값 = 이번달)
+
+function goalMonth(){ return _gMonth || today().slice(0,7); }
+function monthDays(ym){ return new Date(Number(ym.slice(0,4)), Number(ym.slice(5,7)), 0).getDate(); }
+function monthFrom(ym){ return ym + '-01'; }
+function monthTo(ym){ return ym + '-' + String(monthDays(ym)).padStart(2,'0'); }
+function monthShift(ym, n){
+  const d = new Date(Number(ym.slice(0,4)), Number(ym.slice(5,7)) - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+//  거래기록은 1~2MB 가 될 수 있다. 그리기 한 번에 한 번만 읽는다.
+//  (이제 매출 합계는 안 세고, 거래관리는 '지점별 건수' 대조에만 쓴다)
+let _txRaw = null;
+function txRaw(){ if (_txRaw === null) _txRaw = localStorage.getItem(MB.TRANSACTIONS_KEY) || ''; return _txRaw; }
+//  목표 레코드의 id 를 'goal-2026-11' 로 고정한다. uid() 로 만들면 홍대·연남이 같은 달
+//  목표를 각각 만들었을 때 레코드가 둘 생기고 어느 쪽을 읽을지 모호해진다.
+function goalId(ym){ return 'goal-' + ym; }
+//  그래도 둘 이상이 섞여 있으면 최근에 고친 것을 쓴다(옛 레코드 보호 — 지우지는 않는다)
+function goalOf(ym){
+  const all = mbGetOrDefault(MB.SALES_GOAL_KEY, []).filter(g => g && g.month === ym);
+  if (!all.length) return null;
+  return all.slice().sort((a,b) => (Number(b.updatedAt)||0) - (Number(a.updatedAt)||0))[0];
+}
+function goalGhosts(ym){ return mbGetOrDefault(MB.SALES_GOAL_KEY, []).filter(g => g && g.month === ym).length - 1; }
+function goalBasis(ym){ const g = goalOf(ym); return (g && g.basis === 'both') ? 'both' : 'sell'; }
+
+function wonShort(v){
+  const n = Math.round(Number(v) || 0);
+  if (n >= 100000000) return (n / 100000000).toFixed(n >= 1000000000 ? 0 : 2).replace(/\.?0+$/,'') + '억';
+  if (n >= 10000)     return Math.round(n / 10000).toLocaleString('ko-KR') + '만';
+  return n.toLocaleString('ko-KR');
+}
+function pctTxt(v){ return v === null ? '—' : Math.round(v * 100) + '%'; }
+
+//  매출목표는 '얼마인지' 만 보여준다.
+//  매일 매출을 맞춰 적는 게 일이라 달성률·진행막대·페이스는 두지 않는다 —
+//  실제 매출은 거래관리와 주간보고서에서 보고, 이 장의 흐름은 '방문 건수' 로 본다.
+function renderGoal(){
+  const ym = goalMonth(), t = today(), tYm = t.slice(0,7);
+  const cur = ym === tYm, future = ym > tYm;
+  const el = id => document.getElementById(id);
+  el('mo-lab').textContent = `${ym.slice(0,4)}년 ${Number(ym.slice(5,7))}월`;
+  el('g-mo').textContent = cur ? '이번달' : (future ? '아직 시작 안 한 달' : '지난달');
+  const gh = goalGhosts(ym), chip = el('g-basis');
+  chip.textContent = gh > 0 ? `중복 ${gh}` : '목표 금액만';
+  chip.title = '달성률은 따지지 않습니다 — 목표 금액만 적어 둡니다.';
+  const can = (typeof isSeniorOrAbove === 'function') ? isSeniorOrAbove() : true;
+  el('g-gear').style.display = can ? '' : 'none';
+
+  const note = `목표 금액만 적어 둡니다 — 매일 매출을 모아 맞춰 보지 않습니다. `
+    + `실제 매출은 <b>거래관리</b>와 주간보고서에서 보고, 이 장에서는 아래 <b>방문 건수</b>로 흐름을 봅니다.`;
+
+  const g = goalOf(ym), target = g ? Number(g.amount || 0) : 0;
+  if (!target) {
+    el('g-body').innerHTML =
+      `<p class="g-none">${Number(ym.slice(5,7))}월 목표를 아직 정하지 않았습니다.`
+      + (can ? `<br><button class="btn-gear" style="margin-top:12px" onclick="goalPopOpen()">목표 정하기</button>`
+             : `<br><span style="font-size:.7rem">시니어 이상만 정할 수 있습니다</span>`)
+      + `</p><div class="g-note">${note}</div>`;
+    renderTrend();
+    return;
+  }
+
+  const dim = monthDays(ym);
+  const elapsed = cur ? Number(t.slice(8,10)) : (future ? 0 : dim);
+  const left = cur ? dim - elapsed + 1 : 0;                  // 오늘 포함
+  const pg = goalOf(monthShift(ym, -1));
+  const prev = pg ? Number(pg.amount || 0) : 0;
+  const dif = prev > 0 ? Math.round((target / prev - 1) * 100) : null;
+  const cell = (l, v, sub) => `<div class="g-cell"><div class="g-cl">${l}</div>`
+    + `<div class="g-cv">${v}${sub ? `<small>${sub}</small>` : ''}</div></div>`;
+  const who = g.updatedBy || g.createdBy || '';
+  const when = Number(g.updatedAt) > 0 ? ymdOf(new Date(Number(g.updatedAt))) : '';
+
+  el('g-body').innerHTML =
+      `<div class="flex items-end" style="gap:8px;flex-wrap:wrap">`
+    +   `<span class="g-big">${wonShort(target)}</span>`
+    +   `<span class="g-tgt" style="padding-bottom:3px">${target.toLocaleString('ko-KR')}원</span>`
+    +   `<span style="flex:1"></span>`
+    +   (dif !== null && dif !== 0
+          ? `<span class="g-pace g-${dif > 0 ? 'ok' : 'mut'}" style="padding-bottom:3px">`
+            + `전월 목표 대비 ${dif > 0 ? '▲' : '▼'}${Math.abs(dif)}%</span>` : '')
+    + `</div>`
+    + `<div class="g-foot">`
+    +   cell('하루 평균', wonShort(Math.round(target / dim)), '원')
+    +   (cur ? cell('남은 날', left.toLocaleString('ko-KR'), '일') : '')
+    +   (prev > 0 ? cell('전월 목표', wonShort(prev), '원') : '')
+    +   (who ? cell('정한 사람', _esc(who), when ? ' ' + when : '') : '')
+    + `</div><div class="g-note">${note}</div>`;
+  renderTrend();
+}
+
+//  방문 기록을 시작한 날 = 누군가 처음 적은 날. 아직 아무도 안 적었으면 오늘이 시작일이다.
+//  시작 전 날짜는 '안 적은 날' 로 몰아세우지도, 거래관리 숫자로 대신 채우지도 않는다.
+function visitStart(){
+  let min = '';
+  mbGetOrDefault(MB.BRANCH_COUNT_KEY, []).forEach(x => {
+    if (x && x.date && (!min || x.date < min)) min = x.date;
+  });
+  return min || today();
+}
+
+//  한 달 방문 건수 — 마감자가 적은 날만 센다(거래관리로 메우지 않는다).
+//  안 적은 날은 0 이 아니라 '모르는 날' 이므로 평균의 분모에서도 뺀다.
+function visitMonth(ym, start){
+  const st = start || visitStart();
+  const man = {}, br = {};
+  mbGetOrDefault(MB.BRANCH_COUNT_KEY, []).forEach(x => {
+    if (!x || !x.date || x.date.slice(0,7) !== ym) return;
+    const c = Number(x.count) || 0;
+    man[x.date] = (man[x.date] || 0) + c;
+    if (x.branch) br[x.branch] = (br[x.branch] || 0) + c;
+  });
+  const t = today(), dim = monthDays(ym), cur = ym === t.slice(0,7);
+  //  아직 오지 않은 날은 세지 않는다. 지난달은 그 달 전체, 다음달은 0일.
+  const last = cur ? Number(t.slice(8,10)) : (t > ym ? dim : 0);
+  let v = 0, md = 0;
+  for (let i = 1; i <= last; i++) {
+    const ds = `${ym}-${String(i).padStart(2,'0')}`;
+    if (man[ds] === undefined) continue;     // 안 적은 날은 건너뛴다
+    v += man[ds]; md++;
+  }
+  const avg = md ? v / md : 0;
+  const left = cur ? dim - last : 0;         // 오늘 뒤로 남은 날
+  return { ym, v, md, br, cur, avg, left,
+           pre: monthTo(ym) < st,            // 기록 시작 전의 달
+           //  적은 날이 3일은 돼야 '이 속도면' 이라 말할 수 있다 — 하루치로 월말을 점치지 않는다
+           proj: md >= 3 && left > 0 ? Math.round(v + avg * left) : 0 };
+}
+
+//  최근 6개월 방문 — 막대 높이는 '가장 큰 달' 기준.
+//  이번달은 아직 안 끝났으니 '이 속도면 월말' 만큼 흐린 칸을 위에 얹어 지난달과 눈으로 견줄 수 있게 한다.
+function renderTrend(){
+  const host = document.getElementById('tr-body');
+  if (!host) return;
+  const ym = goalMonth(), st = visitStart();
+  const months = [];
+  for (let i = 5; i >= 0; i--) months.push(monthShift(ym, -i));
+  const rows = months.map(m => visitMonth(m, st));
+  const max = Math.max(1, ...rows.map(r => Math.max(r.v, r.proj)));
+  const bs = document.getElementById('tr-basis');
+  if (bs) bs.textContent = '마감자가 적은 건수';
+
+  host.innerHTML = `<div class="tr-wrap">` + rows.map(r => {
+    const h  = r.md ? Math.max(3, Math.round(r.v / max * 84)) : 0;
+    const ph = r.proj > r.v ? Math.max(2, Math.round((r.proj - r.v) / max * 84)) : 0;
+    const on = r.ym === ym;
+    const brTxt = Object.keys(r.br).map(k => k + ' ' + r.br[k]).join(' · ');
+    const tip = r.pre ? `${r.ym} · 기록 시작 전` :
+      (!r.md ? `${r.ym} · 적은 날 없음` :
+        `${r.ym} · ${r.v.toLocaleString('ko-KR')}건 · 적은 날 ${r.md}일${brTxt ? ' (' + brTxt + ')' : ''}`
+        + ` · 하루 평균 ${r.avg.toFixed(1)}건`
+        + (ph ? ` · 이 속도면 월말 ${r.proj.toLocaleString('ko-KR')}건` : ''));
+    return `<div class="tr-col" onclick="goalGo('${r.ym}')" title="${_escA(tip)}">`
+      + `<span class="tr-v${r.md ? '' : ' pre'}">${r.md ? r.v.toLocaleString('ko-KR') : (r.pre ? '기록 전' : '-')}</span>`
+      + `<div class="tr-stack">`
+      +   (ph ? `<div class="tr-proj" style="height:${ph}px"></div>` : '')
+      +   (h ? `<div class="tr-bar${on ? ' on' : ''}" style="height:${h}px${ph ? ';border-radius:0' : ''}"></div>` : '')
+      + `</div>`
+      + `<span class="tr-m${on ? ' on' : ''}">${Number(r.ym.slice(5,7))}월</span></div>`;
+  }).join('') + `</div><div class="tr-legend">`
+    + `<b style="color:#9CA3AF;font-weight:700">${st}</b> 부터 쌓습니다`
+    + (rows.some(r => r.proj > r.v) ? ' · 흐린 칸 = 이 속도면 월말' : '')
+    + ` · 칸을 누르면 그 달로</div>`;
+}
+
+function goalMove(n){ _gMonth = monthShift(goalMonth(), n); planAll(); }
+function goalToday(){ _gMonth = ''; planAll(); }
+function goalGo(m){ _gMonth = m; planAll(); }
+
+function gpAmtIn(el){
+  el.value = el.value.replace(/[^\d,]/g,'');
+  const n = Number(el.value.replace(/,/g,''));
+  const pv = document.getElementById('gp-prev');
+  if (pv) pv.textContent = (!el.value.trim() || isNaN(n) || !n) ? '' : `${n.toLocaleString('ko-KR')}원 · ${wonShort(n)}`;
+}
+function goalPopOpen(){
+  if (typeof isSeniorOrAbove === 'function' && !isSeniorOrAbove()) { alert('매출목표는 시니어 이상만 정할 수 있습니다.'); return; }
+  const ym = goalMonth(), g = goalOf(ym), pop = document.getElementById('goal-pop');
+  document.getElementById('gp-title').textContent = `${Number(ym.slice(5,7))}월 매출목표`;
+  const amt = document.getElementById('gp-amt');
+  amt.value = g && g.amount ? Number(g.amount).toLocaleString('ko-KR') : '';
+  gpAmtIn(amt);
+  pop.classList.add('on');
+  const r = document.getElementById('g-gear').getBoundingClientRect();
+  pop.style.top  = Math.round(r.bottom + 7) + 'px';
+  pop.style.left = Math.max(12, Math.min(window.innerWidth - 312, Math.round(r.right - 300))) + 'px';
+  setTimeout(() => amt.focus(), 0);
+}
+function goalPopClose(){ document.getElementById('goal-pop').classList.remove('on'); }
+function goalSave(){
+  if (typeof isSeniorOrAbove === 'function' && !isSeniorOrAbove()) return;
+  const ym = goalMonth();
+  const n = Number(String(document.getElementById('gp-amt').value).replace(/,/g,''));
+  if (isNaN(n) || n < 0) { alert('목표 금액을 숫자로 적어 주세요.'); return; }
+  const list = mbGetOrDefault(MB.SALES_GOAL_KEY, []);
+  const g = list.find(x => x && x.id === goalId(ym)) || list.find(x => x && x.month === ym);
+  //  기준 고르는 칸은 없앴다(매출 합계를 안 세니까). 옛 기록에 적힌 기준은 그대로 둔다.
+  const basis = (g && g.basis === 'both') ? 'both' : 'sell';
+  const me = (getCurrentUser() || {}).name || '-';
+  if (g) { g.amount = n; g.basis = basis; g.updatedBy = me; g.updatedAt = nowTs(); }
+  else list.push({ id: goalId(ym), month: ym, amount: n, basis, createdBy: me, updatedAt: nowTs() });
+  mbSet(MB.SALES_GOAL_KEY, list);
+  goalPopClose();
+  planAll();
+}
+//  바깥을 누르거나 Esc 로 닫는다. 여는 버튼은 제외해야 '닫고 바로 다시 열림' 깜빡임이 없다.
+document.addEventListener('mousedown', e => {
+  const pop = document.getElementById('goal-pop');
+  if (!pop || !pop.classList.contains('on')) return;
+  if (pop.contains(e.target) || (e.target.closest && e.target.closest('#g-gear'))) return;
+  goalPopClose();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') goalPopClose(); });
+
+// ═══ 지점별 건수 ═══════════════════════════════════════════
+//  거래기록에 지점 칸이 없어 자동으로는 못 쪼갠다. 그래서 마감자가 하루 끝에 직접 적는다.
+//  적는 동안 저절로 저장되지 않는다 — '저장' 을 눌러야 들어간다.
+//  id 를 'bc-날짜-지점' 으로 고정한다 — 두 지점이 같은 칸을 적어도 레코드가 하나로 합쳐지게.
+const BC_DOW = ['월','화','수','목','금','토','일'];
+let _bcOpen = false, _bcGapOnly = false, _bcDirty = false;
+
+function cntId(date, branch){ return 'bc-' + date + '-' + branch; }
+//  '숫자 아닌 글자를 전부 지우는' 방식은 쓰면 안 된다 — -5 가 5 로, 7.9 가 79 로 둔갑한다.
+function cntNum(val){
+  const f = parseFloat(String(val == null ? '' : val).replace(/,/g,'').trim());
+  return (!isFinite(f) || f <= 0) ? 0 : Math.floor(f);
+}
+function cntRec(date, branch){ return mbGetOrDefault(MB.BRANCH_COUNT_KEY, []).find(x => x && x.date === date && x.branch === branch) || null; }
+function cntGet(date, branch){ const r = cntRec(date, branch); return r ? (Number(r.count) || 0) : 0; }
+function cntBranches(){
+  const s = ['홍대', '연남'];
+  mbGetOrDefault(MB.EMPLOYEES_KEY, []).forEach(e => {
+    if (e && e.branch && e.active !== false && s.indexOf(e.branch) < 0) s.push(e.branch);
+  });
+  mbGetOrDefault(MB.BRANCH_COUNT_KEY, []).forEach(x => {
+    if (x && x.branch && s.indexOf(x.branch) < 0) s.push(x.branch);
+  });
+  return s;
+}
+//  거래관리에서 뽑은 날짜별 건수 — 직접 적은 건수와 대조할 때만 쓴다(매출은 더 이상 안 센다)
+let _acCache = {};
+//  여러 달치를 거래기록 한 번만 훑어서 채운다 — 달마다 따로 부르면 한 화면에 여섯 번 훑게 된다.
+function autoCountFill(months){
+  const raw = txRaw();
+  const need = months.filter(m => !(_acCache[m] && _acCache[m].raw === raw));
+  if (!need.length) return;
+  const box = {}; need.forEach(m => box[m] = {});
+  mbGetOrDefault(MB.TRANSACTIONS_KEY, []).forEach(t => {
+    if (!t || !t.date) return;
+    const m = box[t.date.slice(0,7)];
+    if (!m) return;
+    if (SALES_SHEETS.indexOf(Number(t.sheet || 1)) < 0) return;
+    if (t.tradeType !== '매각' && t.tradeType !== '매입') return;
+    if (!(Math.abs(Number(t.amount || 0) * Number(t.rate || 0)) > 0)) return;
+    m[t.date] = (m[t.date] || 0) + 1;
+  });
+  need.forEach(m => { _acCache[m] = { raw, v: box[m] }; });
+}
+function autoCountByDay(ym){ autoCountFill([ym]); return _acCache[ym].v; }
+//  최근 7일 '하루 평균'. 안 적은 날은 0 이 아니라 '모르는 날' 이므로 분모에서 뺀다.
+function cntAvg7(branch, endDs){
+  let sum = 0, n = 0;
+  for (let i = 0; i < 7; i++) {
+    const r = cntRec(shiftYmd(endDs, -i), branch);
+    if (r) { sum += Number(r.count) || 0; n++; }
+  }
+  return { avg: n ? sum / n : 0, days: n };
+}
+
+function bcDirty(){
+  _bcDirty = true;
+  const b = document.getElementById('bc-save');
+  b.classList.add('wait'); b.classList.remove('ok'); b.textContent = '저장';
+}
+function bcKey(e){ if (mbComposing(e)) return; if (e.key === 'Enter') { e.preventDefault(); bcSave(); } }
+//  날짜를 바꾸면 그 날 적어둔 값을 칸에 올린다
+function bcLoad(){
+  const ds = document.getElementById('bc-date').value || today();
+  const brs = cntBranches().slice(0, 2);
+  document.getElementById('bc-v1').value = cntGet(ds, brs[0]) || '';
+  document.getElementById('bc-v2').value = cntGet(ds, brs[1]) || '';
+  _bcDirty = false;
+  const b = document.getElementById('bc-save');
+  b.classList.remove('wait', 'ok'); b.textContent = '저장';
+  const rs = [cntRec(ds, brs[0]), cntRec(ds, brs[1])].filter(Boolean)
+    .sort((a,b2) => (Number(b2.at)||0) - (Number(a.at)||0));
+  const auto = autoCountByDay(ds.slice(0,7))[ds] || 0;
+  document.getElementById('bc-hint').innerHTML =
+      (rs.length ? `마지막 저장 <b style="color:#4B5563">${_esc(rs[0].by || '-')}</b>` : '아직 안 적은 날입니다')
+    + (auto ? ` · 거래관리 자동 <b style="color:#4B5563">${auto}건</b>` : '')
+    + `<br><span style="color:#C4C7CE">마감자가 하루 끝에 적고 저장을 누릅니다</span>`;
+  renderBranchCounts();
+}
+function bcSave(){
+  const ds = document.getElementById('bc-date').value;
+  if (!ds) { alert('날짜를 골라 주세요.'); return; }
+  if (ds > today()) { alert('아직 오지 않은 날입니다.'); return; }
+  const brs = cntBranches().slice(0, 2);
+  const vals = [cntNum(document.getElementById('bc-v1').value), cntNum(document.getElementById('bc-v2').value)];
+  const list = mbGetOrDefault(MB.BRANCH_COUNT_KEY, []);
+  const me = (getCurrentUser() || {}).name || '-';
+  brs.forEach((b, i) => {
+    const n = vals[i];
+    const k = list.findIndex(x => x && x.date === ds && x.branch === b);
+    if (n <= 0) { if (k >= 0) list.splice(k, 1); return; }   // 0 은 '안 적음' 과 같다 — 레코드를 지운다
+    if (k >= 0) { list[k].count = n; list[k].by = me; list[k].at = nowTs(); }
+    else list.push({ id: cntId(ds, b), date: ds, branch: b, count: n, by: me, at: nowTs() });
+  });
+  mbSet(MB.BRANCH_COUNT_KEY, list);
+  _bcDirty = false;
+  bcLoad();
+  renderTrend();        // 막대가 '적은 건수' 라 저장 즉시 같이 올라가야 한다
+  const btn = document.getElementById('bc-save');
+  btn.classList.add('ok'); btn.textContent = '저장됨 ✓';
+  setTimeout(() => { if (!_bcDirty) { btn.classList.remove('ok'); btn.textContent = '저장'; } }, 1800);
+}
+function bcPick(ds){
+  document.getElementById('bc-date').value = ds;
+  bcLoad();
+  document.getElementById('bc-v1').focus();
+  document.getElementById('bc-v1').select();
+}
+function bcToggleList(){ _bcOpen = !_bcOpen; if (!_bcOpen) _bcGapOnly = false; renderBranchCounts(); }
+function bcToggleGap(){ _bcGapOnly = !_bcGapOnly; renderBranchCounts(); }
+
+function renderBranchCounts(){
+  const ym = goalMonth(), t = today(), brs = cntBranches().slice(0, 2);
+  const auto = autoCountByDay(ym);
+  const g = id => document.getElementById(id);
+  g('bc-mo').textContent = `${Number(ym.slice(5,7))}월`;
+  g('bc-l1').textContent = brs[0] || '홍대';
+  g('bc-l2').textContent = brs[1] || '연남';
+  g('bc-open').textContent = _bcOpen ? '기록 접기' : '기록 보기';
+  g('bc-open').classList.toggle('on', _bcOpen);
+  g('bc-gap').style.display = _bcOpen ? '' : 'none';
+  g('bc-gap').classList.toggle('on', _bcGapOnly);
+
+  const recs = mbGetOrDefault(MB.BRANCH_COUNT_KEY, []).filter(x => x && x.date && x.date.slice(0,7) === ym);
+  const by = {}; brs.forEach(b => by[b] = 0);
+  const days = new Set();
+  recs.forEach(x => { if (by[x.branch] !== undefined) by[x.branch] += Number(x.count) || 0; days.add(x.date); });
+  const total = brs.reduce((a,b) => a + by[b], 0);
+  const cur = ym === t.slice(0,7);
+  //  최근 7일의 끝 — 이번달이면 오늘까지, 지난달이면 그 달 마지막 날까지
+  const endDs = cur ? t : monthTo(ym);
+  const a1 = cntAvg7(brs[0], endDs), a2 = cntAvg7(brs[1], endDs);
+  const share = total > 0 ? Math.round(by[brs[0]] / total * 100) : 0;
+
+  const tile = (lab, a, cls, mo) => `<div class="bc-tile"><div class="bc-tl">${_esc(lab)} · 최근 7일 하루 평균</div>`
+    + `<div class="bc-tv ${cls}">${a.days ? a.avg.toFixed(1) : '-'}<small>건/일</small></div>`
+    + `<div class="bc-ts">${a.days ? `적은 날 ${a.days}일 기준` : '최근 7일 기록 없음'} · ${Number(ym.slice(5,7))}월 ${mo.toLocaleString('ko-KR')}건</div></div>`;
+
+  g('bc-tiles').innerHTML =
+      tile(brs[0] || '홍대', a1, 'bc-hd', by[brs[0]] || 0)
+    + tile(brs[1] || '연남', a2, 'bc-yn', by[brs[1]] || 0)
+    + `<div class="bc-tile"><div class="bc-tl">지점 비중 · ${Number(ym.slice(5,7))}월</div>`
+      + `<div class="bc-tv bc-all">${total > 0 ? share + '<small>: ' + (100-share) + '</small>' : '-'}</div>`
+      + `<div class="bc-ts">${_esc(brs[0]||'홍대')} ${(by[brs[0]]||0).toLocaleString('ko-KR')}건 · ${_esc(brs[1]||'연남')} ${(by[brs[1]]||0).toLocaleString('ko-KR')}건</div>`
+      + (total > 0 ? `<div class="bc-share"><i style="width:${share}%;background:#F5A623"></i><i style="width:${100-share}%;background:#1E40AF"></i></div>` : '')
+    + `</div>`;
+
+  // ── 대조띠 : 차이는 '하나라도 적은 날' 만 센다 (안 적은 날까지 넣으면 월초에 −500건이 뜬다)
+  //  기록을 시작하기 전 날짜는 '안 적은 날' 이 아니다 — 세지 않는다.
+  const st = visitStart();
+  let aSum = 0, miss = 0;
+  const dim = monthDays(ym);
+  for (let i = 1; i <= dim; i++) {
+    const ds = `${ym}-${String(i).padStart(2,'0')}`;
+    if (ds > t || ds < st) continue;
+    if (days.has(ds)) aSum += (auto[ds] || 0);
+    else if ((auto[ds] || 0) > 0) miss++;
+  }
+  const diff = total - aSum;
+  const cls = diff === 0 ? 'bc-ok' : (diff > 0 ? 'bc-over' : 'bc-under');
+  const msg = diff === 0
+    ? '✔ 일치 — 직접 적은 합계와 거래관리 건수가 같습니다'
+    : (diff > 0
+      ? `직접 적은 합계가 거래관리보다 <b>${diff}건</b> 많습니다 — 거래관리에 안 적힌 거래가 있는지, 겹쳐 적었는지 보세요`
+      : `거래관리가 <b>${-diff}건</b> 많습니다 — 덜 적은 날이 있는지 보세요`);
+  g('bc-cmp').innerHTML = days.size === 0
+    ? `<div class="bc-cmp bc-none"><span>${Number(ym.slice(5,7))}월 — 아직 적은 기록이 없습니다</span>`
+      + `<span>${monthTo(ym) < st ? `방문 기록은 <b>${st}</b> 부터 쌓습니다` : '마감자가 하루 끝에 적으면 여기 쌓입니다'}</span></div>`
+    : `<div class="bc-cmp ${cls}">`
+    + `<span>${Number(ym.slice(5,7))}월 직접 입력 <b>${total.toLocaleString('ko-KR')}</b> · 거래관리 자동 <b>${aSum.toLocaleString('ko-KR')}</b></span>`
+    + `<span>${msg}</span>`
+    + (miss ? `<span class="bc-miss">안 적은 날 ${miss}일</span>` : '')
+    + `<span class="bc-miss" title="거래관리 외부거래1·2 만 셉니다. 지점간거래·연남마감·은행은 같은 돈을 다시 적는 시트라 뺐습니다.">자동 집계 기준 ⓘ</span>`
+    + `</div>`;
+
+  // ── 기록 보기(읽기 전용) : ✎ 를 누르면 위 입력칸으로 올라온다 ──
+  if (!_bcOpen) { g('bc-list').innerHTML = ''; return; }
+  const selDs = document.getElementById('bc-date').value;
+  let rows = `<div class="bc-r h"><span>날짜</span><span>${_esc(brs[0]||'홍대')}</span>`
+    + `<span>${_esc(brs[1]||'연남')}</span><span>계</span><span>자동</span><span>차이</span><span></span></div>`;
+  let shown = 0;
+  for (let i = dim; i >= 1; i--) {
+    const ds = `${ym}-${String(i).padStart(2,'0')}`;
+    if (ds > t || ds < st) continue;          // 오지 않은 날 · 기록 시작 전 날은 빼고
+    const d = new Date(ds + 'T00:00:00'), dow = (d.getDay() + 6) % 7;
+    const v1 = cntGet(ds, brs[0]), v2 = cntGet(ds, brs[1]), sum = v1 + v2;
+    const ac = auto[ds] || 0;
+    const any = v1 > 0 || v2 > 0;
+    const dif = any ? sum - ac : null;
+    const gap = dif !== null && ac > 0 && dif !== 0;
+    if (_bcGapOnly && !gap) continue;
+    shown++;
+    const rec = recs.find(x => x.date === ds);
+    rows += `<div class="bc-r${ds===t?' today':''}${gap?' gap':''}${ds===selDs?' sel':''}"${rec&&rec.by?` title="${_escA(rec.by+' 적음')}"`:''}>`
+      + `<span class="bc-d${dow===5?' sa':(dow===6?' su':'')}">${Number(ym.slice(5,7))}/${i}<small>${BC_DOW[dow]}</small></span>`
+      + `<span class="bc-v${v1?'':' mut'}">${v1 || '-'}</span>`
+      + `<span class="bc-v${v2?'':' mut'}">${v2 || '-'}</span>`
+      + `<span class="bc-v${sum?'':' mut'}">${sum || '-'}</span>`
+      + `<span class="bc-v${ac?'':' mut'}">${ac || '-'}</span>`
+      + `<span class="bc-dif ${dif===null?'z':(dif>0?'p':(dif<0?'m':'z'))}">${dif===null?'-':(dif>0?'+'+dif:dif)}</span>`
+      + `<span class="bc-ed" onclick="bcPick('${ds}')" title="이 날을 위에 올려서 고치기">✎</span>`
+      + `</div>`;
+  }
+  if (!shown) rows += `<div class="bc-r"><span class="bc-v mut" style="grid-column:1/-1;text-align:center">`
+    + `${_bcGapOnly ? '차이 나는 날이 없습니다' : (monthTo(ym) < st ? `기록 시작 전입니다 — ${st} 부터 적습니다` : '적은 기록이 없습니다')}</span></div>`;
+  g('bc-list').innerHTML = `<div class="bc-list">${rows}</div>`;
+}
+
+// ═══ 마케팅 플랜 (주별) ════════════════════════════════════
+//  기존 마케팅 페이지와 **같은 자료**(mb_marketing_plans)를 쓴다. 여기서 체크하면 거기도 바뀐다.
+//  담당자는 여기에 두지 않는다 — 사람이 붙는 건 아래 '멤버별 마케팅' 하나뿐이다.
+//  week 는 반드시 그 주 월요일이어야 한다. 아니면 마케팅 페이지 '금주 플랜' 에서 영영 안 보인다.
+function mkWeeks(ym){
+  const out = [], dim = monthDays(ym);
+  for (let i = 1; i <= dim; i++) {
+    const mon = mondayOf(`${ym}-${String(i).padStart(2,'0')}`);
+    if (mon.slice(0,7) === ym && out.indexOf(mon) < 0) out.push(mon);
+  }
+  return out;
+}
+function renderMarketing(){
+  const ym = goalMonth(), t = today(), curMon = mondayOf(t);
+  const all = mbGetOrDefault(MB.MARKETING_PLANS_KEY, []);
+  const weeks = mkWeeks(ym);
+  document.getElementById('mk-mo').textContent = `${Number(ym.slice(5,7))}월 · 주별`;
+
+  const inMonth = all.filter(p => p && weeks.indexOf(p.week) >= 0);
+  const done = inMonth.filter(p => p.done).length;
+  const pct = inMonth.length ? Math.round(done / inMonth.length * 100) : 0;
+  document.getElementById('mk-sum').innerHTML =
+      `<span style="font-size:.76rem;color:#374151">플랜 <b>${inMonth.length}</b>건 · 완료 <b>${done}</b> · 남음 <b>${inMonth.length-done}</b></span>`
+    + `<div class="mk-bar"><i style="width:${pct}%"></i></div><span class="mk-pc">${pct}%</span>`
+    + `<span class="sec-sub">월요일이 그 달에 드는 주만 셉니다</span>`;
+
+  document.getElementById('mk-grid').innerHTML = weeks.map((mon, i) => {
+    const rows = all.filter(p => p && p.week === mon);
+    const d = rows.filter(p => p.done).length;
+    const sun = shiftYmd(mon, 6), isCur = mon === curMon;
+    return `<div class="mk-wk${isCur ? ' cur' : ''}">`
+      + `<div class="mk-wh"><span class="mk-wl">${i+1}주차</span>`
+      +   (isCur ? `<span class="mk-now">이번주</span>` : '')
+      +   `<span class="mk-wr">${mon.slice(5).replace('-','/')}~${sun.slice(5).replace('-','/')} · ${d}/${rows.length}</span></div>`
+      + (rows.length ? rows.map(p => `<div class="mk-it${p.done?' done':''}">`
+          + `<input type="checkbox" class="mk-box" ${p.done?'checked':''} onchange="mkToggle('${p.id}')">`
+          + `<span class="mk-tx" title="${_escA((p.text||'') + (p.createdBy ? '\n— ' + p.createdBy + ' 등록' : ''))}">${_esc(p.text||'')}</span>`
+          + (p.done && p.doneBy ? `<span class="mk-by">${_esc(p.doneBy)}</span>` : '')
+          + `<span class="mk-go${p.asgId?' lock':''}" ${p.asgId?'':`onclick="mkToMember('${p.id}')"`} title="${p.asgId?'이미 멤버에게 맡긴 플랜입니다':'멤버에게 맡기기 — 아래 멤버별 마케팅으로 보냅니다'}">⤴</span>`
+          + `<span class="mk-x" onclick="mkDel('${p.id}')" title="삭제">✕</span></div>`).join('')
+         : `<div class="mk-none">플랜 없음</div>`)
+      + `<div class="mk-add"><input placeholder="플랜 추가" data-w="${mon}" onkeydown="mkKey(event,this)">`
+      +   `<button class="mk-btn" onclick="mkAdd(this.previousElementSibling)">추가</button></div>`
+      + `</div>`;
+  }).join('');
+}
+function mkKey(e, el){ if (mbComposing(e)) return; if (e.key === 'Enter') { e.preventDefault(); mkAdd(el); } }
+function mkAdd(el){
+  const text = el.value.trim();
+  if (!text) { el.focus(); return; }
+  mbPush(MB.MARKETING_PLANS_KEY, {
+    id: uid(), text, done: false, week: el.dataset.w,
+    createdBy: (getCurrentUser() || {}).name || '-', createdAt: nowTs(),
+  });
+  el.value = ''; el.focus();
+  renderMarketing();
+}
+function mkToggle(id){
+  const me = (getCurrentUser() || {}).name || '-';
+  mbUpdate(MB.MARKETING_PLANS_KEY, x => x.id === id, x => {
+    x.done = !x.done;
+    if (x.done) { x.doneBy = me; x.doneAt = today(); } else { delete x.doneBy; delete x.doneAt; }
+  });
+  renderMarketing();
+}
+function mkDel(id){ delOne('마케팅 플랜', MB.MARKETING_PLANS_KEY, id, x => x.text || '', renderMarketing); }
+//  플랜을 멤버에게 넘긴다 — 한 번만, 한 방향으로. 넘긴 뒤 체크는 멤버 쪽에서 한다.
+//  (양쪽에 done 을 두면 서로 덮어써서 어느 쪽이 맞는지 알 수 없다)
+function mkToMember(id){
+  const p = mbGetOrDefault(MB.MARKETING_PLANS_KEY, []).find(x => x.id === id);
+  if (!p) return;
+  const emps = mbEmps();
+  if (!emps.length) { alert('직원 명부가 비어 있습니다.'); return; }
+  const pick = prompt(`[${p.text}]\n\n누구에게 맡길까요? 번호를 적어 주세요.\n\n`
+    + emps.map((e,i) => `${i+1}. ${e.name}${e.branch ? ' (' + e.branch + ')' : ''}`).join('\n'), '1');
+  if (pick === null) return;
+  const e = emps[Number(String(pick).trim()) - 1];
+  if (!e) { alert('번호를 다시 확인해 주세요.'); return; }
+  const due = shiftYmd(p.week, 6);                       // 그 주 일요일
+  mbPush(MB.ASSIGN_KEY, {
+    id: uid(), content: p.text, due, kind: '마케팅',
+    assigneeId: e.id, assignee: e.name, branch: e.branch || '',
+    priority: '보통', createdBy: (getCurrentUser() || {}).name || '-',
+    createdAt: nowTs(), done: false, fromPlan: p.id,
+  });
+  mbUpdate(MB.MARKETING_PLANS_KEY, x => x.id === id, x => { x.asgId = 'y'; });
+  planAll();
+  alert(`${e.name} 님에게 맡겼습니다. (기한 ${due})\n아래 '멤버별 마케팅' 에서 보입니다.`);
+}
+
+// ═══ 멤버별 마케팅 ═════════════════════════════════════════
+//  mb_assignments 를 쓰되 kind 가 '마케팅' 인 것만 본다.
+//  옛 레코드엔 kind 칸이 없다 → '일반' 으로 떨어뜨린다. 기본을 '마케팅' 으로 잡으면
+//  쌓여 있는 무인기 보충·시재 마감 같은 게 전부 마케팅으로 쏟아진다.
+let _mbDone = false;         // 끝난 것도 보기
+
+function mbEmps(){ return mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e && e.name && e.active !== false); }
+function asgKind(a){ return a && a.kind === '마케팅' ? '마케팅' : '일반'; }
+function dDays(due){
+  if (!due) return null;
+  const a = new Date(String(due) + 'T00:00:00').getTime();
+  const b = new Date(today() + 'T00:00:00').getTime();
+  if (isNaN(a) || isNaN(b)) return null;
+  return Math.round((a - b) / 86400000);
+}
+function dLabel(d){
+  if (d === null) return '기한없음';
+  if (d < 0)   return (-d) + '일 지남';
+  if (d === 0) return '오늘';
+  if (d === 1) return '내일';
+  return 'D-' + d;
+}
+function dCls(d){
+  if (d === null) return 'none';
+  if (d < 0)   return 'over';
+  if (d === 0) return 'today';
+  if (d <= 2)  return 'soon';
+  return 'far';
+}
+//  안 끝난 건은 기한이 지나도 계속 남는다. 끝낸 건은 '끝낸 그 날' 만 남긴다
+//  (잘못 누른 체크를 풀 수 있게). '끝난 것도 보기' 를 켜면 전부 보인다.
+function mbVisible(a){
+  if (!a.done) return true;
+  if (_mbDone) return true;
+  return a.doneAt ? String(a.doneAt).slice(0,10) === today() : false;
+}
+function mbSort(list){
+  const key = a => { const d = dDays(a.due); return [a.done ? 1 : 0, d === null ? 1 : 0, d === null ? 0 : d, a.createdAt || 0]; };
+  return list.slice().sort((x,y) => {
+    const a = key(x), b = key(y);
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i];
+    return 0;
+  });
+}
+function mbToggleDone(){ _mbDone = !_mbDone; renderMembers(); }
+
+function renderMembers(){
+  const host = document.getElementById('mb-grid');
+  const me = getCurrentUser() || {};
+  const all = mbGetOrDefault(MB.ASSIGN_KEY, []).filter(a => a && asgKind(a) === '마케팅' && mbVisible(a));
+  document.getElementById('mb-done').classList.toggle('on', _mbDone);
+
+  const emps = mbEmps();
+  const groups = emps.map(e => ({ id: e.id, nm: e.name, br: e.branch || '', rows: all.filter(a => a.assigneeId === e.id) }));
+  //  담당자가 비었거나 이미 지운 직원의 건 — 조용히 사라지면 안 된다
+  const orphan = all.filter(a => !a.assigneeId || !emps.some(e => e.id === a.assigneeId));
+  if (orphan.length) groups.push({ id: '', nm: '미배정', br: '', rows: orphan, non: true });
+  else groups.push({ id: '', nm: '미배정', br: '', rows: [], non: true });
+
+  host.innerHTML = groups.map(g => {
+    const open = g.rows.filter(a => !a.done).length;
+    const late = g.rows.filter(a => !a.done && dDays(a.due) !== null && dDays(a.due) < 0).length;
+    const mine = g.id && g.id === me.id;
+    const brColor = g.br === '홍대' ? 'background:#FEF3C7;color:#92400E'
+                  : (g.br === '연남' ? 'background:#DBEAFE;color:#1E40AF' : 'background:#F3F4F6;color:#9CA3AF');
+    return `<div class="mb-card${mine ? ' me' : ''}${g.non ? ' non' : ''}">`
+      + `<div class="mb-h">`
+      +   `<span class="mb-av" style="background:${g.non ? '#EF4444' : (mine ? '#10B981' : '#94A3B8')}">${_esc((g.nm||'?').slice(0,1))}</span>`
+      +   `<span class="mb-n">${_esc(g.nm)}</span>`
+      +   (g.br ? `<span class="mb-br" style="${brColor}">${_esc(g.br)}</span>` : '')
+      +   `<span class="mb-cnt">진행 ${open}${late ? ` · <b>지남 ${late}</b>` : ''}</span>`
+      + `</div>`
+      + `<div class="mb-body">`
+      +   (g.rows.length ? mbSort(g.rows).map(a => {
+            const d = dDays(a.due), k = dCls(d);
+            return `<div class="mb-it${a.done ? ' done' : ''}">`
+              + `<input type="checkbox" class="mb-box" ${a.done ? 'checked' : ''} onchange="mbToggle('${a.id}')">`
+              + `<span class="mb-tw"><span class="mb-tx">${_esc(a.content || '')}</span>`
+              +   `<span class="mb-meta"><span class="mb-d mb-d-${k}">${_esc(dLabel(d))}</span>`
+              +     (a.done && a.doneBy ? `<span class="mb-who">${_esc(a.doneBy)} 완료</span>`
+                     : (a.createdBy ? `<span class="mb-who">${_esc(a.createdBy)} 맡김</span>` : ''))
+              +   `</span></span>`
+              + `<span class="mb-ed" onclick="mbEditDue('${a.id}')" title="기한 바꾸기">⏱</span>`
+              + `<span class="mb-x" onclick="mbDel('${a.id}')" title="삭제">✕</span></div>`;
+          }).join('')
+        : `<div class="mb-none">${g.non ? '담당자 없는 건이 없습니다' : '맡은 마케팅이 없습니다'}</div>`)
+      + `</div>`
+      + `<div class="mb-add">`
+      +   `<input type="text" placeholder="무엇을 진행할까요" data-e="${_escA(g.id)}" onkeydown="mbKey(event,this)">`
+      +   `<input type="date" title="기한 (안 적어도 됩니다)">`
+      +   `<button class="mb-pb" onclick="mbAdd(this.parentNode)">추가</button>`
+      + `</div></div>`;
+  }).join('');
+}
+function mbKey(e, el){ if (mbComposing(e)) return; if (e.key === 'Enter') { e.preventDefault(); mbAdd(el.parentNode); } }
+function mbAdd(box){
+  const tx = box.querySelector('input[type=text]'), dt = box.querySelector('input[type=date]');
+  const content = tx.value.trim();
+  if (!content) { tx.focus(); return; }
+  const eid = tx.dataset.e || '';
+  const e = mbEmps().find(x => x.id === eid);
+  const dup = mbGetOrDefault(MB.ASSIGN_KEY, []).find(a =>
+    a && !a.done && a.content === content && (a.assigneeId || '') === eid);
+  if (dup && !confirm(`같은 내용이 이미 있습니다.\n\n${content}\n\n그래도 하나 더 만들까요?`)) return;
+  mbPush(MB.ASSIGN_KEY, {
+    id: uid(), content, due: dt.value || '', kind: '마케팅',
+    assigneeId: eid,
+    //  이름을 값으로 함께 남긴다 — 직원을 지워도 '누구 일이었는지' 가 사라지지 않게
+    assignee: e ? e.name : '', branch: e ? (e.branch || '') : '',
+    priority: '보통', createdBy: (getCurrentUser() || {}).name || '-',
+    createdAt: nowTs(), done: false,
+  });
+  renderMembers();
+  const again = document.querySelector(`.mb-add input[type=text][data-e="${CSS.escape(eid)}"]`);
+  if (again) again.focus();
+}
+function mbToggle(id){
+  const me = (getCurrentUser() || {}).name || '-';
+  mbUpdate(MB.ASSIGN_KEY, x => x.id === id, x => {
+    x.done = !x.done;
+    if (x.done) { x.doneBy = me; x.doneAt = today() + ' ' + nowTime(); }
+    else { delete x.doneBy; delete x.doneAt; }
+  });
+  renderMembers();
+}
+function mbDel(id){
+  delOne('멤버별 마케팅', MB.ASSIGN_KEY, id,
+    x => `${x.assignee || '미배정'} · ${x.content}${x.due ? ' · ~' + x.due : ''}`, renderMembers);
+}
+function mbEditDue(id){
+  const a = mbGetOrDefault(MB.ASSIGN_KEY, []).find(x => x.id === id);
+  if (!a) return;
+  const v = prompt(`[${a.content}] 기한을 언제로 바꿀까요?\n\n2026-11-25 처럼 적어 주세요. 비우면 기한 없음.`, a.due || '');
+  if (v === null) return;
+  const s = v.trim();
+  if (s && !/^\d{4}-\d{2}-\d{2}$/.test(s)) { alert('2026-11-25 모양으로 적어 주세요.'); return; }
+  mbUpdate(MB.ASSIGN_KEY, x => x.id === id, x => { x.due = s; });
+  renderMembers();
+}
+
+// ─── 페이지 전체 ───
+function planAll(){
+  _txRaw = null;              // 그리기 한 번에 거래기록은 한 번만 읽는다
+  renderGoal();
+  renderBranchCounts();
+  renderMarketing();
+  renderMembers();
+}
+(function(){
+  const d = document.getElementById('bc-date');
+  if (d) { d.value = today(); d.max = today(); }
+})();
+planAll();
+bcLoad();
+mbOnDataChange(planAll);
+</script>
+</body>
+</html>
