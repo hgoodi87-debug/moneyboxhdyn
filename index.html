@@ -158,6 +158,44 @@
   .ck-late{background:#FEF2F2;border-radius:.35rem}
   .date{font-size:.68rem;color:#F5A623;font-weight:700;flex-shrink:0;width:40px}
   .cmb-ko{margin-left:8px;font-size:.68rem;font-weight:500;color:#9CA3AF}
+  /* ── 업무 체크리스트 (한 목록, 색으로 출처 구분) ── */
+  .ck-loads{display:flex;align-items:center;gap:5px;margin-bottom:8px;flex-shrink:0}
+  .ck-loads .ck-btn{height:26px;padding:0 8px;font-size:.7rem;border-radius:.35rem;flex-shrink:0}
+  .ck-btn-cal{border-color:#FDE8C4;background:#FFFBF2;color:#B45309}
+  .ck-btn-cal:hover{background:#FFF4E0;border-color:#F5A623}
+  .ck-btn-my{border-color:#C7EFDC;background:#F3FDF8;color:#047857}
+  .ck-btn-my:hover{background:#ECFDF5;border-color:#10B981}
+  .ck-loads .ck-when{font-size:.62rem;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ck-it{display:flex;align-items:center;gap:6px;padding:4px 6px;border-bottom:1px solid #F6F7F8;
+         border-left:3px solid transparent;font-size:.78rem;line-height:1.3}
+  .ck-it:hover{background:#FAFBFC}
+  .ck-it.done{opacity:.45}
+  .ck-it.done .ck-tx{text-decoration:line-through;color:#9CA3AF}
+  .ck-src-cal{border-left-color:#F5A623}
+  .ck-src-task{border-left-color:#10B981}
+  .ck-src-own{border-left-color:#D1D5DB}
+  .ck-it.late{background:#FEF2F2}
+  .ck-box{width:13px;height:13px;accent-color:#F5A623;flex-shrink:0;cursor:pointer}
+  .ck-tag{font-size:.6rem;font-weight:800;border-radius:.25rem;padding:1px 4px;flex-shrink:0;min-width:30px;text-align:center}
+  .tg-cal{background:#FFF4E0;color:#92400E}
+  .tg-task{background:#ECFDF5;color:#047857}
+  .tg-own{background:#F3F4F6;color:#9CA3AF}
+  .ck-tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1A1A2E}
+  .ck-x{color:#D1D5DB;font-size:.72rem;flex-shrink:0;background:none;border:0;cursor:pointer}
+  .ck-x:hover{color:#EF4444}
+  .ck-legend{display:flex;gap:10px;align-items:center}
+  .ck-legend .lg{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:0}
+  .lg-cal{background:#F5A623}.lg-task{background:#10B981}.lg-own{background:#D1D5DB}
+  .ck-foot{display:block}
+  /* 출처별 작은 제목 + 얇은 선 */
+  .ck-sec{display:flex;align-items:center;gap:6px;font-size:.63rem;font-weight:800;color:#9CA3AF;
+          padding:9px 2px 3px;letter-spacing:-.01em}
+  .ck-sec:first-child{padding-top:2px}
+  .ck-sec::after{content:"";flex:1;height:1px;background:#EEF0F2;order:1}
+  .ck-sec b{order:2;font-size:.6rem;font-weight:700;color:#C4C7CE;flex-shrink:0}
+  .ck-sec.sc-cal{color:#B45309}  .ck-sec.sc-cal::after{background:#FDE8C4}
+  .ck-sec.sc-task{color:#047857} .ck-sec.sc-task::after{background:#C7EFDC}
+  .ck-sec.sc-own{color:#9CA3AF}
 </style>
 </head>
 <body class="bg-[#F5F7FA]">
@@ -190,7 +228,7 @@
   <div class="flex gap-4 dash-row">
 
     <!-- 1열 : 당일거래 전달사항 (지점 분리 · 방문시간순) -->
-    <div class="dash-col" style="flex:1.75;min-width:0">
+    <div class="dash-col" style="flex:1.45;min-width:0">
       <div class="widget" style="height:660px">
         <div class="widget-title flex items-center justify-between">
           <span>당일거래 전달사항</span>
@@ -258,43 +296,37 @@
       </div>
     </div>
 
-    <!-- 3열 : 캘린더 업무 체크리스트 / 내 업무 체크리스트 -->
-    <div class="dash-col" style="flex:0.95;min-width:0;display:flex;flex-direction:column;gap:16px;height:660px">
-
-      <div class="widget ck ck-cal" style="flex:0 0 auto">
+    <!-- 3열 : 업무 체크리스트 (캘린더 + 업무관리 + 직접 적은 것을 한 곳에, 색으로 구분) -->
+    <div class="dash-col" style="flex:1.15;min-width:0">
+      <div class="widget ck" style="height:660px">
         <div class="widget-title ck-hd">
-          <span class="ck-nm"><span class="ck-ic ck-ic-cal">📅</span>캘린더 업무</span>
-          <button class="ck-btn" onclick="calTaskLoad()" title="주간 메모에서 오늘 일정과 지난 미완료를 가져옵니다">⟳ 불러오기</button>
-          <span class="ck-when" id="ck-cal-when">안 불러옴</span>
-          <span id="ck-cal-cnt" class="ck-cnt">0 / 0</span>
-        </div>
-        <div class="widget-body" id="cal-task-list" style="overflow-y:auto"></div>
-        <div class="ck-foot">체크하면 위 주간 메모에도 완료로 표시됩니다</div>
-      </div>
-
-      <div class="widget ck ck-my" style="flex:1 1 auto;min-height:0">
-        <div class="widget-title ck-hd">
-          <span class="ck-nm"><span class="ck-ic ck-ic-my">✓</span>업무<span class="ck-share">공용</span></span>
-          <select id="dt-branch" class="ck-sel" title="불러올 지점"></select>
-          <button class="ck-btn" onclick="taskLoad()" title="업무관리에 적어둔 그 지점 업무를 가져옵니다">⟳ 불러오기</button>
-          <span class="ck-when" id="ck-my-when"></span>
-          <span id="ck-my-cnt" class="ck-cnt">0 / 0</span>
+          <span class="ck-nm"><span class="ck-ic ck-ic-my">✓</span>업무 체크리스트<span class="ck-share">공용</span></span>
+          <span id="ck-cnt" class="ck-cnt">0 / 0</span>
           <button onclick="resetDailyTasks()" class="ck-reset">초기화</button>
         </div>
+
+        <!-- 불러오기 두 가지 -->
+        <div class="ck-loads">
+          <button class="ck-btn ck-btn-cal" onclick="calTaskLoad()" title="주간 메모에서 오늘 일정과 지난 미완료를 가져옵니다">📅 캘린더 업무</button>
+          <select id="dt-branch" class="ck-sel" title="불러올 지점"></select>
+          <button class="ck-btn ck-btn-my" onclick="taskLoad()" title="업무관리에 적어둔 그 지점 업무를 가져옵니다">⟳ 지점 업무</button>
+          <span class="ck-when" id="ck-when"></span>
+        </div>
+
         <div class="widget-form">
           <div class="flex gap-2">
-            <input type="text" id="dt-content" class="input-base flex-1" placeholder="할 일 추가">
+            <input type="text" id="dt-content" class="input-base flex-1" placeholder="할 일 직접 추가">
             <button onclick="addDailyTask()" class="btn-add">추가</button>
           </div>
         </div>
-        <div class="widget-body" id="daily-tasks-list" style="overflow-y:auto"></div>
-        <div class="page-ctrl">
-          <button class="page-btn" id="dt-prev" onclick="pg('dt',-1)">◀</button>
-          <span class="page-info" id="dt-pi"></span>
-          <button class="page-btn" id="dt-next" onclick="pg('dt',1)">▶</button>
+
+        <div class="widget-body" id="ck-list" style="overflow-y:auto"></div>
+        <div class="ck-foot ck-legend">
+          <span><i class="lg lg-cal"></i>캘린더</span>
+          <span><i class="lg lg-task"></i>지점 업무</span>
+          <span><i class="lg lg-own"></i>직접 추가</span>
         </div>
       </div>
-
     </div>
 
   </div>
@@ -772,7 +804,7 @@ function taskLoad(){
   const sel = document.getElementById('dt-branch');
   const br  = sel ? sel.value : '';
   const rows = taskRowsOf(br);
-  const when = document.getElementById('ck-my-when');
+  const when = document.getElementById('ck-when');
   if (!rows.length) { alert(`업무관리에 [${br}] 업무가 없습니다.`); return; }
   const list = mbGetOrDefault(MB.DAILY_TASKS_KEY, []);
   const have = new Set(list.filter(x => x.createdDate === today()).map(x => x.srcId).filter(Boolean));
@@ -793,22 +825,59 @@ function taskLoad(){
   renderDailyTasks();
 }
 
-function renderDailyTasks() {
-  const all = mbGetOrDefault(MB.DAILY_TASKS_KEY, []).filter(x => x.createdDate===today());
-  const cnt = document.getElementById('ck-my-cnt');
-  if (cnt) cnt.textContent = `${all.filter(x => x.done).length} / ${all.length}`;
-  const { s, e } = applyPg('dt', all.length, PG10);
-  document.getElementById('daily-tasks-list').innerHTML = all.length === 0
-    ? '<p class="text-xs text-[#9CA3AF] text-center py-4">업무 없음</p>'
-    : all.slice(s, e).map(t => `
-      <div class="list-item ${t.done?'faded':''}">
-        <input type="checkbox" ${t.done?'checked':''} onchange="toggleDailyTask('${t.id}')" class="w-3 h-3 accent-[#F5A623] shrink-0">
-        ${t.src==='task'&&t.branch?`<span class="dt-br">${_esc(t.branch)}</span>`:''}
-        <span class="text-xs truncate flex-1 ${t.done?'line-through text-[#9CA3AF]':'text-[#1A1A2E]'}" title="${_escA(t.content||'')}">${_esc(t.content)}</span>
-        ${t.done&&t.doneBy?`<span class="dt-by" title="${_escA(t.doneBy+' · '+(t.doneAt||''))}">${_esc(t.doneBy)}</span>`:''}
-        <button onclick="deleteDailyTask('${t.id}')" class="text-[#D1D5DB] hover:text-[#EF4444] text-xs shrink-0">✕</button>
-      </div>`).join('');
+//  캘린더 업무 + 지점 업무 + 직접 적은 것을 **한 목록**에 그린다.
+//  저장되는 곳은 그대로 둘로 나뉘어 있다(캘린더는 mb_calendar_events, 나머지는 mb_daily_tasks).
+//  섞어 놓되 왼쪽 색으로 출처를 구분한다 — 주황 캘린더 · 초록 지점업무 · 회색 직접추가.
+function renderChecklist() {
+  const host = document.getElementById('ck-list');
+  if (!host) return;
+  const t = today();
+  const cal = _calTaskOn ? calTaskRows() : [];
+  const my  = mbGetOrDefault(MB.DAILY_TASKS_KEY, []).filter(x => x.createdDate === t);
+  const total = cal.length + my.length;
+  const done  = cal.filter(x => x.done).length + my.filter(x => x.done).length;
+  const cnt = document.getElementById('ck-cnt');
+  if (cnt) cnt.textContent = `${done} / ${total}`;
+
+  if (!total) {
+    host.innerHTML = '<p class="text-xs text-[#9CA3AF] text-center py-5">위에서 불러오거나 직접 추가하세요</p>';
+    return;
+  }
+  const calHtml = cal.map(m => {
+    const late = m.date < t;
+    const d = m.date === t ? '오늘' : m.date.slice(5).replace('-', '.');
+    return `<div class="ck-it ck-src-cal${m.done ? ' done' : ''}${late ? ' late' : ''}">
+      <input type="checkbox" ${m.done ? 'checked' : ''} onchange="toggleCalTask('${m.id}')" class="ck-box">
+      <span class="ck-tag tg-cal">${_esc(d)}</span>
+      <span class="ck-tx" title="${_escA(m.text || '')}">${_esc(m.text || '')}</span>
+      ${late && !m.done ? '<span class="pill sell">지남</span>' : ''}
+    </div>`;
+  }).join('');
+
+  const row = x => {
+    const src = x.src === 'task' ? 'task' : 'own';
+    return `<div class="ck-it ck-src-${src}${x.done ? ' done' : ''}">
+      <input type="checkbox" ${x.done ? 'checked' : ''} onchange="toggleDailyTask('${x.id}')" class="ck-box">
+      ${x.src === 'task' && x.branch ? `<span class="ck-tag tg-task">${_esc(x.branch)}</span>` : '<span class="ck-tag tg-own">직접</span>'}
+      <span class="ck-tx" title="${_escA(x.content || '')}">${_esc(x.content)}</span>
+      ${x.done && x.doneBy ? `<span class="dt-by" title="${_escA(x.doneBy + ' · ' + (x.doneAt || ''))}">${_esc(x.doneBy)}</span>` : ''}
+      <button onclick="deleteDailyTask('${x.id}')" class="ck-x">✕</button>
+    </div>`;
+  };
+  const task = my.filter(x => x.src === 'task');
+  const own  = my.filter(x => x.src !== 'task');
+  //  출처마다 작은 제목 + 얇은 선으로 나눠 준다. 비어 있는 묶음은 아예 안 그린다.
+  const sec = (cls, name, list, html) => list.length
+    ? `<div class="ck-sec ${cls}"><span>${name}</span><b>${list.filter(x=>x.done).length}/${list.length}</b></div>` + html
+    : '';
+  host.innerHTML =
+      sec('sc-cal',  '캘린더 업무', cal,  calHtml)
+    + sec('sc-task', '지점 업무',   task, task.map(row).join(''))
+    + sec('sc-own',  '직접 추가',   own,  own.map(row).join(''));
 }
+//  예전 이름들을 합친 렌더러로 돌린다 (dashAll·토글·불러오기가 그대로 부른다)
+function renderCalTasks(){ renderChecklist(); }
+function renderDailyTasks(){ renderChecklist(); }
 
 // ─── 캘린더 업무 체크리스트 ───
 //  주간 메모(mb_calendar_events)에서 '불러오기' 를 눌렀을 때만 가져온다.
@@ -838,37 +907,6 @@ function calTaskRows(){
   return mbGetOrDefault(MB.CALENDAR_KEY, [])
     .filter(m => m && m.date && (m.date === t || (m.date < t && (!m.done || m.doneAt === t))))
     .sort((a,b) => (a.date||'').localeCompare(b.date||''));
-}
-function renderCalTasks(){
-  const host = document.getElementById('cal-task-list');
-  const card = document.querySelector('.ck-cal');
-  if (!host) return;
-  const cnt  = document.getElementById('ck-cal-cnt');
-  const when = document.getElementById('ck-cal-when');
-  if (!_calTaskOn){
-    host.innerHTML = '<div class="ck-empty">아직 불러온 일정이 없습니다</div>';
-    if (card) card.classList.remove('has');
-    if (cnt)  cnt.textContent = '0 / 0';
-    if (when) when.textContent = '아직 안 불러옴';
-    return;
-  }
-  const rows = calTaskRows();
-  if (card) card.classList.add('has');
-  if (when) when.textContent = rows.length ? `${rows.length}건 · ${_calTaskAt}` : `없음 · ${_calTaskAt}`;
-  if (cnt)  cnt.textContent = `${rows.filter(m=>m.done).length} / ${rows.length}`;
-  const t = today();
-  host.innerHTML = rows.length === 0
-    ? '<div class="ck-empty">오늘 할 일이 없습니다</div>'
-    : rows.map(m => {
-        const late = m.date < t;
-        const d = m.date === t ? '오늘' : m.date.slice(5).replace('-','.');
-        return `<div class="list-item ${m.done?'faded':''}${late?' ck-late':''}">
-          <input type="checkbox" ${m.done?'checked':''} onchange="toggleCalTask('${m.id}')" class="w-3 h-3 accent-[#F5A623] shrink-0">
-          <span class="date" ${late?'style="color:#DC2626"':''}>${_esc(d)}</span>
-          <span class="text-xs truncate flex-1 ${m.done?'line-through text-[#9CA3AF]':'text-[#1A1A2E]'}">${_esc(m.text||'')}</span>
-          ${late?'<span class="pill sell">지남</span>':''}
-        </div>`;
-      }).join('');
 }
 
 //  지점간 이동 위젯은 2026-11-18 대시보드 개편에서 제거했다.
