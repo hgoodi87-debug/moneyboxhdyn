@@ -41,6 +41,7 @@ const MB = {
   SALES_GOAL_KEY: 'mb_sales_goals',   // 월 매출목표 (배열: {id,month,amount,basis,...})
   ASSIGN_KEY: 'mb_assignments',       // 직원 배정 업무·데드라인 (배열: {id,content,assignee,due,...})
   BRANCH_COUNT_KEY: 'mb_branch_counts', // 날짜×지점 건수 직접 입력 (배열: {id:'bc-날짜-지점',date,branch,count,by,at})
+  PLAN_MEMBER_KEY: 'mb_plan_members',   // 멤버별 마케팅에 둘 카드 (배열: {id:'pm-직원id',empId,on})
   CUSTOMERS_KEY: 'mb_customers',
   VISITS_KEY: 'mb_cust_visits',
   LOG_RETENTION_DAYS: 30,

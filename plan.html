@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=67">
-<link rel="apple-touch-icon" href="favicon.png?v=67">
+<link rel="icon" type="image/png" href="favicon.png?v=68">
+<link rel="apple-touch-icon" href="favicon.png?v=68">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 목표·기획</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=67">
+<link rel="stylesheet" href="css/mb.css?v=68">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=67"></script>
-<script src="js/mb-data.js?v=67"></script>
-<script src="js/mb-sync.js?v=67"></script>
+<script src="js/firebase-config.js?v=68"></script>
+<script src="js/mb-data.js?v=68"></script>
+<script src="js/mb-sync.js?v=68"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.875rem; padding:1.1rem 1.25rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
@@ -34,6 +34,11 @@
        border-radius:.38rem;padding:3.5px 9px;cursor:pointer;white-space:nowrap}
   .tog:hover{border-color:#9CA3AF;color:#1A1A2E}
   .tog.on{background:#1E2A3A;color:#fff;border-color:#1E2A3A}
+  .sec-x{font-size:.64rem;color:#C4C7CE;border:1px solid #EEF0F3;border-radius:5px;
+         padding:2.5px 8px;cursor:pointer;white-space:nowrap;background:#fff}
+  .sec-x:hover{color:#EF4444;border-color:#FECACA;background:#FEF2F2}
+  .mb-off{font-size:.72rem;color:#D7DBE0;cursor:pointer;margin-left:2px;flex-shrink:0;line-height:1}
+  .mb-off:hover{color:#EF4444}
   .pill-src{font-size:.62rem;font-weight:700;color:#6B7280;background:#F3F4F6;border-radius:9px;padding:2.5px 8px;cursor:help;white-space:nowrap}
   .btn-gear{font-size:.66rem;color:#9CA3AF;border:1px solid #E5E7EB;border-radius:5px;padding:2.5px 8px;line-height:1.3;cursor:pointer;white-space:nowrap}
   .btn-gear:hover{color:#1A1A2E;border-color:#C4C7CE}
@@ -239,6 +244,7 @@
           <span style="flex:1"></span>
           <span class="pill-src" id="g-basis">—</span>
           <button class="btn-gear" id="g-gear" onclick="goalPopOpen()" style="display:none">⚙ 목표</button>
+          <button class="sec-x" id="g-reset" onclick="goalReset()" style="display:none">초기화</button>
         </div>
         <div id="g-body" style="flex:1"></div>
       </div>
@@ -260,6 +266,7 @@
         <span style="flex:1"></span>
         <button class="tog" id="bc-gap" onclick="bcToggleGap()" style="display:none">차이 나는 날만</button>
         <button class="tog" id="bc-open" onclick="bcToggleList()">기록 보기</button>
+        <button class="sec-x" id="bc-reset" onclick="bcReset()" style="display:none">초기화</button>
       </div>
 
       <!-- 마감자가 하루 끝에 적고 '저장' 을 누른다 (적는 동안 저절로 저장되지 않는다) -->
@@ -289,6 +296,7 @@
         <span class="sec-sub" id="mk-mo"></span>
         <span style="flex:1"></span>
         <span class="sec-sub">주 단위로 저장됩니다 · 이번 주 플랜은 <a href="marketing.html" style="color:#6B7280;text-decoration:underline">마케팅 페이지</a>에서도 체크할 수 있습니다</span>
+        <button class="sec-x" id="mk-reset" onclick="mkReset()" style="display:none">초기화</button>
       </div>
       <div class="mk-sum" id="mk-sum"></div>
       <div class="mk-grid" id="mk-grid"></div>
@@ -298,9 +306,11 @@
     <div class="card" style="margin-bottom:16px">
       <div class="flex items-center" style="gap:9px;margin-bottom:12px;flex-wrap:wrap">
         <span class="sec-title">멤버별 마케팅</span>
-        <span class="sec-sub">누가 어떤 마케팅을 진행할지 적습니다 · 기한은 안 적어도 됩니다</span>
+        <span class="sec-sub">누가 어떤 마케팅을 진행할지 적습니다 · 카드는 모두에게 같이 보입니다</span>
         <span style="flex:1"></span>
+        <button class="tog" onclick="mbPickAdd()">＋ 멤버</button>
         <button class="tog" id="mb-done" onclick="mbToggleDone()">끝난 것도 보기</button>
+        <button class="sec-x" id="mbr-reset" onclick="mbReset()" style="display:none">초기화</button>
       </div>
       <div class="mb-grid" id="mb-grid"></div>
     </div>
@@ -870,6 +880,108 @@ function mkToMember(id){
 let _mbDone = false;         // 끝난 것도 보기
 
 function mbEmps(){ return mbGetOrDefault(MB.EMPLOYEES_KEY, []).filter(e => e && e.name && e.active !== false); }
+
+// ═══ 멤버 카드 고르기 ══════════════════════════════════════
+//  고른 적이 없으면(레코드 0개) 재직 중인 직원 전부를 보여준다 — 지금까지 쓰던 대로.
+//  한 번이라도 고르거나 빼면 그때부터 이 목록이 기준이 된다.
+//  뺀 사람은 레코드를 지우지 않고 on:false 로 남긴다 — 배열에서 지우면 두 지점이
+//  동시에 고칠 때 한쪽 변경이 통째로 덮인다(필드 단위로 합쳐지게 둔다).
+function mbPickRows(){ return mbGetOrDefault(MB.PLAN_MEMBER_KEY, []).filter(p => p && p.empId); }
+function mbMembers(){
+  const emps = mbEmps(), rows = mbPickRows();
+  if (!rows.length) return emps;
+  const on = rows.filter(p => p.on !== false).map(p => p.empId);
+  const out = emps.filter(e => on.indexOf(e.id) >= 0);
+  //  카드에서 뺐더라도 맡은 마케팅이 남아 있으면 카드를 둔다 — 할 일이 조용히 숨으면 안 된다
+  mbGetOrDefault(MB.ASSIGN_KEY, []).forEach(a => {
+    if (!a || asgKind(a) !== '마케팅' || !a.assigneeId) return;
+    if (a.done && !_mbDone) return;
+    if (out.some(e => e.id === a.assigneeId)) return;
+    const e = emps.find(x => x.id === a.assigneeId);
+    if (e) out.push(e);
+  });
+  return out;
+}
+function mbPickSet(eid, on){
+  const list = mbGetOrDefault(MB.PLAN_MEMBER_KEY, []);
+  //  처음 손대는 순간, 지금 보이던 사람들을 그대로 목록으로 굳힌다
+  if (!mbPickRows().length) mbEmps().forEach(x => list.push({ id: 'pm-' + x.id, empId: x.id, on: true, at: nowTs() }));
+  const r = list.find(p => p && p.empId === eid);
+  if (r) { r.on = on; r.at = nowTs(); }
+  else list.push({ id: 'pm-' + eid, empId: eid, on, at: nowTs() });
+  mbSet(MB.PLAN_MEMBER_KEY, list);
+  renderMembers();
+}
+function mbPickAdd(){
+  const shown = mbMembers().map(e => e.id);
+  const rest = mbEmps().filter(e => shown.indexOf(e.id) < 0);
+  if (!rest.length) { alert('이미 모든 직원의 카드가 있습니다.'); return; }
+  const pick = prompt('누구 카드를 넣을까요? 번호를 적어 주세요.\n\n'
+    + rest.map((e, i) => `${i+1}. ${e.name}${e.branch ? ' (' + e.branch + ')' : ''}`).join('\n'), '1');
+  if (pick === null) return;
+  const e = rest[Number(String(pick).trim()) - 1];
+  if (!e) { alert('번호를 다시 확인해 주세요.'); return; }
+  mbPickSet(e.id, true);
+}
+function mbPickOff(eid){
+  const left = mbGetOrDefault(MB.ASSIGN_KEY, [])
+    .filter(a => a && asgKind(a) === '마케팅' && a.assigneeId === eid && !a.done);
+  if (left.length) { alert(`진행 중인 마케팅이 ${left.length}건 있습니다.\n먼저 끝내거나 다른 사람에게 옮긴 뒤 빼 주세요.`); return; }
+  const e = mbEmps().find(x => x.id === eid);
+  if (!confirm(`${e ? e.name : '이 사람'} 카드를 뺍니다.\n적힌 내용은 지우지 않고 카드만 숨깁니다.\n(＋ 멤버 로 다시 넣을 수 있습니다)`)) return;
+  mbPickSet(eid, false);
+}
+
+// ═══ 항목별 초기화 ════════════════════════════════════════
+//  지우기는 되돌릴 수 없다. 무엇을 몇 건 지우는지 숫자로 먼저 보여주고,
+//  지운 것은 스냅샷째 기록에 남긴다(설정 > 기록 에서 되돌릴 수 있다).
+function planCan(){
+  if (typeof isSeniorOrAbove === 'function' && !isSeniorOrAbove()) {
+    alert('지우기는 시니어 이상만 할 수 있습니다.'); return false;
+  }
+  return true;
+}
+function planWipe(key, hit, title, extra, desc){
+  if (!planCan()) return;
+  const list = mbGetOrDefault(key, []);
+  const gone = list.filter(hit);
+  if (!gone.length) { alert(title + '\n\n지울 것이 없습니다.'); return; }
+  if (!confirm(`${title}\n\n${gone.length}건을 지웁니다. 되돌릴 수 없습니다.${extra ? '\n' + extra : ''}\n\n계속할까요?`)) return;
+  mbSet(key, list.filter(x => !hit(x)));
+  if (typeof mbLogDelete === 'function') mbLogDelete('목표·기획', key, gone, desc);
+  planAll();
+}
+function goalReset(){
+  const ym = goalMonth();
+  planWipe(MB.SALES_GOAL_KEY, g => g && g.month === ym,
+    `${Number(ym.slice(5,7))}월 매출목표 지우기`, '',
+    g => `${g.month} ${Number(g.amount || 0).toLocaleString('ko-KR')}원`);
+}
+function bcReset(){
+  const ym = goalMonth();
+  planWipe(MB.BRANCH_COUNT_KEY, x => x && x.date && x.date.slice(0,7) === ym,
+    `${Number(ym.slice(5,7))}월 지점별 건수 지우기`, '두 지점이 적은 것이 모두 지워집니다.',
+    x => `${x.date} ${x.branch} ${x.count}건`);
+  bcLoad();
+}
+function mkReset(){
+  const ym = goalMonth();
+  planWipe(MB.MARKETING_PLANS_KEY, p => p && p.week && p.week.slice(0,7) === ym,
+    `${Number(ym.slice(5,7))}월 마케팅 플랜 지우기`, '마케팅 페이지에서도 함께 사라집니다.',
+    p => `${p.week} ${p.text || ''}`);
+}
+function mbReset(){
+  planWipe(MB.ASSIGN_KEY, a => a && asgKind(a) === '마케팅',
+    '멤버별 마케팅 모두 지우기', '끝난 것까지 전부 지웁니다. 업무관리의 일반 업무는 그대로 둡니다.',
+    a => `${a.assignee || '-'} · ${a.content || ''}`);
+}
+function planPerm(){
+  const can = (typeof isSeniorOrAbove === 'function') ? isSeniorOrAbove() : true;
+  ['g-reset', 'bc-reset', 'mk-reset', 'mbr-reset'].forEach(id => {
+    const e = document.getElementById(id);
+    if (e) e.style.display = can ? '' : 'none';
+  });
+}
 function asgKind(a){ return a && a.kind === '마케팅' ? '마케팅' : '일반'; }
 function dDays(due){
   if (!due) return null;
@@ -915,10 +1027,10 @@ function renderMembers(){
   const all = mbGetOrDefault(MB.ASSIGN_KEY, []).filter(a => a && asgKind(a) === '마케팅' && mbVisible(a));
   document.getElementById('mb-done').classList.toggle('on', _mbDone);
 
-  const emps = mbEmps();
+  const emps = mbMembers();
   const groups = emps.map(e => ({ id: e.id, nm: e.name, br: e.branch || '', rows: all.filter(a => a.assigneeId === e.id) }));
   //  담당자가 비었거나 이미 지운 직원의 건 — 조용히 사라지면 안 된다
-  const orphan = all.filter(a => !a.assigneeId || !emps.some(e => e.id === a.assigneeId));
+  const orphan = all.filter(a => !a.assigneeId || !mbEmps().some(e => e.id === a.assigneeId));
   if (orphan.length) groups.push({ id: '', nm: '미배정', br: '', rows: orphan, non: true });
   else groups.push({ id: '', nm: '미배정', br: '', rows: [], non: true });
 
@@ -934,6 +1046,7 @@ function renderMembers(){
       +   `<span class="mb-n">${_esc(g.nm)}</span>`
       +   (g.br ? `<span class="mb-br" style="${brColor}">${_esc(g.br)}</span>` : '')
       +   `<span class="mb-cnt">진행 ${open}${late ? ` · <b>지남 ${late}</b>` : ''}</span>`
+      +   (g.non ? '' : `<span class="mb-off" onclick="mbPickOff('${_escA(g.id)}')" title="이 카드 빼기">✕</span>`)
       + `</div>`
       + `<div class="mb-body">`
       +   (g.rows.length ? mbSort(g.rows).map(a => {
@@ -1006,6 +1119,7 @@ function mbEditDue(id){
 // ─── 페이지 전체 ───
 function planAll(){
   _txRaw = null;              // 그리기 한 번에 거래기록은 한 번만 읽는다
+  planPerm();
   renderGoal();
   renderBranchCounts();
   renderMarketing();
