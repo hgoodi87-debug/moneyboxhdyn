@@ -161,6 +161,11 @@
         font-size:.8rem; font-weight:700; color:#6B7280; cursor:pointer; font-family:inherit; }
   .sg.on { background:#fff; color:#1A1A2E; box-shadow:0 1px 2px rgba(0,0,0,.08); }
 
+  /* 전체 지우기 — 눈에 띄되 손이 먼저 가지는 않게 흐리게 둔다 */
+  .wipe-all { font-size:.72rem; color:#C4C7CE; background:#fff; border:1px solid #EEF0F3;
+              border-radius:6px; padding:4px 10px; cursor:pointer; white-space:nowrap; }
+  .wipe-all:hover { color:#EF4444; border-color:#FECACA; background:#FEF2F2; }
+
   /* 드롭다운 필터 — 화살표는 입력 줄 콤보박스와 같은 모양 */
   select.tb-in {
     -webkit-appearance:none; appearance:none; cursor:pointer; font-family:inherit; font-weight:600;
@@ -342,6 +347,7 @@
           <span id="f-count" style="font-size:.76rem;color:#9CA3AF;font-variant-numeric:tabular-nums"></span>
           <span style="font-size:.76rem;color:#9CA3AF">정렬</span>
           <select class="tb-in" id="f-sort" onchange="renderAll()" style="width:168px"></select>
+          <button class="wipe-all" onclick="wipeAll()" title="고객과 방문 기록을 전부 지웁니다">전체 지우기</button>
         </div>
       </div>
 
@@ -1362,6 +1368,27 @@ function delCust(id) {
   mbRemove(CUST_KEY, x => x.id === id);
   _open.delete(id);
   renderAll();
+}
+
+/*  전체 지우기 — 연습용으로 넣어 본 줄을 한 번에 치울 때 쓴다.
+    한 줄씩 ✕ 로 지우는 것과 같은 길을 쓴다(기록 로그에 스냅샷을 남긴 뒤 지운다).
+    되돌리기는 설정 > 기록 에서 한다. */
+function wipeAll() {
+  if (!isAdmin()) { alert('관리자만 지울 수 있습니다.'); return; }
+  const cs = getCusts(), vs = getVisits();
+  if (!cs.length && !vs.length) { alert('지울 기록이 없습니다.'); return; }
+  if (!confirm(`고객 ${cs.length}명 · 방문 기록 ${vs.length}건을 모두 지웁니다.\n`
+    + `되돌리려면 설정 > 기록 에서 복구해야 합니다.\n\n정말 지울까요?`)) return;
+  //  한 번 더 묻는다 — 이 버튼은 되돌리기가 번거롭다
+  if (!confirm(`마지막 확인입니다.\n\n고객 ${cs.length}명 · 방문 ${vs.length}건 — 지웁니다.`)) return;
+  if (cs.length) mbLogDelete('리스트 고객', CUST_KEY, cs, x => custLabel(x));
+  if (vs.length) mbLogDelete('리스트 방문', VISIT_KEY, vs,
+    x => `${x.date || ''} ${x.tradeType || ''} ${x.currency || ''}`);
+  mbSet(VISIT_KEY, []);
+  mbSet(CUST_KEY, []);
+  _open.clear();
+  renderAll();
+  alert('지웠습니다.\n\n다른 지점 화면은 잠시 뒤 자동으로 같아집니다.');
 }
 
 /* ───────── 시작 ───────── */
