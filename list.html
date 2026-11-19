@@ -100,10 +100,10 @@
   }
   /* 고객이 많아져 스크롤해도 컬럼명이 남아 있게 — 상단 헤더(60px) 아래에 붙인다 */
   .lt thead th { background:#F5F7FA; color:#6B7280; font-size:.72rem; font-weight:700; text-align:left;
-                 padding:10px 10px; border-bottom:1px solid #E5E7EB; white-space:nowrap;
+                 padding:7px 8px; border-bottom:1px solid #E5E7EB; white-space:nowrap;
                  position:sticky; top:60px; z-index:5; }
   .lt thead th.c { text-align:center; } .lt thead th.r { text-align:right; }
-  .lt tbody td { border-bottom:1px solid #F3F4F6; padding:0 10px; height:48px; font-size:.83rem; color:#1A1A2E; vertical-align:middle; }
+  .lt tbody td { border-bottom:1px solid #F3F4F6; padding:0 8px; height:36px; font-size:.81rem; color:#1A1A2E; vertical-align:middle; }
   .lt tbody tr.main:hover td { background:#FCFCFD; }
   .lt tbody tr.main { cursor:pointer; }
   .lt tbody tr.open td { background:#FFFDF8; }
@@ -119,14 +119,13 @@
   .g2 { background:#FFF4E0; color:#92400E; }   /* 60일 이내 */
   .g3 { background:#FFEDD5; color:#C2410C; }   /* 90일 이내 */
   .g4 { background:#FEF2F2; color:#B91C1C; }   /* 90일 초과 */
-  .bar { display:inline-block; width:4px; height:30px; border-radius:2px; vertical-align:middle; margin-right:9px; }
+  .bar { display:inline-block; width:3px; height:20px; border-radius:2px; vertical-align:middle; margin-right:7px; }
   .cv { display:inline-block; width:12px; color:#C4C7CE; font-size:.7rem; vertical-align:middle; }
 
   /* 매입/매각 */
   .sd { font-size:.72rem; font-weight:800; font-variant-numeric:tabular-nums; }
   .sd-b { color:#DC2626; } .sd-s { color:#2563EB; }
-  .sdbar { height:5px; border-radius:99px; overflow:hidden; background:#F1F2F4; display:flex; margin-top:5px; width:84px; }
-  .sdbar i { display:block; height:100%; }
+  .sd { white-space:nowrap; }
 
   /* 통화 배지 */
   .cb { display:inline-flex; align-items:baseline; gap:4px; font-size:.71rem; font-weight:700; padding:3px 6px;
@@ -151,9 +150,9 @@
 
   /* 펼친 방문 이력 */
   .vt { width:100%; border-collapse:collapse; table-layout:fixed; background:#FBFCFD; }
-  .vt th { font-size:.66rem; font-weight:700; color:#9CA3AF; text-align:left; padding:7px 10px; border-bottom:1px solid #EEF0F3; white-space:nowrap; }
+  .vt th { font-size:.64rem; font-weight:700; color:#9CA3AF; text-align:left; padding:5px 8px; border-bottom:1px solid #EEF0F3; white-space:nowrap; }
   .vt th.r { text-align:right; } .vt th.c { text-align:center; }
-  .vt td { font-size:.78rem; color:#374151; padding:0 10px; height:34px; border-bottom:1px solid #F3F4F6; font-variant-numeric:tabular-nums; }
+  .vt td { font-size:.76rem; color:#374151; padding:0 8px; height:29px; border-bottom:1px solid #F3F4F6; font-variant-numeric:tabular-nums; }
   .vt tr:last-child td { border-bottom:none; }
   /* 보기 전환 (고객별 / 일별) */
   .seg { display:inline-flex; background:#F1F2F4; border-radius:.55rem; padding:3px; gap:3px; flex-shrink:0; }
@@ -206,8 +205,11 @@
   .m20 { background:#D1FAE5; color:#065F46; }
   .m30 { background:#FEF3C7; color:#B45309; }
   .m50 { background:#FFEDD5; color:#C2410C; }
-  .vcnt { font-weight:800; font-size:.92rem; font-variant-numeric:tabular-nums; }
-  .subv { font-size:.66rem; color:#9CA3AF; margin-top:1px; white-space:nowrap; }
+  .vcnt { font-weight:800; font-size:.86rem; font-variant-numeric:tabular-nums; }
+  /* 일별 보기의 방문 횟수 — 10회부터 눈에 띄게 */
+  .dvn { font-weight:800; font-size:.8rem; color:#6B7280; font-variant-numeric:tabular-nums; }
+  .dvn.hi { color:#047857; }
+  .subv { font-size:.64rem; color:#9CA3AF; white-space:nowrap; margin-left:5px; }
   /* 점선 테두리로 '여기 직접 적는 칸' 이라는 걸 알린다 */
   .ed.pv { width:36px; display:inline-block; text-align:center; padding:1px 2px; font-size:.68rem;
            font-weight:800; color:#6B7280; vertical-align:baseline; border:1px dashed #D7DBE0; border-radius:.25rem; }
@@ -324,8 +326,8 @@
       <div class="flex items-center justify-between" style="gap:var(--gap-s);margin-bottom:var(--gap);flex-wrap:wrap">
         <div class="flex items-center" style="gap:var(--gap-s);flex-wrap:wrap">
           <div class="seg">
-            <button class="sg on" id="v-cust" onclick="setView('cust')">고객별</button>
-            <button class="sg"    id="v-day"  onclick="setView('day')">일별</button>
+            <button class="sg on" id="v-day"  onclick="setView('day')">일별</button>
+            <button class="sg"    id="v-cust" onclick="setView('cust')">고객별</button>
           </div>
           <input class="tb-in" id="f-q" style="width:200px" placeholder="뒷번호 · 별칭 · 메모 검색" oninput="renderAll()">
           <select class="tb-in" id="f-cur" onchange="setCur(this.value)" style="width:118px"><option value="">통화 전체</option></select>
@@ -384,7 +386,7 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,
 //  자바스크립트용으로 먼저 막고(\ ' ), 그다음 HTML 속성용으로 막는다. 순서가 중요하다.
 function escJs(s){ return esc(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 
-let _view = 'cust';    // 'cust' = 고객별 · 'day' = 일별
+let _view = 'day';     // 'day' = 일별(기본) · 'cust' = 고객별
 let _side = '';        // 매입 / 매각
 let _cur  = '';        // 통화(권종)
 let _flag = '';        // 고객 조건: m10 · m20 · m30 · cold · new
@@ -1093,14 +1095,13 @@ function curBadges(s) {
   const more = ks.length > 2 ? `<span class="cb cb-n">+${ks.length - 2}</span>` : '';
   return show + more || '<span style="color:#D1D5DB">—</span>';
 }
+//  몇 번씩인지는 안 본다 — 매입인지 매각인지만 보면 된다(둘 다면 둘 다 적는다).
 function sideCell(s) {
-  const t = s.buy + s.sell;
-  if (!t) return '<span style="color:#D1D5DB">—</span>';
-  const bp = Math.round(s.buy / t * 100);
-  return `<div><span class="sd sd-b">매입 ${s.buy}</span>
-      <span style="color:#D1D5DB;margin:0 4px">·</span>
-      <span class="sd sd-s">매각 ${s.sell}</span></div>
-    <div class="sdbar"><i style="width:${bp}%;background:#F87171"></i><i style="width:${100 - bp}%;background:#60A5FA"></i></div>`;
+  if (!(s.buy + s.sell)) return '<span style="color:#D1D5DB">—</span>';
+  const out = [];
+  if (s.buy)  out.push('<span class="sd sd-b">매입</span>');
+  if (s.sell) out.push('<span class="sd sd-s">매각</span>');
+  return out.join('<span style="color:#E5E7EB;margin:0 4px">·</span>');
 }
 function visitTable(r) {
   if (!r.vs.length) return '<div style="padding:14px;color:#9CA3AF;font-size:.78rem">조건에 맞는 방문 기록이 없습니다.</div>';
@@ -1192,16 +1193,16 @@ function renderCust(vis, q, idx) {
       <td>${s.last ? esc(s.last.slice(5)) : '—'}<span class="gap ${gapClass(s.days)}">${gapText(s.days)}</span></td>
       <td style="white-space:nowrap">${ro
         ? `<span class="vcnt">${s.n}</span>`
-        : `<div><span class="vcnt" id="tot-${r.c.id}">${fmtNum(prv + rec)}</span><span id="mb-${r.c.id}">${mileBadge(prv + rec)}</span></div>
-           <div class="subv">이월 <input class="ed pv" id="pv-${r.c.id}" inputmode="numeric" maxlength="4"
+        : `<span class="vcnt" id="tot-${r.c.id}">${fmtNum(prv + rec)}</span><span id="mb-${r.c.id}">${mileBadge(prv + rec)}</span>`
+          + `<span class="subv">이월 <input class="ed pv" id="pv-${r.c.id}" inputmode="numeric" maxlength="4"
                  value="${prv || ''}" placeholder="0"
                  title="시스템에 기록하기 전부터 오던 손님이면 지난 방문 횟수를 여기 직접 적으세요"
-                 onchange="savePrev('${r.c.id}',this.value)" onblur="renderAll()"> + 기록 ${fmtNum(rec)}${part ? ` · <b style="color:#B45309">조건 ${fmtNum(s.n)}</b>` : ''}</div>`}</td>
+                 onchange="savePrev('${r.c.id}',this.value)" onblur="renderAll()">+기록 ${fmtNum(rec)}${part ? ` · <b style="color:#B45309">조건 ${fmtNum(s.n)}</b>` : ''}</span>`}</td>
       <td>${ro ? `<span style="color:#9CA3AF;font-size:.75rem">${esc(r.c.note)}</span>`
                : `<input class="ed" value="${esc(r.c.note || '')}" title="${esc(r.c.note || '')}" placeholder="특이사항" onchange="saveCust('${r.c.id}','note',this.value)">`}</td>
       <td class="c">${ro ? '' : `<button class="xbtn" title="고객 삭제" onclick="delCust('${r.c.id}')">✕</button>`}</td>
     </tr>`;
-    const sub = open ? `<tr><td colspan="9" style="padding:0 10px 12px 10px;background:#FFFDF8">${visitTable(r)}</td></tr>` : '';
+    const sub = open ? `<tr><td colspan="9" style="padding:0 8px 8px 8px;background:#FFFDF8">${visitTable(r)}</td></tr>` : '';
     return main + sub;
   }).join('');
 
@@ -1211,7 +1212,7 @@ function renderCust(vis, q, idx) {
       <col style="width:11%"><col style="width:12.5%"><col style="width:13%"><col style="width:9.5%"><col style="width:3%">
     </colgroup>
     <thead><tr>
-      <th>뒷번호</th><th>별칭</th><th>매입 / 매각</th><th>통화 · 누적 수량</th>
+      <th>뒷번호</th><th>별칭</th><th>구분</th><th>통화 · 누적 수량</th>
       <th class="r">누적 거래액</th><th>마지막 방문</th><th title="이월 = 시스템에 기록하기 전부터 오던 횟수. 직접 적으면 총 횟수에 더해집니다">방문 횟수</th><th>특이사항</th><th></th>
     </tr></thead>
     <tbody>${body}</tbody></table>` : '';
@@ -1237,7 +1238,7 @@ function renderDay(vis, idx) {
       const k = Math.abs(Number(v.amount || 0) * Number(v.rate || 0));
       if (v.tradeType === '매입') bk += k; else if (v.tradeType === '매각') sk += k;
     });
-    const head = `<tr class="dh"><td colspan="10">${esc(d || '날짜 없음')}<span class="dow">${dowOf(d)}</span>
+    const head = `<tr class="dh"><td colspan="11">${esc(d || '날짜 없음')}<span class="dow">${dowOf(d)}</span>
       <span class="meta">${list.length}건 · <span style="color:#B91C1C">매입 ${fmtNum(Math.round(bk))}</span>
       · <span style="color:#1D4ED8">매각 ${fmtNum(Math.round(sk))}</span></span></td></tr>`;
     return head + list.map(v => {
@@ -1252,6 +1253,8 @@ function renderDay(vis, idx) {
           : '<span class="ph" style="color:#D1D5DB">----</span>'}</td>
         <td style="color:#4B5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(c ? (c.alias || '') : '')}">${c
           ? esc(c.alias || '') + mileBadge(tot) : '<span style="color:#9CA3AF;font-size:.75rem">고객 정보 없는 기록</span>'}</td>
+        <td class="c" title="이월 + 기록 = 지금까지 온 횟수">${c
+          ? `<span class="dvn${tot >= 10 ? ' hi' : ''}">${fmtNum(tot)}</span>` : '<span style="color:#D1D5DB">-</span>'}</td>
         <td style="color:#6B7280">${esc(v.branch || '-')}</td>
         <td style="color:${col};font-weight:700">${esc(v.tradeType || '-')}</td>
         <td style="font-weight:800">${esc(v.currency || '-')}</td>
@@ -1266,11 +1269,11 @@ function renderDay(vis, idx) {
 
   document.getElementById('lt-host').innerHTML = days.length ? `<table class="lt">
     <colgroup>
-      <col style="width:8%"><col style="width:16%"><col style="width:7%"><col style="width:7%"><col style="width:7%">
-      <col style="width:12%"><col style="width:9%"><col style="width:13%"><col><col style="width:3%">
+      <col style="width:7%"><col style="width:13%"><col style="width:5%"><col style="width:6%"><col style="width:6%">
+      <col style="width:6%"><col style="width:9%"><col style="width:7%"><col style="width:10%"><col><col style="width:3%">
     </colgroup>
     <thead><tr>
-      <th>뒷번호</th><th>별칭</th><th>지점</th><th>구분</th><th>통화</th>
+      <th>뒷번호</th><th>별칭</th><th class="c" title="이월 + 기록 = 지금까지 온 횟수">방문</th><th>지점</th><th>구분</th><th>통화</th>
       <th class="r">외화 금액</th><th class="r">환율</th><th class="r">거래액</th><th>특이사항</th><th></th>
     </tr></thead>
     <tbody>${body}</tbody></table>` : '';
