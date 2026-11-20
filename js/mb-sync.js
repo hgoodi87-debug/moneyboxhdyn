@@ -31,7 +31,8 @@
     'mb_storage_monthly', 'mb_archive', 'mb_credentials', 'mb_audit_log',
     'mb_marketing_plans', 'mb_marketing_inflow', 'mb_weekly_reports', 'mb_biliber_support',
     'mb_calendar_events', 'mb_customers', 'mb_cust_visits',
-    'mb_sales_goals', 'mb_assignments', 'mb_branch_counts', 'mb_plan_members'
+    'mb_sales_goals', 'mb_assignments', 'mb_branch_counts', 'mb_plan_members',
+    'mb_storage_items'
   ];
 
   let app;

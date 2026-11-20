@@ -3,21 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=68">
-<link rel="apple-touch-icon" href="favicon.png?v=68">
+<link rel="icon" type="image/png" href="favicon.png?v=69">
+<link rel="apple-touch-icon" href="favicon.png?v=69">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 보관함관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=68">
+<link rel="stylesheet" href="css/mb.css?v=69">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=68"></script>
-<script src="js/mb-data.js?v=68"></script>
-<script src="js/mb-sync.js?v=68"></script>
+<script src="js/firebase-config.js?v=69"></script>
+<script src="js/mb-data.js?v=69"></script>
+<script src="js/mb-sync.js?v=69"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
+
+  /* 하위 탭 */
+  .tabs { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+  .tb { font-size:.78rem; font-weight:700; color:#6B7280; background:#fff; border:1px solid #E5E7EB;
+        border-radius:.45rem; padding:7px 15px; cursor:pointer; white-space:nowrap; }
+  .tb:hover { border-color:#9CA3AF; color:#1A1A2E; }
+  .tb.on { background:#1E2A3A; color:#fff; border-color:#1E2A3A; }
 
   /* 월별 장부 */
   .led-card { border:1px solid #E5E7EB; border-radius:.5rem; overflow:hidden; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.04); }
@@ -34,6 +41,37 @@
   .led-foot td { background:#F3F4F6; font-weight:700; padding:5px 4px; font-size:.74rem; border-top:2px solid #E5E7EB; }
   .led-foot .label { background:#E9EBEE; text-align:center; color:#374151; }
   .led-foot .sum { text-align:center; color:#B45309; font-variant-numeric:tabular-nums; }
+
+  /* 짐보관 — 종이 장부와 같은 칸 구성 (날짜·시간·갯수·금액·부터·까지·비고) */
+  .hd-wrap { overflow-x:auto; }
+  .hd-t { width:100%; min-width:900px; border-collapse:collapse; font-size:.78rem; table-layout:fixed; }
+  .hd-t th { background:#DCE6F7; color:#1E3A8A; font-weight:700; font-size:.72rem;
+             padding:6px 6px; border:1px solid #C3D2EA; white-space:nowrap; text-align:center; }
+  .hd-t td { border:1px solid #ECECEC; padding:0; height:30px; }
+  .hd-t input { width:100%; height:28px; border:none; background:transparent; outline:none;
+                font-size:.78rem; padding:0 6px; box-sizing:border-box; color:#1A1A2E; }
+  .hd-t input:focus { background:#FFF8EC; box-shadow:inset 0 0 0 2px #F5A623; }
+  .hd-t input::placeholder { color:#D7DBE0; }
+  .hd-t .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .hd-t .ctr { text-align:center; font-variant-numeric:tabular-nums; }
+  .hd-d { background:#FAFBFC; text-align:center; color:#374151; font-weight:600; font-size:.74rem;
+          font-variant-numeric:tabular-nums; }
+  .hd-d.rep { color:#D7DBE0; }           /* 같은 날 두 번째 줄부터는 날짜를 흐리게 */
+  .hd-neg td { background:#FCE6E6; }      /* 빼간 돈 — 시트의 분홍 줄과 같다 */
+  .hd-row:hover td { background:#FCFCFD; }
+  .hd-foot td { background:#DCE6F7; color:#1E3A8A; font-weight:800; height:33px;
+                text-align:center; font-variant-numeric:tabular-nums; }
+  .hd-add td { background:#FFFDF4; }
+  .hd-x { display:block; text-align:center; color:#D7DBE0; cursor:pointer; font-size:.8rem; line-height:28px; }
+  .hd-x:hover { color:#EF4444; }
+  .hd-go { font-size:.76rem; font-weight:700; color:#fff; background:#1E2A3A; border-radius:.38rem;
+           padding:5px 12px; cursor:pointer; white-space:nowrap; }
+  .hd-go:hover { background:#2B3A4F; }
+  .hd-none { padding:26px; text-align:center; color:#9CA3AF; font-size:.8rem; }
+  .mo-btn { border:1px solid #E5E7EB; background:#fff; border-radius:.38rem; padding:5px 10px;
+            font-size:.78rem; color:#4B5563; cursor:pointer; }
+  .mo-btn:hover { border-color:#9CA3AF; color:#1A1A2E; }
+  .hd-note { font-size:.7rem; color:#9CA3AF; margin-top:9px; line-height:1.6; }
 </style>
 </head>
 <body class="bg-[#F5F7FA]">
@@ -42,12 +80,20 @@
 
 <main class="pt-[92px] min-h-screen pb-8 px-6">
   <div style="max-width:1440px;margin:0 auto">
-    <div class="flex justify-between items-center mb-5">
-      <div>
-        <h2 class="text-xl font-bold text-[#1A1A2E]">보관함 월별 정산</h2>
-        <p class="text-sm text-[#6B7280] mt-0.5">날짜별 금액과 가방 갯수를 입력하면 월별 합계가 자동 계산됩니다. (자동 저장)</p>
-      </div>
-      <div class="flex items-center gap-4">
+
+    <div class="mb-5">
+      <h2 class="text-xl font-bold text-[#1A1A2E]">보관함관리</h2>
+      <p class="text-sm text-[#6B7280] mt-0.5">보관함 월별 정산과 홍대 짐보관 장부를 함께 봅니다. (자동 저장)</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tb on" id="tb-year" onclick="setTab('year')">보관함 월별 정산</button>
+      <button class="tb" id="tb-hd" onclick="setTab('hd')">홍대 짐보관</button>
+    </div>
+
+    <!-- ─── 보관함 월별 정산 (연간) ─── -->
+    <div id="pane-year">
+      <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
         <span class="text-sm text-[#6B7280]">연 합계 <b id="year-total" class="text-[#F5A623] text-base ml-1">0원</b></span>
         <div class="flex items-center gap-2">
           <button onclick="moveYear(-1)" class="px-3 py-2 rounded bg-gray-100">◀</button>
@@ -55,15 +101,38 @@
           <button onclick="moveYear(1)" class="px-3 py-2 rounded bg-gray-100">▶</button>
         </div>
       </div>
+      <div id="ledger-grid" class="grid gap-4" style="grid-template-columns:repeat(4,minmax(0,1fr))"></div>
     </div>
 
-    <div id="ledger-grid" class="grid gap-4" style="grid-template-columns:repeat(4,minmax(0,1fr))"></div>
+    <!-- ─── 홍대 짐보관 (월별) ─── -->
+    <div id="pane-hd" style="display:none">
+      <div class="card" style="background:#fff;border:1px solid #EEF0F3;border-radius:.75rem;padding:16px">
+        <div class="flex items-center mb-3 flex-wrap" style="gap:9px">
+          <span style="font-weight:800;color:#1A1A2E;font-size:.95rem">홍대 짐보관</span>
+          <span id="hd-sum" style="font-size:.76rem;color:#9CA3AF"></span>
+          <span style="flex:1"></span>
+          <button class="mo-btn" onclick="hdMove(-1)" title="지난달">◀</button>
+          <span id="hd-mo" style="font-weight:800;font-size:.9rem;min-width:92px;text-align:center;display:inline-block">—</span>
+          <button class="mo-btn" onclick="hdMove(1)" title="다음달">▶</button>
+          <button class="mo-btn" onclick="hdThis()">이번달</button>
+        </div>
+        <div class="hd-wrap"><div id="hd-host"></div></div>
+        <div class="hd-note">
+          금액은 <b>4시간까지 5,000원</b>, 그 뒤 <b>1시간마다 1,000원</b>, <b>하루 상한 9,000원</b> 으로 자동 계산됩니다.
+          상한을 넘기면 추가요금 없이 날짜 단위입니다(<b>2 day</b> 처럼 적으면 9,000 × 2). 가방은 시간당 1,000원입니다.
+          할인이나 다른 금액이면 금액 칸에 직접 적으면 그 값이 저장됩니다 — 사유는 비고에 적어 주세요.<br>
+          부터와 시간을 적으면 까지는 자동으로 채워집니다. 빼간 돈은 금액에 <b>-10000</b> 처럼 마이너스로 적습니다.
+        </div>
+      </div>
+    </div>
+
   </div>
 </main>
 
 <script>
 mbBoot('storage.html');
 
+/* ───────── 보관함 월별 정산 (기존) ───────── */
 const LEDGER_KEY = 'mb_storage_monthly';
 let currentYear = new Date().getFullYear();
 
@@ -140,8 +209,205 @@ function renderLedger() {
   updateYearTotal();
 }
 
+/* ───────── 홍대 짐보관 ─────────
+   한 줄 = 손님 한 건.  { id, branch, date, hours, lug, bag, amount, from, to, memo, by, at }
+   레코드에 id 가 있어야 mb-sync 가 칸 단위로 합친다(두 사람이 같이 적어도 안 덮인다). */
+const HD_KEY = MB.STORAGE_ITEM_KEY || 'mb_storage_items';
+const HD_BRANCH = '홍대';
+let _hdMonth = '';
+
+function hdMonth() { return _hdMonth || today().slice(0, 7); }
+function hdMove(n) {
+  const d = new Date(Number(hdMonth().slice(0,4)), Number(hdMonth().slice(5,7)) - 1 + n, 1);
+  _hdMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  renderHd();
+}
+function hdThis() { _hdMonth = ''; renderHd(); }
+function hdAll() { return mbGetOrDefault(HD_KEY, []).filter(x => x && x.branch === HD_BRANCH); }
+function hdEsc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+//  숫자 읽기 — 쉼표만 떼고 제대로 읽는다. 숫자 아닌 글자를 전부 지우면 -10000 이 10000 이 된다.
+function hdNum(v) {
+  const f = parseFloat(String(v == null ? '' : v).replace(/,/g, '').trim());
+  return isFinite(f) ? f : 0;
+}
+//  시간 칸은 '4' 같은 숫자일 수도 '2 day' 일 수도 있다.
+//  24시간을 넘겨 적어도 날짜 단위로 본다 — 상한을 넘기면 추가요금이 없기 때문이다.
+function hdSpan(h) {
+  const s = String(h == null ? '' : h).trim();
+  if (!s) return null;
+  const d = s.match(/(\d+(?:\.\d+)?)\s*(?:day|days|일)/i);
+  if (d) return { day: Math.max(1, Math.ceil(parseFloat(d[1]))) };
+  if (/day|하루|일권/i.test(s)) return { day: 1 };
+  const n = parseFloat(s.replace(/[^\d.]/g, ''));
+  if (!isFinite(n) || n <= 0) return null;
+  return n > 24 ? { day: Math.ceil(n / 24) } : { hour: n };
+}
+//  요금 — 4시간까지 기본 5,000원, 그 뒤로 1시간마다 1,000원, 하루 상한 9,000원.
+//  상한을 넘기면 추가요금 없이 날짜 단위로 센다(이틀이면 9,000 × 2).
+//  가방은 시간당 1,000원(장부에 쌓인 값이 그렇다). 상한은 똑같이 9,000원.
+const HD_BASE = 5000, HD_FREE_H = 4, HD_STEP = 1000, HD_CAP = 9000;
+function hdCalc(hours, lug, bag) {
+  const sp = hdSpan(hours);
+  if (!sp) return null;
+  const L = Math.max(0, hdNum(lug)), B = Math.max(0, hdNum(bag));
+  if (!L && !B) return null;                    // 갯수가 없으면 셀 수 없다
+  const days = sp.day || 1;
+  const one = sp.day ? HD_CAP : Math.min(HD_CAP, HD_BASE + Math.max(0, Math.ceil(sp.hour - HD_FREE_H)) * HD_STEP);
+  const bg  = sp.day ? HD_CAP : Math.min(HD_CAP, Math.ceil(sp.hour) * HD_STEP);
+  return Math.round((L * one + B * bg) * days);
+}
+//  부터 + 시간 = 까지. '1 day' 처럼 시간이 숫자가 아니면 비워 둔다.
+function hdUntil(from, hours) {
+  const sp = hdSpan(hours);
+  const m = String(from == null ? '' : from).trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m || !sp || !sp.hour) return '';
+  const t = (Number(m[1]) * 60 + Number(m[2]) + Math.round(sp.hour * 60)) % 1440;
+  return String(Math.floor(t / 60)).padStart(2,'0') + ':' + String(t % 60).padStart(2,'0');
+}
+
+function hdSave(id, field, val) {
+  const list = mbGetOrDefault(HD_KEY, []);
+  const r = list.find(x => x && x.id === id);
+  if (!r) return;
+  if (field === 'amount') r.amount = String(val).trim() === '' ? '' : hdNum(val);
+  else if (field === 'lug' || field === 'bag') r[field] = String(val).trim() === '' ? '' : Math.max(0, Math.floor(hdNum(val)));
+  else r[field] = String(val == null ? '' : val).trim();
+  //  시간·갯수를 고치면 까지는 다시 맞춘다. 금액은 손대지 않는다 — 할인해 적어 둔 값을 덮으면 안 된다.
+  if (field === 'hours' || field === 'from') {
+    const u = hdUntil(r.from, r.hours);
+    if (u) r.to = u;
+  }
+  r.at = nowTs();
+  mbSet(HD_KEY, list);
+  renderHd();
+}
+function hdDel(id) {
+  const list = mbGetOrDefault(HD_KEY, []);
+  const r = list.find(x => x && x.id === id);
+  if (!r) return;
+  if (!confirm(`${r.date || ''} ${r.hours || ''}시간 · ${fmtNum(r.amount || 0)}원 — 이 줄을 지웁니다.`)) return;
+  if (typeof mbLogDelete === 'function') mbLogDelete('홍대 짐보관', HD_KEY, [r], x => `${x.date} ${x.amount}원`);
+  mbSet(HD_KEY, list.filter(x => x.id !== id));
+  renderHd();
+}
+function hdAdd() {
+  const g = id => document.getElementById(id);
+  const date = g('na-date').value;
+  if (!date) { alert('날짜를 골라 주세요.'); return; }
+  const hours = g('na-h').value.trim();
+  const lug = g('na-l').value.trim(), bag = g('na-b').value.trim();
+  const from = g('na-f').value.trim();
+  let amount = g('na-amt').value.trim();
+  if (amount === '') {
+    const c = hdCalc(hours, lug, bag);
+    if (c === null) { alert('시간과 갯수를 적거나, 금액을 직접 적어 주세요.'); return; }
+    amount = c;
+  } else amount = hdNum(amount);
+  const to = g('na-t').value.trim() || hdUntil(from, hours);
+  mbPush(HD_KEY, {
+    id: uid(), branch: HD_BRANCH, date, hours,
+    lug: lug === '' ? '' : Math.max(0, Math.floor(hdNum(lug))),
+    bag: bag === '' ? '' : Math.max(0, Math.floor(hdNum(bag))),
+    amount, from, to, memo: g('na-m').value.trim(),
+    by: (getCurrentUser() || {}).name || '-', at: nowTs(),
+  });
+  ['na-h','na-l','na-b','na-amt','na-f','na-t','na-m'].forEach(i => g(i).value = '');
+  _hdMonth = date.slice(0, 7);
+  renderHd();
+  g('na-h').focus();
+}
+function hdKey(e) { if (mbComposing(e)) return; if (e.key === 'Enter') { e.preventDefault(); hdAdd(); } }
+//  입력 줄에서 시간·갯수를 적으면 금액과 까지를 미리 채워 보여준다(아직 저장 전).
+function hdPre() {
+  const g = id => document.getElementById(id);
+  const c = hdCalc(g('na-h').value, g('na-l').value, g('na-b').value);
+  g('na-amt').placeholder = c === null ? '금액' : fmtNum(c);
+  g('na-t').placeholder = hdUntil(g('na-f').value, g('na-h').value) || '까지';
+}
+
+function renderHd() {
+  const m = hdMonth();
+  document.getElementById('hd-mo').textContent = `${m.slice(0,4)}. ${Number(m.slice(5,7))}월`;
+  const rows = hdAll().filter(x => (x.date || '').slice(0, 7) === m)
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.from || '').localeCompare(b.from || ''));
+  const total = rows.reduce((s, x) => s + hdNum(x.amount), 0);
+  const bags = rows.reduce((s, x) => s + hdNum(x.lug) + hdNum(x.bag), 0);
+  document.getElementById('hd-sum').textContent =
+    rows.length ? `${rows.length}건 · 짐 ${fmtNum(bags)}개 · ${fmtNum(total)}원` : '';
+
+  let prev = '';
+  const body = rows.map(r => {
+    const same = r.date === prev; prev = r.date;
+    const neg = hdNum(r.amount) < 0;
+    const calc = hdCalc(r.hours, r.lug, r.bag);
+    const off = calc !== null && hdNum(r.amount) !== calc
+      ? ` title="계산값 ${fmtNum(calc)}원과 다릅니다 — 직접 적은 금액입니다"` : '';
+    const cell = (f, v, cls, ph) => `<td><input class="${cls}" value="${hdEsc(v)}" placeholder="${ph}"
+      onchange="hdSave('${r.id}','${f}',this.value)"></td>`;
+    return `<tr class="hd-row${neg ? ' hd-neg' : ''}">
+      <td class="hd-d${same ? ' rep' : ''}">${hdEsc(r.date || '')}</td>
+      ${cell('hours', r.hours, 'ctr', '')}
+      ${cell('lug', r.lug, 'ctr', '')}
+      ${cell('bag', r.bag, 'ctr', '')}
+      <td${off}><input class="num" value="${hdEsc(r.amount === '' ? '' : fmtNum(r.amount))}"
+          onchange="hdSave('${r.id}','amount',this.value)"></td>
+      ${cell('from', r.from, 'ctr', '')}
+      ${cell('to', r.to, 'ctr', '')}
+      ${cell('memo', r.memo, '', '')}
+      <td><span class="hd-x" onclick="hdDel('${r.id}')" title="이 줄 지우기">✕</span></td>
+    </tr>`;
+  }).join('');
+
+  const add = `<tr class="hd-add">
+    <td><input type="date" id="na-date" style="font-size:.72rem"></td>
+    <td><input class="ctr" id="na-h" placeholder="4" onkeydown="hdKey(event)" oninput="hdPre()"></td>
+    <td><input class="ctr" id="na-l" placeholder="0" onkeydown="hdKey(event)" oninput="hdPre()"></td>
+    <td><input class="ctr" id="na-b" placeholder="0" onkeydown="hdKey(event)" oninput="hdPre()"></td>
+    <td><input class="num" id="na-amt" placeholder="금액" onkeydown="hdKey(event)"></td>
+    <td><input class="ctr" id="na-f" placeholder="13:00" onkeydown="hdKey(event)" oninput="hdPre()"></td>
+    <td><input class="ctr" id="na-t" placeholder="까지" onkeydown="hdKey(event)"></td>
+    <td><input id="na-m" placeholder="비고" onkeydown="hdKey(event)"></td>
+    <td><span class="hd-x" onclick="hdAdd()" title="이 줄 추가" style="color:#1E2A3A;font-weight:800">＋</span></td>
+  </tr>`;
+
+  document.getElementById('hd-host').innerHTML = `<table class="hd-t">
+    <colgroup>
+      <col style="width:11%"><col style="width:7%"><col style="width:8%"><col style="width:7%">
+      <col style="width:11%"><col style="width:8%"><col style="width:8%"><col><col style="width:4%">
+    </colgroup>
+    <thead>
+      <tr><th rowspan="2">날짜</th><th rowspan="2">시간</th><th colspan="2">갯수</th>
+          <th rowspan="2">금액</th><th rowspan="2">부터</th><th rowspan="2">까지</th>
+          <th rowspan="2">비고</th><th rowspan="2"></th></tr>
+      <tr><th>luggage</th><th>가방</th></tr>
+    </thead>
+    <tbody>${body}${add}</tbody>
+    <tfoot><tr class="hd-foot">
+      <td colspan="4">총</td><td style="text-align:right;padding-right:6px">${fmtNum(total)}</td>
+      <td colspan="4"></td>
+    </tr></tfoot>
+  </table>` + (rows.length ? '' : '<div class="hd-none">이 달에 적은 기록이 없습니다. 맨 아랫줄에 적고 ＋ 를 누르세요.</div>');
+
+  const d = document.getElementById('na-date');
+  if (d) d.value = (m === today().slice(0,7)) ? today() : m + '-01';
+  hdPre();
+}
+
+/* ───────── 탭 ───────── */
+let _tab = 'year';
+function setTab(t) {
+  _tab = t;
+  document.getElementById('tb-year').classList.toggle('on', t === 'year');
+  document.getElementById('tb-hd').classList.toggle('on', t === 'hd');
+  document.getElementById('pane-year').style.display = t === 'year' ? '' : 'none';
+  document.getElementById('pane-hd').style.display = t === 'hd' ? '' : 'none';
+  if (t === 'hd') renderHd();
+}
+
 renderLedger();
-mbOnDataChange(renderLedger);
+renderHd();
+mbOnDataChange(function () { renderLedger(); if (_tab === 'hd') renderHd(); });
 </script>
 </body>
 </html>
