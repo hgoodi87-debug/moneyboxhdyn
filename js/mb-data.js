@@ -235,12 +235,12 @@ function _dateNDaysAgo(n) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 // 삭제된 항목을 스냅샷으로 로그에 기록. items: 단일 객체 또는 배열. descFn: 항목→설명문자열
-function mbLogDelete(module, storeKey, items, descFn) {
+function mbLogDelete(module, storeKey, items, descFn, extra) {
   const arr = (Array.isArray(items) ? items : [items]).filter(Boolean);
   if (!arr.length) return;
   let desc = '';
   try { desc = descFn ? arr.map(descFn).join(' / ') : ''; } catch { desc = ''; }
-  _mbLogPush({ action: 'delete', module, storeKey, desc, count: arr.length, snapshot: arr });
+  _mbLogPush({ action: 'delete', module, storeKey, desc, count: arr.length, snapshot: arr, ...(extra || {}) });
 }
 function _mbLogPush(entry) {
   const log = mbGetOrDefault(MB.AUDIT_LOG_KEY, []);
@@ -259,10 +259,12 @@ function mbLogRestore(logId) {
   const list = mbGetOrDefault(e.storeKey, []);
   (e.snapshot || []).forEach(item => {
     // id 없는 기록(근무표 등)은 id 비교가 undefined끼리 맞아떨어져 전부 건너뛰므로 내용으로 비교
-    const dup = (item && item.id != null)
-      ? list.some(x => x && x.id === item.id)
-      : list.some(x => JSON.stringify(x) === JSON.stringify(item));
-    if (!dup) list.push(item);
+    const at = (item && item.id != null)
+      ? list.findIndex(x => x && x.id === item.id)
+      : list.findIndex(x => JSON.stringify(x) === JSON.stringify(item));
+    if (at < 0) { list.push(item); return; }
+    // 줄은 남아 있고 내용만 비워진 경우(거래관리 칸 지우기)는 같은 id 를 덮어써야 복구가 된다
+    if (e.restoreMode === 'overwrite') list[at] = item;
   });
   mbSet(e.storeKey, list);
   e.restored = true;

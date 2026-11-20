@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png?v=69">
-<link rel="apple-touch-icon" href="favicon.png?v=69">
+<link rel="icon" type="image/png" href="favicon.png?v=70">
+<link rel="apple-touch-icon" href="favicon.png?v=70">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>MoneyBox 거래관리</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/mb.css?v=69">
+<link rel="stylesheet" href="css/mb.css?v=70">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/firebase-config.js?v=69"></script>
-<script src="js/mb-data.js?v=69"></script>
-<script src="js/mb-sync.js?v=69"></script>
+<script src="js/firebase-config.js?v=70"></script>
+<script src="js/mb-data.js?v=70"></script>
+<script src="js/mb-sync.js?v=70"></script>
 <style>
   body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
   .card { background:#fff; border-radius:.75rem; padding:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
@@ -504,6 +504,12 @@ function cmbBlur(el) {
   }
 }
 let _cmbCommitting = false;
+// 입력이 확정되지 못했을 때 칸을 잠깐 붉게 — 조용히 무시되면 적힌 줄 알고 넘어간다
+function cmbReject(el) {
+  const prev = el.style.background;
+  el.style.background = '#FEE2E2';
+  setTimeout(() => { el.style.background = prev; }, 550);
+}
 function cmbCommit(el) {                      // 확정: 정확히 일치 → 앞글자 자동완성 → 안 되면 직전 값
   const all = cmbList(el);
   const v = cmbNorm(el, el.value);
@@ -513,10 +519,12 @@ function cmbCommit(el) {                      // 확정: 정확히 일치 → �
     if (all.indexOf(v) >= 0) hit = v;
     else {
       const m = all.filter(c => _startsKo(c, v));
-      //  후보가 딱 하나면 채워 주고(jp → JPY, ㅁㅇ → 매입),
-      //  여럿이면 **비운다**. 'ㅁ' 은 매입·매각 둘 다라, 멋대로 고르면 돈의 방향이 뒤바뀐다.
-      //  아예 못 알아본 입력(오타·잘못 누름)이면 원래 값을 지킨다 — 칸이 비면 그게 저장된다.
-      hit = (m.length === 1) ? m[0] : (m.length > 1 ? '' : (el.dataset.prev || ''));
+      //  후보가 딱 하나면 채워 준다(jp → JPY, ㅁㅇ → 매입).
+      //  여럿이면('ㅁ' = 매입·매각) 멋대로 고르지 않는다. 돈의 방향이 뒤바뀌니까.
+      //  단, 비우지도 않는다 — 전에는 비워서 저장까지 돼, 적어 둔 매입/매각이 사라졌다.
+      //  못 알아본 입력(오타·잘못 누름)도 마찬가지로 직전 값을 지킨다.
+      hit = (m.length === 1) ? m[0] : (el.dataset.prev || '');
+      if (hit !== v) cmbReject(el);   // 내 입력이 안 먹었다는 걸 눈에 보이게
     }
   }
   el.value = hit;
@@ -695,7 +703,10 @@ function gridNetTotal(sheet) {                          // 그리드 시트 순�
 function hasMeaningful(tx) {
   return !!((tx.counterparty && String(tx.counterparty).trim())
     || Number(tx.amount) > 0 || Number(tx.rate) > 0
-    || (tx.tradeType && String(tx.tradeType).trim()));
+    || (tx.tradeType && String(tx.tradeType).trim())
+    // 통화만 USD 로 바꿔 둔 줄도 저장한다(KRW 는 빈 줄의 기본값이라 제외).
+    // 전에는 저장이 안 돼, 자동 새로고침이 한 번 돌면 KRW 로 돌아가 있었다.
+    || (tx.currency && tx.currency !== 'KRW'));
 }
 
 // ─── 합계/총계 클릭 → 금액만 클립보드로 복사 (다른 시트·메신저에 붙여넣기용) ───
@@ -1036,6 +1047,29 @@ document.addEventListener('keydown', async e => {
         e.preventDefault();
         const minR = Math.min(sel.r1, sel.r2), maxR = Math.max(sel.r1, sel.r2);
         const minC = Math.min(sel.c1, sel.c2), maxC = Math.max(sel.c1, sel.c2);
+        //  맥에는 Delete 키가 따로 없어 Backspace 를 하루에도 수십 번 누른다.
+        //  칸이 '선택' 상태인 걸 모르고 한 번 누르면 긁어 둔 줄이 통째로 비워졌고,
+        //  삭제기록에도 안 남아 설정>기록으로 되돌릴 수조차 없었다.
+        //  ① 두 줄 이상이면 먼저 묻고 ② 지운 내용을 삭제기록에 남긴다.
+        const _snap = [];                       // 지워질 줄의 '지우기 전' 모습
+        let _cells = 0;
+        const _all = mbGetOrDefault(MB.TRANSACTIONS_KEY, []);
+        for (let r = minR; r <= maxR; r++) {
+          const tr = tbody.rows[r]; if (!tr) continue;
+          let touched = 0;
+          for (let c = minC; c <= maxC; c++) {
+            const inp = tr.cells[c]?.querySelector('input,select');
+            if (!inp) continue;
+            if (inp.tagName === 'SELECT') { if (inp.selectedIndex !== 0) touched++; }
+            else if (inp.value !== '') touched++;
+          }
+          if (!touched) continue;
+          _cells += touched;
+          const _tx = _all.find(x => x.id === tr.dataset.id);
+          if (_tx) _snap.push(JSON.parse(JSON.stringify(_tx)));
+        }
+        if (_cells === 0) { applySel(); return; }   // 이미 다 빈 칸이면 아무 일도 안 한다
+        if (_snap.length >= 2 && !confirm(_snap.length + '줄 ' + _cells + '칸을 지웁니다. 계속할까요?')) { applySel(); return; }
         pushUndo();                             // 삭제 전 상태 1개만 저장 → Ctrl+Z 한 번에 복구
         _editSnap = null; _editSnapUsed = true; // change 핸들러가 스냅샷을 중복으로 안 쌓게
         for (let r = minR; r <= maxR; r++) {
@@ -1048,6 +1082,14 @@ document.addEventListener('keydown', async e => {
             else { if (inp.value === '') continue; inp.value = ''; }
             inp.dispatchEvent(new Event('change', { bubbles: true }));
           }
+        }
+        //  설정>기록 에서 되돌릴 수 있게 남긴다. 줄은 그대로 있고 내용만 비워진 상태라
+        //  복구는 '같은 id 를 덮어쓰기'로 해야 한다(overwrite).
+        if (_snap.length && typeof mbLogDelete === 'function') {
+          mbLogDelete('거래관리 칸 지우기', MB.TRANSACTIONS_KEY, _snap,
+            t => (t.date + ' 시트' + t.sheet + ' ' + (t.counterparty || '') + ' ' + (t.tradeType || '')
+                  + ' ' + (t.currency || '') + ' ' + fmtNum(t.amount)).replace(/\s+/g, ' ').trim(),
+            { restoreMode: 'overwrite' });
         }
         applySel(); // 지운 뒤에도 선택 표시 유지
         return;
@@ -1215,6 +1257,7 @@ function pasteData(text) {
         val = opt.value;
         inp.value = val;
       } else if (inp.dataset.cmb) {          // 드롭다운 칸은 목록에 있는 값만 (없으면 기존 값 유지)
+        if (val === '') return;              // 빈 칸은 건너뜀 — 전에는 거래종류·통화를 지워 버렸다
         const nv = cmbNorm(inp, val);
         if (nv !== '' && cmbList(inp).indexOf(nv) < 0) return;
         val = nv; inp.value = nv; inp.dataset.prev = nv;
